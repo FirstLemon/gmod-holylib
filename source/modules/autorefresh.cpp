@@ -27,7 +27,7 @@ LUA_FUNCTION_STATIC(noodles)
 	LUA->CheckType(1, GarrysMod::Lua::Type::Number);
 	LUA->CheckType(2, GarrysMod::Lua::Type::Number);
 
-	double arg1 = LUA->GetNumber(1);
+	double arg1 = LUA->GetNumber(1); // what
 	double arg2 = LUA->GetNumber(2);
 
 	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
