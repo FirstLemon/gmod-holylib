@@ -240,6 +240,7 @@ void CModuleManager::LoadModules()
 	RegisterModule(pLuaJITModule);
 	RegisterModule(pGameServerModule);
 	RegisterModule(pSoundscapeModule);
+	RegisterModule(pAutoRefreshModule);
 }
 
 int g_pIDs = 0;

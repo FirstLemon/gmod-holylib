@@ -28,3 +28,4 @@ extern IModule* pHttpServerModule;
 extern IModule* pLuaJITModule;
 extern IModule* pGameServerModule;
 extern IModule* pSoundscapeModule;
+extern IModule* pAutoRefreshModule;
