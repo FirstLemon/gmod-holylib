@@ -2214,7 +2214,6 @@ void CFileSystemModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 	if (bServerInit)
 		return;
 
-	Util::StartTable();
 		Util::AddFunc(filesystem_AsyncRead, "AsyncRead");
 		Util::AddFunc(filesystem_CreateDir, "CreateDir");
 		Util::AddFunc(filesystem_Delete, "Delete");
