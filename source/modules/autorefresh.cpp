@@ -56,6 +56,7 @@ struct string
 */
 uintptr_t thisPointer;
 
+static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 static void __fastcall hook_CAutoRefresh_HandleLuaFileChange() 
 {
 	__asm {
