@@ -828,4 +828,11 @@ namespace Symbols
 	const std::vector<Symbol> UTIL_TraceEntity2Sym = {
 		Symbol::FromName("_Z16UTIL_TraceEntityP11CBaseEntityRK6VectorS3_jP10CGameTrace"),
 	};
+
+	//---------------------------------------------------------------------------------
+	// Purpose: lagcompensation Symbols
+	//---------------------------------------------------------------------------------
+	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym = {
+		Symbol::FromName("_ZN9GarrysMod11AutoRefresh19HandleLuaFileChangeERKSs"),
+	};
 }

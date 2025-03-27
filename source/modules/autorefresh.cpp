@@ -1,6 +1,7 @@
 #include "module.h"
 #include "LuaInterface.h"
 #include "lua.h"
+#include "detours.h"
 
 class CAutoRefreshModule : public IModule
 {
@@ -39,6 +40,12 @@ LUA_FUNCTION_STATIC(noodles)
 	return 0;
 }
 
+static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
+void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string* filename)
+{
+	Msg("Lua AutoRefresh - %s\n", filename->c_str());
+}
+
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)
@@ -59,6 +66,12 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	if (bPreServer)
 		return;
 
+	SourceSDK::ModuleLoader server_loader("server");
+	Detour::Create(
+		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
+		server_loader.GetModule(), Symbols::CBaseFileSystem_FindFileInSearchPathSym,
+		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
+	);
 }
 
 void CAutoRefreshModule::Think(bool simulating)

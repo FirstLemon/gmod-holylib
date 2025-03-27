@@ -626,4 +626,11 @@ namespace Symbols
 
 	typedef void (*UTIL_TraceEntity2)(CBaseEntity *pEntity, const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, trace_t *ptr);
 	extern const std::vector<Symbol> UTIL_TraceEntity2Sym;
+
+	//---------------------------------------------------------------------------------
+	// Purpose: AutoRefresh Symbols
+	//---------------------------------------------------------------------------------
+	typedef void (*GarrysMod_AutoRefresh_HandleLuaFileChange)(void *something, const std::string* filename);
+	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym;
+
 }
