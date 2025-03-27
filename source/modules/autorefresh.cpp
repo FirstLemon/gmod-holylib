@@ -53,7 +53,7 @@ struct string
 	size_t capacity;
 };
 
-static void __fastcall _hook_CAutoRefresh_HandleLuaFileChange() 
+static void __fastcall hook_CAutoRefresh_HandleLuaFileChange() 
 {
 	uintptr_t thisPointer;
 
