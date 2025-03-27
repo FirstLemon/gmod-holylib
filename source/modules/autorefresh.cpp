@@ -11,7 +11,7 @@ public:
 	virtual void InitDetour(bool bPreServer) OVERRIDE;
 	virtual void Think(bool bSimulating) OVERRIDE;
 	virtual void Shutdown() OVERRIDE;
-	virtual const char* Name() { return "template"; };
+	virtual const char* Name() { return "autorefresh"; };
 	virtual int Compatibility() { return LINUX32; };
 };
 
@@ -51,6 +51,7 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 
 void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 {
+	Util::NukeTable("autorefresh");
 }
 
 void CAutoRefreshModule::InitDetour(bool bPreServer)
