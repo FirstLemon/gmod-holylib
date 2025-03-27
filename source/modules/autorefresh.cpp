@@ -40,6 +40,7 @@ LUA_FUNCTION_STATIC(noodles)
 	return 0;
 }
 
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string* filecontent)
 {
@@ -52,11 +53,11 @@ struct string
 	size_t size;
 	size_t capacity;
 };
+*/
+uintptr_t thisPointer;
 
 static void __fastcall hook_CAutoRefresh_HandleLuaFileChange() 
 {
-	uintptr_t thisPointer;
-
 	__asm {
 		mov eax, [ebp + 8]
 		mov thisPointer, eax
