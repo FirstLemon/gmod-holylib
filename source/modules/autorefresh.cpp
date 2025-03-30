@@ -41,10 +41,22 @@ LUA_FUNCTION_STATIC(noodles)
 }
 
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-static void __fastcall hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string* filecontent)
+void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string* filecontent)
 {
 	Msg("Lua AutoRefresh - %s\n", filecontent->c_str());
 }
+
+/*
+static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
+static void __fastcall hook_CAutoRefresh_HandleLuaFileChange() 
+{
+	__asm {
+		mov eax, [ebp + 8]
+		mov thisPointer, eax
+	}
+	Msg("thisPointer: %p\n", (void*)thisPointer);
+}
+*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
