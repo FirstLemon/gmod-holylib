@@ -40,23 +40,22 @@ LUA_FUNCTION_STATIC(noodles)
 	return 0;
 }
 
+static std::string __fastcall test()
+{
+	std::string xyz;
+	__asm {
+		mov xyz, edi;
+	}
+
+	return xyz;
+}
+
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange; //
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string* filecontent)
 {
+	Msg("Testing whatever - %s\n", test());
 	Msg("Lua AutoRefresh - %s\n", filecontent->c_str());
 }
-
-/*
-static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-static void __fastcall hook_CAutoRefresh_HandleLuaFileChange() 
-{
-	__asm {
-		mov eax, [ebp + 8]
-		mov thisPointer, eax
-	}
-	Msg("thisPointer: %p\n", (void*)thisPointer);
-}
-*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
