@@ -40,7 +40,7 @@ LUA_FUNCTION_STATIC(noodles)
 	return 0;
 }
 
-static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
+static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange; //
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string* filecontent)
 {
 	Msg("Lua AutoRefresh - %s\n", filecontent->c_str());
