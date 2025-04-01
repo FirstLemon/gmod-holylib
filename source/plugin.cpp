@@ -20,6 +20,9 @@ struct edict_t;
 #include <icommandline.h>
 #include <datacache/imdlcache.h>
 
+// memdbgon must be the last include file in a .cpp file!!!
+#include "tier0/memdbgon.h"
+
 // The plugin is a static singleton that is exported as an interface
 static CServerPlugin g_HolyLibServerPlugin;
 CServerPlugin* g_pHolyLibServerPlugin = &g_HolyLibServerPlugin;
@@ -223,7 +226,7 @@ bool CServerPlugin::LuaInit()
 	VPROF_BUDGET("HolyLib - CServerPlugin::LuaInit", VPROF_BUDGETGROUP_HOLYLIB);
 	GarrysMod::Lua::ILuaInterface* LUA = Lua::GetRealm(g_pModuleManager.GetModuleRealm());
 	if (LUA == nullptr) {
-		Warning("holylib: Failed to get ILuaInterface! (Realm: %i)\n", (int)g_pModuleManager.GetModuleRealm());
+		Warning(PROJECT_NAME ": Failed to get ILuaInterface! (Realm: %i)\n", (int)g_pModuleManager.GetModuleRealm());
 		return false;
 	}
 

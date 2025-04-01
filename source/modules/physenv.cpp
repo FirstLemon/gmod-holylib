@@ -16,6 +16,9 @@
 #include "player.h"
 #include "tier1/tier1.h"
 
+// memdbgon must be the last include file in a .cpp file!!!
+#include "tier0/memdbgon.h"
+
 class CPhysEnvModule : public IModule
 {
 public:
@@ -55,7 +58,7 @@ static void hook_IVP_Mindist_D2(IVP_Mindist* mindist)
 	if (g_bInImpactCall && *g_fDeferDeleteMindist && *g_pCurrentMindist == NULL)
 	{
 		*g_fDeferDeleteMindist = false; // The single thing missing in the physics engine that causes it to break.....
-		Warning("holylib: Someone forgot to call Entity:CollisionRulesChanged!\n");
+		Warning(PROJECT_NAME ": Someone forgot to call Entity:CollisionRulesChanged!\n");
 	}
 
 	detour_IVP_Mindist_D2.GetTrampoline<Symbols::IVP_Mindist_D2>()(mindist);
