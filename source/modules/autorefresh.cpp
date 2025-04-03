@@ -52,11 +52,10 @@ void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 */
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-void hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* unknown_a, const std::string* unknown_b, const std::string* unknown_c)
+void hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* strFolder, const std::string* strFilename, const std::string* strExtension)
 {
-	Msg("Lua HandleChange_Lua - %s\n", unknown_a->c_str());
-	Msg("Lua HandleChange_Lua - %s\n", unknown_b->c_str());
-	Msg("Lua HandleChange_Lua - %s\n", unknown_c->c_str());
+	Msg("Lua HandleChange_Lua Folder - %s\n", strFolder->c_str());
+	Msg("Lua HandleChange_Lua Filename - %s\n", strFilename->c_str());
 }
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
