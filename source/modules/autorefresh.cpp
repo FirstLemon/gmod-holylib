@@ -23,24 +23,12 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-// testing
-struct AutoRefresh {
-	const char *pFileName;
-
-	AutoRefresh(const std::string &lemon) {
-		pFileName = lemon.c_str();
-	}
-};
-
 /*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *unknown_a, const std::string *unknown_b, const std::string *unknown_c)
+void hook_CAutoRefresh_HandleLuaFileChange(const std::string *unknown_a, const std::string *unknown_b, const std::string *unknown_c)
 {
-	Msg("Test \n");
-	AutoRefresh whatever(*unknown_a);
-	Msg("Lua AutoRefresh 1 - %s\n", whatever.pFileName);
+	Msg("Lua AutoRefresh 1 - %s\n", unknown_a->c_str());
 	Msg("Lua AutoRefresh 2 - %s\n", unknown_b->c_str());
-	Msg("Lua AutoRefresh 3 - %s\n", unknown_c->c_str());
 }
 */
 
@@ -56,8 +44,10 @@ void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 bool hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* strFolder, const std::string* strFilename, const std::string* strExtension)
 {	
+
 	Msg("Lua HandleChange_Lua Folder - %s\n", strFolder->c_str());
-	Msg("Lua HandleChange_Lua Filename - %s\n", strFilename->c_str());
+	Msg("Lua HandleChange_Lua Folder - %s\n", strFilename->c_str());
+	Msg("Lua HandleChange_Lua Filename - %s\n", strExtension->c_str());
 
 	return true;
 }

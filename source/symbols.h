@@ -630,12 +630,12 @@ namespace Symbols
 	//---------------------------------------------------------------------------------
 	// Purpose: AutoRefresh Symbols
 	//---------------------------------------------------------------------------------
-	typedef void (*GarrysMod_AutoRefresh_HandleLuaFileChange)(void* something, const std::string* unknown_a, const std::string* unknown_b, const std::string* unknown_c);
+	typedef void (*GarrysMod_AutoRefresh_HandleLuaFileChange)(const std::string* unknown_a, const std::string* unknown_b, const std::string* unknown_c);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym;
 
 	typedef void (*GarrysMod_AutoRefresh_FindRootFile)(void* something, const std::string* unknown);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_FindRootFileSym;
 
-	typedef void (*GarrysMod_AutoRefresh_HandleChange_Lua)(void* something, const std::string* strFolder, const std::string* strFilename, const std::string*);
+	typedef void (*GarrysMod_AutoRefresh_HandleChange_Lua)(const std::string* strFolder, const std::string* strFilename, const std::string* strExtension);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym;
 }
