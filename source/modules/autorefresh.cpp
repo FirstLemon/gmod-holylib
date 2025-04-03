@@ -23,14 +23,15 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-/*
+
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 void hook_CAutoRefresh_HandleLuaFileChange(const std::string *unknown_a, const std::string *unknown_b, const std::string *unknown_c)
 {
-	Msg("Lua AutoRefresh 1 - %s\n", unknown_a->c_str());
-	Msg("Lua AutoRefresh 2 - %s\n", unknown_b->c_str());
+	Msg("HandleLuaFileChange Arg1 - %s\n", unknown_a->c_str());
+	Msg("HandleLuaFileChange Arg2 - %s\n", unknown_b->c_str());
+	Msg("HandleLuaFileChange Arg3 - %s\n", unknown_c->c_str());
 }
-*/
+
 
 /*
 static Detouring::Hook detour_CAutoRefresh_FindRootFile;
@@ -40,20 +41,20 @@ void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 }
 */
 
-// /*
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 bool hook_CAutoRefresh_HandleChange_Lua(const std::string* strFolder, const std::string* strFilename, const std::string* strExtension)
 {	
 	const std::string ext = "lua";
-	if (*strExtension != ext) return false;
+	if (*strExtension == ext) return false;
 
 	Msg("Lua HandleChange_Lua dir - %s\n", strFolder->c_str());
 	Msg("Lua HandleChange_Lua name - %s\n", strFilename->c_str());
-	Msg("Lua HandleChange_Lua ext- %s\n", strExtension->c_str());
+	Msg("Lua HandleChange_Lua ext - %s\n", strExtension->c_str());
 
 	return true;
 }
-// */
+*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -75,13 +76,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		return;
 
 	SourceSDK::ModuleLoader server_loader("server");
-	/*
+	// /*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
-	*/
+	// */
 
 	/*
 	Detour::Create(
@@ -91,13 +92,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	);
 	*/
 
-	// /*
+	/*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
-	// */
+	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
