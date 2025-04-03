@@ -628,8 +628,11 @@ namespace Symbols
 	extern const std::vector<Symbol> UTIL_TraceEntity2Sym;
 
 	//---------------------------------------------------------------------------------
-	// AutoRefresh Symbols
+	// Purpose: AutoRefresh Symbols
 	//---------------------------------------------------------------------------------
 	typedef void (*GarrysMod_AutoRefresh_HandleLuaFileChange)(void* something, const std::string* filecontent);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym;
+
+	typedef void (*GarrysMod_AutoRefresh_FindRootFile)(void* something, const std::string* unknown);
+	extern const std::vector<Symbol> GarrysMod_AutoRefresh_FindRootFileSym;
 }
