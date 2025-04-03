@@ -842,4 +842,8 @@ namespace Symbols
 	const std::vector<Symbol> GarrysMod_AutoRefresh_FindRootFileSym = {
 		Symbol::FromName("_ZN9GarrysMod11AutoRefresh12FindRootFileERKSs"),
 	};
+
+	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym = {
+		Symbol::FromName("_ZN9GarrysMod11AutoRefresh16HandleChange_LuaERKSsS2_S2_"),
+	};
 }
