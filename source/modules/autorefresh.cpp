@@ -32,6 +32,7 @@ struct AutoRefresh {
 	}
 };
 
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *filecontent)
 {
@@ -40,6 +41,7 @@ void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *f
 	Msg("Lua AutoRefresh - %s\n", whatever.pFileName);
 }
 
+*/
 static Detouring::Hook detour_CAutoRefresh_FindRootFile;
 void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 {
@@ -66,11 +68,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		return;
 
 	SourceSDK::ModuleLoader server_loader("server");
+	/*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
+	*/
 
 	Detour::Create(
 		&detour_CAutoRefresh_FindRootFile, "CAutoRefresh_FindRootFile",
