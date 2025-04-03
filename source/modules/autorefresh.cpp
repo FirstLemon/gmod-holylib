@@ -32,7 +32,7 @@ struct AutoRefresh {
 	}
 };
 
-// /*
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *unknown_a, const std::string *unknown_b, const std::string *unknown_c)
 {
@@ -42,27 +42,30 @@ void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *u
 	Msg("Lua AutoRefresh 2 - %s\n", unknown_b->c_str());
 	Msg("Lua AutoRefresh 3 - %s\n", unknown_c->c_str());
 }
-// */
+*/
 
 /*
 static Detouring::Hook detour_CAutoRefresh_FindRootFile;
 void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 {
-	// returns a bool, could have checked but I didnt
 	Msg("Lua FindRootFile - %s\n", unknown->c_str());
 }
 */
 
-/*
+// /*
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 bool hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* strFolder, const std::string* strFilename, const std::string* strExtension)
-{
+{	
+	std::string test = "lua";
+	const std::string* ext = &test;
+	if (strExtension = ext) return false;
+
 	Msg("Lua HandleChange_Lua Folder - %s\n", strFolder->c_str());
 	Msg("Lua HandleChange_Lua Filename - %s\n", strFilename->c_str());
 
 	return true;
 }
-*/
+// */
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -84,13 +87,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		return;
 
 	SourceSDK::ModuleLoader server_loader("server");
-	// */
+	/*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
-	// */
+	*/
 
 	/*
 	Detour::Create(
@@ -100,13 +103,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	);
 	*/
 
-	/*
+	// /*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
-	*/
+	// */
 }
 
 void CAutoRefreshModule::Think(bool simulating)
