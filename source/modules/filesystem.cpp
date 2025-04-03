@@ -2199,6 +2199,7 @@ void CFileSystemModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(addonsystem_MountFile, "MountFile");
 		Util::AddFunc(addonsystem_ShouldMount, "ShouldMount");
 		Util::AddFunc(addonsystem_SetShouldMount, "SetShouldMount");
+
 	Util::FinishTable("addonsystem");
 }
 

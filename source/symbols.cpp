@@ -833,7 +833,7 @@ namespace Symbols
 	};
 
 	//---------------------------------------------------------------------------------
-	// Purpose: lagcompensation Symbols
+	// AutoRefresh Symbols
 	//---------------------------------------------------------------------------------
 	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym = {
 		Symbol::FromName("_ZN9GarrysMod11AutoRefresh19HandleLuaFileChangeERKSs"),
