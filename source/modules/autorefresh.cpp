@@ -23,15 +23,18 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-void hook_CAutoRefresh_HandleLuaFileChange(const std::string *unknown_a, const std::string *unknown_b, const std::string *unknown_c)
+static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativePath, const std::string *fileContent)
 {
-	Msg("HandleLuaFileChange Arg1 - %s\n", unknown_a->c_str());
-	Msg("HandleLuaFileChange Arg2 - %s\n", unknown_b->c_str());
-	Msg("HandleLuaFileChange Arg3 - %s\n", unknown_c->c_str());
-}
+	Msg("HandleLuaFileChange Arg1 - %s\n", fileRelativePath->c_str());
+	Msg("HandleLuaFileChange Arg2 - %s\n", fileContent->c_str());
 
+	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
+	{
+		g_Lua->PushString(fileRelativePath->c_str());
+		g_Lua->CallFunctionProtected(1, 0, true);
+	}
+}
 
 /*
 static Detouring::Hook detour_CAutoRefresh_FindRootFile;
