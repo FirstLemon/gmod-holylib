@@ -73,7 +73,7 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	);
 
 	Detour::Create(
-		&detour_CAutoRefresh_FindRootFile, "CAutoRefresh_FileRootFile",
+		&detour_CAutoRefresh_FindRootFile, "CAutoRefresh_FindRootFile",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_FindRootFileSym,
 		(void*)hook_CAutoRefresh_FindRootFile, m_pID
 	);
