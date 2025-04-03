@@ -23,23 +23,6 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-LUA_FUNCTION_STATIC(noodles)
-{
-	LUA->CheckType(1, GarrysMod::Lua::Type::Number);
-	LUA->CheckType(2, GarrysMod::Lua::Type::Number);
-
-	double arg1 = LUA->GetNumber(1);
-	double arg2 = LUA->GetNumber(2);
-
-	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
-	LUA->GetField(-1, "print");
-	LUA->PushNumber(arg1 + arg2);
-	LUA->Call(1, 0);
-	LUA->Pop();
-
-	return 0;
-}
-
 // testing
 struct AutoRefresh {
 	const char *pFileName;
@@ -69,7 +52,6 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 		return;
 
 	Util::StartTable();
-		Util::AddFunc(noodles, "noodles");
 	Util::FinishTable("autorefresh");
 }
 
