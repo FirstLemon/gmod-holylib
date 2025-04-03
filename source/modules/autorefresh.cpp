@@ -32,7 +32,7 @@ struct AutoRefresh {
 	}
 };
 
-
+// /*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *unknown_a, const std::string *unknown_b, const std::string *unknown_c)
 {
@@ -42,6 +42,7 @@ void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *u
 	Msg("Lua AutoRefresh 2 - %s\n", unknown_b->c_str());
 	Msg("Lua AutoRefresh 3 - %s\n", unknown_c->c_str());
 }
+// */
 
 /*
 static Detouring::Hook detour_CAutoRefresh_FindRootFile;
@@ -52,7 +53,7 @@ void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 }
 */
 
-// /*
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 bool hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* strFolder, const std::string* strFilename, const std::string* strExtension)
 {
@@ -61,7 +62,7 @@ bool hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* strF
 
 	return true;
 }
-// */
+*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -99,13 +100,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	);
 	*/
 
-	// /*
+	/*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
-	// */
+	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
