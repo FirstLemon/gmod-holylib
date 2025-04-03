@@ -54,14 +54,12 @@ void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 
 // /*
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-bool hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* strFolder, const std::string* strFilename, const char* strExtension)
+bool hook_CAutoRefresh_HandleChange_Lua(void* something, const std::string* strFolder, const std::string* strFilename, const std::string* strExtension)
 {	
-	const char* ext = "lua";
-	if (strExtension = ext) return false;
-
 
 	Msg("Lua HandleChange_Lua Folder - %s\n", strFolder->c_str());
 	Msg("Lua HandleChange_Lua Filename - %s\n", strFilename->c_str());
+	Msg("Lua HandleChange_Lua Extenstion - %s\n", strExtension->c_str()); // will cause panic
 
 	return true;
 }
