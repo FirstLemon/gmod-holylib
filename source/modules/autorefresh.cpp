@@ -46,7 +46,6 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 		return;
 
 	Util::StartTable();
-		Util::AddFunc(noodles, "noodles");
 	Util::FinishTable("autorefresh");
 }
 
