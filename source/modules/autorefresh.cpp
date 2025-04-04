@@ -34,10 +34,11 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativ
 
 	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
 	{
-		g_Lua->PushString(fileRelativePath->c_str());
+		// g_Lua->PushString(fileRelativePath->c_str());
 	}
 };
 
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *filecontent)
 {
@@ -45,12 +46,15 @@ void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *f
 	AutoRefresh whatever(*filecontent);
 	Msg("Lua AutoRefresh - %s\n", whatever.pFileName);
 }
+*/
 
+/*
 static Detouring::Hook detour_CAutoRefresh_FindRootFile;
 void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 {
 	Msg("Lua FindRootFile - %s\n", unknown->c_str());
 }
+*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -58,7 +62,6 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 		return;
 
 	Util::StartTable();
-		Util::AddFunc(testFunction, "testFunction");
 	Util::FinishTable("autorefresh");
 }
 
@@ -79,11 +82,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
 
+	/*
 	Detour::Create(
-		&detour_CAutoRefresh_FindRootFile, "CAutoRefresh_FileRootFile",
+		&detour_CAutoRefresh_FindRootFile, "CAutoRefresh_FindRootFile",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_FindRootFileSym,
 		(void*)hook_CAutoRefresh_FindRootFile, m_pID
 	);
+	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
