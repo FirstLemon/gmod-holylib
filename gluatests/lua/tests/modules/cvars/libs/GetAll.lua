@@ -5,7 +5,7 @@ return {
             name = "Function exists globally",
             when = HolyLib_IsModuleEnabled("cvars"),
             func = function()
-                expect( FindMetaTable("GetAll") ).to.beA( "function" )
+                expect( FindMetaTable("cvar").GetAll ).to.beA( "function" )
             end
         },
         {
@@ -19,7 +19,7 @@ return {
             name = "Returns an Table object",
             when = HolyLib_IsModuleEnabled("cvars"),
             func = function()
-                local cvar_list = {}
+                local cvar_list = cvar.GetAll()
                 expect( cvar_list ).to.beA( "table" )
             end
         },
