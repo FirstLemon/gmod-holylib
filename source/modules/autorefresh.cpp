@@ -61,13 +61,15 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 	if (bServerInit)
 		return;
 
-	Util::StartTable();
-	Util::FinishTable("autorefresh");
+	/*
+	Util::StartTable(pLua);
+	Util::FinishTable(pLua, "autorefresh");
+	*/
 }
 
 void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 {
-	Util::NukeTable("autorefresh");
+	// Util::NukeTable(pLua, "autorefresh");
 }
 
 void CAutoRefreshModule::InitDetour(bool bPreServer)
