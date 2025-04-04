@@ -3,6 +3,9 @@
 #include "lua.h"
 #include "detours.h"
 
+
+#include "tier0/memdbgon.h"
+
 class CAutoRefreshModule : public IModule
 {
 public:
@@ -23,12 +26,15 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-// testing
-struct AutoRefresh {
-	const char *pFileName;
+static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
+static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativePath, const std::string *fileContent)
+{
+	Msg("HandleLuaFileChange Arg1 - %s\n", fileRelativePath->c_str());
+	Msg("HandleLuaFileChange Arg2 - %s\n", fileContent->c_str());
 
-	AutoRefresh(const std::string &lemon) {
-		pFileName = lemon.c_str();
+	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
+	{
+		g_Lua->PushString(fileRelativePath->c_str());
 	}
 };
 
@@ -52,6 +58,7 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 		return;
 
 	Util::StartTable();
+		Util::AddFunc(testFunction, "testFunction");
 	Util::FinishTable("autorefresh");
 }
 
