@@ -11,11 +11,11 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-bool Lua::PushHook(const char* hook)
+bool Lua::PushHook(const char* hook, GarrysMod::Lua::ILuaInterface* pLua)
 {
-	if ( !g_Lua )
+	if ( !pLua)
 	{
-		Warning(PROJECT_NAME ": Lua::PushHook was called while g_Lua was NULL! (%s)\n", hook);
+		Warning(PROJECT_NAME ": Lua::PushHook was called while pLua was NULL! (%s)\n", hook);
 		return false;
 	}
 
@@ -25,23 +25,23 @@ bool Lua::PushHook(const char* hook)
 		return false;
 	}
 
-	g_Lua->GetField(LUA_GLOBALSINDEX, "hook");
-		if (g_Lua->GetType(-1) != GarrysMod::Lua::Type::Table)
+	pLua->GetField(LUA_GLOBALSINDEX, "hook");
+		if (pLua->GetType(-1) != GarrysMod::Lua::Type::Table)
 		{
-			g_Lua->Pop(1);
+			pLua->Pop(1);
 			DevMsg(PROJECT_NAME ": Missing hook table!\n");
 			return false;
 		}
 
-		g_Lua->GetField(-1, "Run");
-			if (g_Lua->GetType(-1) != GarrysMod::Lua::Type::Function)
+		pLua->GetField(-1, "Run");
+			if (pLua->GetType(-1) != GarrysMod::Lua::Type::Function)
 			{
-				g_Lua->Pop(2);
+				pLua->Pop(2);
 				DevMsg(PROJECT_NAME ": Missing hook.Run function!\n");
 				return false;
 			} else {
-				g_Lua->Remove(-2);
-				g_Lua->PushString(hook);
+				pLua->Remove(-2);
+				pLua->PushString(hook);
 			}
 
 	return true;
@@ -229,6 +229,7 @@ Lua::StateData* Lua::GetLuaData(GarrysMod::Lua::ILuaInterface* LUA)
 	return *reinterpret_cast<Lua::StateData**>((char*)LUA->GetPathID() + 24);
 }
 
+static std::unordered_set<Lua::StateData*> g_pLuaStates;
 void Lua::CreateLuaData(GarrysMod::Lua::ILuaInterface* LUA, bool bNullOut)
 {
 	if (bNullOut)
@@ -247,6 +248,7 @@ void Lua::CreateLuaData(GarrysMod::Lua::ILuaInterface* LUA, bool bNullOut)
 	char* pathID = (char*)LUA->GetPathID();
 	Lua::StateData* data = new Lua::StateData;
 	*reinterpret_cast<Lua::StateData**>(pathID + 24) = data;
+	g_pLuaStates.insert(data);
 	Msg("holylib - Created thread data %p (%s)\n", data, pathID);
 }
 
@@ -256,9 +258,15 @@ void Lua::RemoveLuaData(GarrysMod::Lua::ILuaInterface* LUA)
 	if (!data)
 		return;
 
+	g_pLuaStates.erase(data);
 	delete data;
 	*reinterpret_cast<Lua::StateData**>((char*)LUA->GetPathID() + 24) = NULL;
 	Msg("holylib - Removed thread data %p\n", data);
+}
+
+const std::unordered_set<Lua::StateData*>& Lua::GetAllLuaData()
+{
+	return g_pLuaStates;
 }
 
 static void LuaCheck(const CCommand& args)

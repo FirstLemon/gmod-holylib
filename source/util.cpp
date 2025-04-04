@@ -22,17 +22,18 @@ CUserMessages* Util::pUserMessages;
 
 bool g_pRemoveLuaUserData = true;
 std::unordered_set<LuaUserData*> g_pLuaUserData;
+std::unordered_map<void*, BaseUserData*> g_pGlobalLuaUserData;
 
 std::unordered_set<int> Util::g_pReference;
 ConVar Util::holylib_debug_mainutil("holylib_debug_mainutil", "1");
 
-CBasePlayer* Util::Get_Player(int iStackPos, bool bError) // bError = error if not a valid player
+CBasePlayer* Util::Get_Player(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) // bError = error if not a valid player
 {
-	EHANDLE* pEntHandle = g_Lua->GetUserType<EHANDLE>(iStackPos, GarrysMod::Lua::Type::Entity);
+	EHANDLE* pEntHandle = LUA->GetUserType<EHANDLE>(iStackPos, GarrysMod::Lua::Type::Entity);
 	if (!pEntHandle)
 	{
 		if (bError)
-			g_Lua->ThrowError("Tried to use a NULL Entity!");
+			LUA->ThrowError("Tried to use a NULL Entity!");
 
 		return NULL;
 	}
@@ -41,7 +42,7 @@ CBasePlayer* Util::Get_Player(int iStackPos, bool bError) // bError = error if n
 	if (!pEntity->IsPlayer())
 	{
 		if (bError)
-			g_Lua->ThrowError("Player entity is NULL or not a player (!?)");
+			LUA->ThrowError("Player entity is NULL or not a player (!?)");
 
 		return NULL;
 	}
@@ -50,33 +51,39 @@ CBasePlayer* Util::Get_Player(int iStackPos, bool bError) // bError = error if n
 }
 
 IModuleWrapper* Util::pEntityList;
-void Util::Push_Entity(CBaseEntity* pEnt)
+void Util::Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt)
 {
 	if (!pEnt)
 	{
-		g_Lua->GetField(LUA_GLOBALSINDEX, "NULL");
+		LUA->GetField(LUA_GLOBALSINDEX, "NULL");
 		return;
 	}
 
-	GarrysMod::Lua::CLuaObject* pObject = (GarrysMod::Lua::CLuaObject*)pEnt->GetLuaEntity();
-	if (!pObject)
+	if (LUA == g_Lua)
 	{
-		g_Lua->GetField(LUA_GLOBALSINDEX, "NULL");
-		return;
-	}
+		GarrysMod::Lua::CLuaObject* pObject = (GarrysMod::Lua::CLuaObject*)pEnt->GetLuaEntity();
+		if (!pObject)
+		{
+			LUA->GetField(LUA_GLOBALSINDEX, "NULL");
+			return;
+		}
 
-	Util::ReferencePush(g_Lua, pObject->GetReference()); // Assuming the reference is always right.
+		Util::ReferencePush(LUA, pObject->GetReference()); // Assuming the reference is always right.
+	} else {
+		Warning("holylib: tried to push a entity, but this wasn't implemented for other lua states yet!\n");
+ 		LUA->PushNil();
+	}
 }
 
-CBaseEntity* Util::Get_Entity(int iStackPos, bool bError)
+CBaseEntity* Util::Get_Entity(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError)
 {
-	EHANDLE* pEntHandle = g_Lua->GetUserType<EHANDLE>(iStackPos, GarrysMod::Lua::Type::Entity);
+	EHANDLE* pEntHandle = LUA->GetUserType<EHANDLE>(iStackPos, GarrysMod::Lua::Type::Entity);
 	if (!pEntHandle && bError)
-		g_Lua->ThrowError("Tried to use a NULL Entity!");
+		LUA->ThrowError("Tried to use a NULL Entity!");
 
 	CBaseEntity* pEntity = Util::entitylist->GetBaseEntity(*pEntHandle);
 	if (!pEntity && bError)
-		g_Lua->ThrowError("Tried to use a NULL Entity! (The weird case?)");
+		LUA->ThrowError("Tried to use a NULL Entity! (The weird case?)");
 		
 	return pEntity;
 }
@@ -306,6 +313,10 @@ void Util::RemoveDetour()
 		Util::entitylist->RemoveListenerEntity(&pHolyEntityListener);
 }
 
+// If HolyLib was already loaded, we won't load a second time.
+// How could this happen?
+// In cases some other module utilizes HolyLib/compiled it to a .lib and uses the lib file they can load/execute HolyLib themself.
+// & yes, you can compile HolyLib to a .lib file & load it using the 
 static bool g_pShouldLoad = false;
 bool Util::ShouldLoad()
 {
@@ -330,3 +341,6 @@ GMODGet_LuaClass(IRecipientFilter, GarrysMod::Lua::Type::RecipientFilter, "Recip
 GMODGet_LuaClass(Vector, GarrysMod::Lua::Type::Vector, "Vector")
 GMODGet_LuaClass(QAngle, GarrysMod::Lua::Type::Angle, "Angle")
 GMODGet_LuaClass(ConVar, GarrysMod::Lua::Type::ConVar, "ConVar")
+
+GMODPush_LuaClass(QAngle, GarrysMod::Lua::Type::Angle)
+GMODPush_LuaClass(Vector, GarrysMod::Lua::Type::Vector)
