@@ -38,7 +38,7 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativ
 	}
 };
 
-/*
+/* //
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 void hook_CAutoRefresh_HandleLuaFileChange(void* something, const std::string *filecontent)
 {
