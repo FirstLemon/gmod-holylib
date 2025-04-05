@@ -3,6 +3,9 @@
 #include "lua.h"
 #include "detours.h"
 
+
+#include "tier0/memdbgon.h"
+
 class CAutoRefreshModule : public IModule
 {
 public:
@@ -31,10 +34,24 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativ
 
 	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
 	{
+		// g_Lua->PushString(fileRelativePath->c_str());
+	}
+};
+
+/* //
+static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
+static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativePath, const std::string *fileContent)
+{
+	Msg("HandleLuaFileChange Arg1 - %s\n", fileRelativePath->c_str());
+	Msg("HandleLuaFileChange Arg2 - %s\n", fileContent->c_str());
+
+	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
+	{
 		g_Lua->PushString(fileRelativePath->c_str());
 		g_Lua->CallFunctionProtected(1, 0, true);
 	}
 }
+*/
 
 /*
 static Detouring::Hook detour_CAutoRefresh_FindRootFile;
@@ -44,33 +61,20 @@ void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
 }
 */
 
-/*
-static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-bool hook_CAutoRefresh_HandleChange_Lua(const std::string* strFolder, const std::string* strFilename, const std::string* strExtension)
-{	
-	const std::string ext = "lua";
-	if (*strExtension == ext) return false;
-
-	Msg("Lua HandleChange_Lua dir - %s\n", strFolder->c_str());
-	Msg("Lua HandleChange_Lua name - %s\n", strFilename->c_str());
-	Msg("Lua HandleChange_Lua ext - %s\n", strExtension->c_str());
-
-	return true;
-}
-*/
-
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)
 		return;
 
-	Util::StartTable();
-	Util::FinishTable("autorefresh");
+	/*
+	Util::StartTable(pLua);
+	Util::FinishTable(pLua, "autorefresh");
+	*/
 }
 
 void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 {
-	Util::NukeTable("autorefresh");
+	// Util::NukeTable(pLua, "autorefresh");
 }
 
 void CAutoRefreshModule::InitDetour(bool bPreServer)
@@ -92,14 +96,6 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		&detour_CAutoRefresh_FindRootFile, "CAutoRefresh_FindRootFile",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_FindRootFileSym,
 		(void*)hook_CAutoRefresh_FindRootFile, m_pID
-	);
-	*/
-
-	/*
-	Detour::Create(
-		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
-		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
-		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 	*/
 }
