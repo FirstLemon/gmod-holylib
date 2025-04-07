@@ -201,11 +201,10 @@ GarrysMod::Lua::ILuaShared* Lua::GetShared() {
 	return luashared_loader.GetInterface<GarrysMod::Lua::ILuaShared>(GMOD_LUASHARED_INTERFACE);
 }
 
-extern GarrysMod::Lua::ILuaGameCallback* g_LuaCallback;
 GarrysMod::Lua::ILuaInterface* Lua::CreateInterface()
 {
-	GarrysMod::Lua::ILuaInterface* LUA = CreateLuaInterface(true);
-	LUA->Init(g_LuaCallback, true);
+	GarrysMod::Lua::ILuaInterface* LUA = Lua::CreateLuaInterface(true);
+	LUA->Init(Lua::GetLuaGameCallback(), true);
 	Lua::CreateLuaData(LUA, true); // Required as everything will use the LuaStateData now.
 
 	return LUA;
@@ -215,7 +214,7 @@ void Lua::DestroyInterface(GarrysMod::Lua::ILuaInterface* LUA)
 {
 	LUA->Shutdown();
 	Lua::RemoveLuaData(LUA);
-	CloseLuaInterface(LUA);
+	Lua::CloseLuaInterface(LUA);
 }
 
 /*

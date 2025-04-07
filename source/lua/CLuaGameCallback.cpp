@@ -1,4 +1,4 @@
-#include "LuaInterface.h"
+#include "CLuaInterface.h"
 #include <GarrysMod/Lua/LuaGameCallback.h>
 #include "color.h"
 #include <sstream>
@@ -16,6 +16,13 @@ public:
 	virtual void LuaError(const CLuaError* error);
 	virtual void InterfaceCreated(GarrysMod::Lua::ILuaInterface* iface);
 };
+
+static CLuaGameCallback g_pLuaGameCallback;
+
+GarrysMod::Lua::ILuaGameCallback* Lua::GetLuaGameCallback()
+{
+	return &g_pLuaGameCallback;
+}
 
 #ifdef CLIENT_DLL
 Color col_msg(255, 241, 122, 200);

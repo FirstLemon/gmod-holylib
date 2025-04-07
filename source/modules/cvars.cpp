@@ -17,6 +17,7 @@ public:
 #endif
 	virtual const char* Name() { return "cvars"; };
 	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
+	virtual bool SupportsMultipleLuaStates() { return true; };
 };
 
 static CCVarsModule g_pCVarsModule;
@@ -229,7 +230,6 @@ LUA_FUNCTION_STATIC(cvars_Find)
 	return 1;
 }
 
-// ToDo: Port over find optimization later
 void CCVarsModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)

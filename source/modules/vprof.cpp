@@ -23,6 +23,7 @@ public:
 	virtual void InitDetour(bool bPreServer) OVERRIDE;
 	virtual const char* Name() { return "vprof"; };
 	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32; };
+	virtual bool SupportsMultipleLuaStates() { return true; };
 	// NOTE for myself: Linux64 seemingly doesn't have vprof enabled! so don't suppositly add compatbility!
 	// Update: Fk my old self, Linux64 is just broken and it crashed because I had the wrong symbols.
 };
@@ -778,7 +779,7 @@ Default__index(VProfCounter);
 Default__newindex(VProfCounter);
 Default__GetTable(VProfCounter);
 Default__gc(VProfCounter,
-	VProfCounter* pCounter = (VProfCounter*)pData->GetData();
+	VProfCounter* pCounter = (VProfCounter*)pStoredData;
 	if (pCounter)
 		delete pCounter;
 )
@@ -849,7 +850,7 @@ Default__index(CVProfNode);
 Default__newindex(CVProfNode);
 Default__GetTable(CVProfNode);
 Default__gc(CVProfNode,
-	CVProfNode* pNode = (CVProfNode*)pData->GetData();
+	CVProfNode* pNode = (CVProfNode*)pStoredData;
 	if (pNode)
 		delete pNode;
 )

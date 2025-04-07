@@ -48,7 +48,7 @@ Default__index(IGModAudioChannel);
 Default__newindex(IGModAudioChannel);
 Default__GetTable(IGModAudioChannel);
 Default__gc(IGModAudioChannel,
-	IGModAudioChannel* channel = (IGModAudioChannel*)pData->GetData();
+	IGModAudioChannel* channel = (IGModAudioChannel*)pStoredData;
 	if (channel)
 		delete channel;
 )
@@ -355,7 +355,7 @@ LUA_FUNCTION_STATIC(bass_PlayFile)
 			LUA->PushString(gGModAudio->GetErrorString(errorCode));
 		else
 			LUA->PushNil();
-	g_Lua->CallFunctionProtected(3, 0, true);
+	LUA->CallFunctionProtected(3, 0, true);
 
 	return 0;
 }
@@ -382,7 +382,7 @@ LUA_FUNCTION_STATIC(bass_PlayURL)
 			LUA->PushString(gGModAudio->GetErrorString(errorCode));
 		else
 			LUA->PushNil();
-	g_Lua->CallFunctionProtected(3, 0, true);
+	LUA->CallFunctionProtected(3, 0, true);
 
 	return 0;
 }

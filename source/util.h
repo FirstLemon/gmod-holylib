@@ -10,6 +10,7 @@
 
 #define DEDICATED
 #include "vstdlib/jobthread.h"
+#include "lua.hpp"
 
 #if GITHUB_RUN_DATA == 0
 #define HOLYLIB_BUILD_RELEASE 0
@@ -58,6 +59,12 @@ namespace Util
 	extern Symbols::lua_rawseti func_lua_rawseti;
 	inline void RawSetI(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, int iValue)
 	{
+		if (LUA != g_Lua)
+		{
+			lua_rawseti(LUA->GetState(), iStackPos, iValue);
+			return;
+		}
+
 		if (func_lua_rawseti)
 		{
 			func_lua_rawseti(LUA->GetState(), iStackPos, iValue);
@@ -72,6 +79,12 @@ namespace Util
 	extern Symbols::lua_rawgeti func_lua_rawgeti;
 	inline void RawGetI(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, int iValue)
 	{
+		if (LUA != g_Lua)
+		{
+			lua_rawgeti(LUA->GetState(), iStackPos, iValue);
+			return;
+		}
+
 		if (func_lua_rawgeti)
 		{
 			func_lua_rawgeti(LUA->GetState(), iStackPos, iValue);
@@ -89,6 +102,12 @@ namespace Util
 	 */
 	inline void ReferencePush(GarrysMod::Lua::ILuaInterface* LUA, int iReference)
 	{
+		if (LUA != g_Lua)
+		{
+			lua_rawgeti(LUA->GetState(), LUA_REGISTRYINDEX, iReference);
+			return;
+		}
+
 		if (func_lua_rawgeti)
 		{
 			func_lua_rawgeti(LUA->GetState(), LUA_REGISTRYINDEX, iReference);
@@ -137,6 +156,7 @@ namespace Util
 
 		g_pReference.erase(it);
 #endif
+
 		LUA->ReferenceFree(iReference);
 	}
 
@@ -265,11 +285,16 @@ namespace Util
 #else
 #define HOLYLIB_UTIL_DEBUG_LUAUSERDATA 1
 #endif
+#define HOLYLIB_UTIL_DEBUG_BASEUSERDATA 0
 
 /*
  * Base UserData struct that is used by LuaUserData.
  * Main purpose is for it to handle the stored pData & implement a reference counter.
  * It also maskes sharing data between threads easier.
+ *
+ * NOTE:
+ * Memory usage is utter garbage.
+ * For UserData which stores a few bytes (often 4) we setup UserData that has a average size of 60 bytes...
  */
 
 struct LuaUserData;
@@ -325,18 +350,27 @@ struct BaseUserData {
 
 	inline bool Release(LuaUserData* pLuaUserData)
 	{
+		m_pMutex.Lock();
 		if (m_iReferenceCount == 0) // Don't accidentally delete it again...
+		{
+			m_pMutex.Unlock();
 			return false;
+		}
 
 		--m_iReferenceCount;
+#if HOLYLIB_UTIL_DEBUG_BASEUSERDATA
+		Msg("holylib - util: Userdata %p(%p) got released %i\n", this, m_pData, m_iReferenceCount);
+#endif
 		m_pOwningData.erase(pLuaUserData);
 
 		if (m_iReferenceCount == 0)
 		{
+			m_pMutex.Unlock();
 			delete this;
 			return true;
 		}
 
+		m_pMutex.Unlock();
 		return false;
 	}
 
@@ -363,7 +397,12 @@ struct BaseUserData {
 private:
 	inline void Aquire()
 	{
+		m_pMutex.Lock();
 		++m_iReferenceCount;
+		m_pMutex.Unlock();
+#if HOLYLIB_UTIL_DEBUG_BASEUSERDATA
+		Msg("holylib - util: Userdata %p(%p) got aquired %i\n", this, m_pData, m_iReferenceCount);
+#endif
 	}
 
 	void* m_pData = NULL;
@@ -372,6 +411,7 @@ private:
 
 	unsigned int m_iReferenceCount = 0;
 	std::unordered_set<LuaUserData*> m_pOwningData;
+	CThreadFastMutex m_pMutex;
 };
 
 #if HOLYLIB_UTIL_DEBUG_LUAUSERDATA
@@ -461,7 +501,7 @@ struct LuaUserData {
 
 	inline void* GetData()
 	{
-		return pBaseData->GetData(pLua);
+		return pBaseData ? pBaseData->GetData(pLua) : NULL;
 	}
 
 	inline void SetData(void* data)
@@ -681,7 +721,11 @@ LuaUserData* Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var
 	return userData; \
 }
 
-// This one is special, the GC WONT free the LuaClass meaning this "could" (and did in the past) cause a memory/reference leak
+/*
+ * This one is special
+ * the GC WONT free the LuaClass meaning this "could" (and did in the past) cause a memory/reference leak
+ * The data thats passed won't be freed by lua.
+ */
 #define PushReferenced_LuaClass( className ) \
 void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 { \
@@ -773,20 +817,23 @@ LUA_FUNCTION_STATIC(className ## __newindex) \
 }
 
 // A default gc function for userData,
-// handles garbage collection, inside the func argument you can use pData as a variable
-// like pData->GetData() to get your class. Just see how it's done inside the bf_read gc definition.
-// NOTE: You need to manually delete the data inside the callback function -> delete pData->GetData()
+// handles garbage collection, inside the func argument you can use pStoredData
+// Use the pStoredData variable as pData->GetData() will return NULL. Just see how it's done inside the bf_read gc definition.
+// NOTE: You need to manually delete the data inside the callback function -> delete pStoredData
+// WARNING: DO NOT USE pData as it will be invalid because of the Release call!
 #define Default__gc(className, func) \
 LUA_FUNCTION_STATIC(className ## __gc) \
 { \
 	LuaUserData* pData = Get_##className##_Data(LUA, 1, false); \
 	if (pData) \
 	{ \
+		LUA->SetUserType(1, NULL); \
+		void* pStoredData = pData->GetData(); \
 		if (pData->Release()) \
 		{ \
+			pData = NULL; /*Don't let any idiot(that's me) use it*/ \
 			func \
 		} \
-		LUA->SetUserType(1, NULL); \
 	} \
  \
 	return 0; \

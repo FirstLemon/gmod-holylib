@@ -203,6 +203,11 @@ void CModule::Shutdown()
 */
 CModuleManager::CModuleManager()
 {
+	if (CommandLine()->FindParm("-holylib_module_debug") > -1)
+	{
+		module_debug.SetValue("1");
+	}
+
 #ifndef LIB_HOLYLIB
 	LoadModules();
 #endif
@@ -346,6 +351,11 @@ void CModuleManager::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerIn
 
 	AddLuaInterface(pLua);
 	VCALL_LUA_ENABLED_MODULES(LuaInit(pLua, bServerInit));
+}
+
+void CModuleManager::LuaThink(GarrysMod::Lua::ILuaInterface* pLua)
+{
+	VCALL_LUA_ENABLED_MODULES(LuaThink(pLua));
 }
 
 void CModuleManager::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
