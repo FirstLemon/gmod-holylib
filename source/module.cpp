@@ -203,6 +203,11 @@ void CModule::Shutdown()
 */
 CModuleManager::CModuleManager()
 {
+	if (CommandLine()->FindParm("-holylib_module_debug") > -1)
+	{
+		module_debug.SetValue("1");
+	}
+
 #ifndef LIB_HOLYLIB
 	LoadModules();
 #endif
