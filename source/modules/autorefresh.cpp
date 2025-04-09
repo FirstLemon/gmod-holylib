@@ -29,13 +29,10 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativePath, const std::string *fileContent)
 {
-	Msg("HandleLuaFileChange Arg1 - %s\n", fileRelativePath->c_str());
-	Msg("HandleLuaFileChange Arg2 - %s\n", fileContent->c_str());
-
 	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
 	{
 		g_Lua->PushString(fileRelativePath->c_str());
-		g_Lua->CallFunctionProtected(1, 1, true);
+		g_Lua->CallFunctionProtected(1, 2, true);
 	}
 };
 
@@ -84,13 +81,11 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		return;
 
 	SourceSDK::ModuleLoader server_loader("server");
-	// /*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
-	// */
 
 	/*
 	Detour::Create(
