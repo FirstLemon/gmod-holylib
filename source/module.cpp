@@ -203,10 +203,12 @@ void CModule::Shutdown()
 */
 CModuleManager::CModuleManager()
 {
+	/*
+	BUG: Calling SetValue causes a instant crash!
 	if (CommandLine()->FindParm("-holylib_module_debug") > -1)
 	{
 		module_debug.SetValue("1");
-	}
+	}*/
 
 #ifndef LIB_HOLYLIB
 	LoadModules();
@@ -251,7 +253,7 @@ void CModuleManager::LoadModules()
 	RegisterModule(pLuaJITModule);
 	RegisterModule(pGameServerModule);
 	RegisterModule(pSoundscapeModule);
-	RegisterModule(pAutoRefreshModule);
+	RegisterModule(pLuaThreadsModule);
 }
 
 int g_pIDs = 0;
