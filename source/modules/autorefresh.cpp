@@ -29,10 +29,10 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativePath, const std::string *fileContent)
 {
-	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
-	{
+	if (Lua::PushHook("HolyLib:OnLuaFileChange"))
+	{	
+		g_Lua->PushString(fileRelativePath->c_str());
 		if (g_Lua->CallFunctionProtected(2, 0, true)) {
-			g_Lua->PushString(fileRelativePath->c_str());
 		}
 	}
 };
