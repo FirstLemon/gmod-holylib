@@ -31,8 +31,11 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativ
 {
 	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
 	{
-		g_Lua->PushString(fileRelativePath->c_str());
-		g_Lua->CallFunctionProtected(1, 2, true);
+		// g_Lua->PushString(fileRelativePath->c_str());
+		if (g_Lua->CallFunctionProtected(1, 1, true)) {
+			g_Lua->Pop(1);
+			return;
+		}
 	}
 };
 
