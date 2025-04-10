@@ -29,12 +29,22 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
 {	
+	if (!g_Lua) {
+		return;
+	}
+
 	if (Lua::PushHook("HolyLib:OnLuaFileChange"))
 	{	
 		g_Lua->PushString(fileRelPath->c_str());
 		g_Lua->CallFunctionProtected(2, 0, true);
 	}
 };
+
+static Detouring::Hook detour_CBootil_File_ChangeMonitor_GetChange;
+static void hook_CAutoRefresh_DeactivateAutoRefresh(const std::string* unknown)
+{
+	Msg(unknown->c_str());
+}
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -61,6 +71,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
+
+	Detour::Create(
+		&detour_CBootil_File_ChangeMonitor_GetChange, "CBootil_File_ChangeMonitor_GetChange",
+		server_loader.GetModule(), Symbols::Bootil_File_ChangeMonitor_GetChangeSym,
+		(void*)hook_CAutoRefresh_DeactivateAutoRefresh, m_pID
+	);
+
 
 }
 

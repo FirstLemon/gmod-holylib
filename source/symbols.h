@@ -633,6 +633,6 @@ namespace Symbols
 	typedef void (*GarrysMod_AutoRefresh_HandleLuaFileChange)(const std::string* fileRelativePath, const std::string* fileContent);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym;
 
-	typedef void (*GarrysMod_AutoRefresh_HandleChange_Lua)(const std::string* strFolder, const std::string* strFilename, const std::string* strExtension);
-	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym;
+	typedef void (*Bootil_File_ChangeMonitor_GetChange)(const std::string* unknown);
+	extern const std::vector<Symbol> Bootil_File_ChangeMonitor_GetChangeSym;
 }
