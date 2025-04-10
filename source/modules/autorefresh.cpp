@@ -27,53 +27,27 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 }
 
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativePath, const std::string *fileContent)
-{
+static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
+{	
 	if (Lua::PushHook("HolyLib:OnLuaFileChange"))
 	{	
-		g_Lua->PushString(fileRelativePath->c_str());
-		if (g_Lua->CallFunctionProtected(2, 0, true)) {
-		}
+		g_Lua->PushString(fileRelPath->c_str());
+		g_Lua->CallFunctionProtected(2, 0, true);
 	}
 };
-
-/* //
-static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelativePath, const std::string *fileContent)
-{
-	Msg("HandleLuaFileChange Arg1 - %s\n", fileRelativePath->c_str());
-	Msg("HandleLuaFileChange Arg2 - %s\n", fileContent->c_str());
-
-	if (Lua::PushHook("HolyLib::OnLuaFileChange"))
-	{
-		g_Lua->PushString(fileRelativePath->c_str());
-		g_Lua->CallFunctionProtected(1, 0, true);
-	}
-}
-*/
-
-/*
-static Detouring::Hook detour_CAutoRefresh_FindRootFile;
-void hook_CAutoRefresh_FindRootFile(void* something, const std::string* unknown)
-{
-	Msg("Lua FindRootFile - %s\n", unknown->c_str());
-}
-*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)
 		return;
 
-	/*
 	Util::StartTable(pLua);
 	Util::FinishTable(pLua, "autorefresh");
-	*/
 }
 
 void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 {
-	// Util::NukeTable(pLua, "autorefresh");
+	Util::NukeTable(pLua, "autorefresh");
 }
 
 void CAutoRefreshModule::InitDetour(bool bPreServer)
@@ -88,13 +62,6 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
 
-	/*
-	Detour::Create(
-		&detour_CAutoRefresh_FindRootFile, "CAutoRefresh_FindRootFile",
-		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_FindRootFileSym,
-		(void*)hook_CAutoRefresh_FindRootFile, m_pID
-	);
-	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
