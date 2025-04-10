@@ -844,6 +844,6 @@ namespace Symbols
 	};
 
 	const std::vector<Symbol> Bootil_File_ChangeMonitor_GetChangeSym = {
-		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor9GetChangeEv"),
+		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor10HasChangesEv"),
 	};
 }

@@ -41,9 +41,9 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 };
 
 static Detouring::Hook detour_CBootil_File_ChangeMonitor_GetChange;
-static void hook_CAutoRefresh_DeactivateAutoRefresh(const std::string* unknown)
+static void hook_CBootil_File_ChangeMonitor_GetChange(const std::string *fileName)
 {
-	Msg(unknown->c_str());
+	
 }
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
@@ -75,9 +75,8 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	Detour::Create(
 		&detour_CBootil_File_ChangeMonitor_GetChange, "CBootil_File_ChangeMonitor_GetChange",
 		server_loader.GetModule(), Symbols::Bootil_File_ChangeMonitor_GetChangeSym,
-		(void*)hook_CAutoRefresh_DeactivateAutoRefresh, m_pID
+		(void*)hook_CBootil_File_ChangeMonitor_GetChange, m_pID
 	);
-
 
 }
 
