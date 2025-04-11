@@ -42,9 +42,9 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 
 static Detouring::Hook detour_CBootil_File_ChangeMonitor_GetChange;
 static void hook_CBootil_File_ChangeMonitor_GetChange(const std::string *fileName)
-{
-	Msg("nice");
-
+{	
+	std::string fileName_copy = *fileName;
+	Msg(fileName->c_str());
 }
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
