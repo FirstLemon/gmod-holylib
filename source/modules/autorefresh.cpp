@@ -40,12 +40,22 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 	}
 };
 
+/*
+static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
+static void hook_CAutoRefresh_HandleChange_Lua(const std::string *strFolder, const std::string *strFilename, const std::string *strExtenstion)
+{
+
+};
+*/
+
+/*
 static Detouring::Hook detour_CBootil_File_ChangeMonitor_GetChange;
 static void hook_CBootil_File_ChangeMonitor_GetChange(const std::string *fileName)
 {	
 	std::string fileName_copy = *fileName;
 	Msg(fileName->c_str());
 }
+*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -66,6 +76,7 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	if (bPreServer)
 		return;
 
+	// HandleLuaFileCHange
 	SourceSDK::ModuleLoader server_loader("server");
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
@@ -73,12 +84,23 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
 
+	/*
+	// HandleChange_Lua
+	Detour::Create(
+		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
+		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
+		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
+	);
+	*/
+
+	/*
+	// Changemonitor_GetChange
 	Detour::Create(
 		&detour_CBootil_File_ChangeMonitor_GetChange, "CBootil_File_ChangeMonitor_GetChange",
 		server_loader.GetModule(), Symbols::Bootil_File_ChangeMonitor_GetChangeSym,
 		(void*)hook_CBootil_File_ChangeMonitor_GetChange, m_pID
 	);
-
+	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
