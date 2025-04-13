@@ -843,10 +843,6 @@ namespace Symbols
 		Symbol::FromName("_ZN9GarrysMod11AutoRefresh16HandleChange_LuaERKSsS2_S2_"),
 	};
 
-	const std::vector<Symbol> Bootil_File_ChangeMonitor_GetChangeSym2 = {
-		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor9GetChangeEv"),
-	};
-
 	const std::vector<Symbol> Bootil_File_ChangeMonitor_GetChangeSym = {
 		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor9GetChangeEv"),
 	};
