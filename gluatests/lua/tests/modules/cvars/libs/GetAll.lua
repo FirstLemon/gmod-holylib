@@ -5,7 +5,7 @@ return {
             name = "Function exists globally",
             when = HolyLib_IsModuleEnabled("cvars"),
             func = function()
-                expect( cvar.GetAll ).to.beA( "fucntion" )
+                expect( cvar.GetAll ).to.beA( "function" )
             end
         },
         {
