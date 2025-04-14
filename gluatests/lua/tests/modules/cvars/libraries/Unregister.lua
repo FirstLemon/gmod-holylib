@@ -1,25 +1,28 @@
 return {
-    groupName = "cvars:GetAll",
+    groupName = "cvars:Unregister",
     cases = {
         {
             name = "Function exists globally",
             when = HolyLib_IsModuleEnabled("cvars"),
             func = function()
-                expect( cvar.GetAll ).to.beA( "function" )
+                expect(cvar.Unregister).to.beA("function")
             end
         },
         {
             name = "Function doesn't exists globally",
             when = not HolyLib_IsModuleEnabled("cvars"),
             func = function()
-                expect( cvar.GetAll ).to.beA( "nil" )
+                expect(cvar.Unregister).to.beA("nil")
             end
         },
-        {
-            name = "Returns an Table object",
+        {   
+            name = "Unregister 'achievement_debug'",
             when = HolyLib_IsModuleEnabled("cvars"),
             func = function()
-                expect( cvar.GetAll() ).to.beA( "table" )
+                local ConVar = GetConVar("achievement_debug")
+                expect(ConVar).to.beValid()
+                cvar.Unregister("achievement_debug")
+                expect(ConVar).to.beInvalid()
             end
         },
     }
