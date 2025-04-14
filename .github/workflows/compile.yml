@@ -204,7 +204,7 @@ jobs:
   test_64bit:
     name: "Test x86-64 branch"
     needs: setup_64x_artifacts
-    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml
     with:
       branch: x86-64
       extra-startup-args: "-usegh"
@@ -272,6 +272,7 @@ jobs:
           - luajit
           - gameserver
           - soundscape
+          - autorefresh
     with:
       branch: dev
       extra-startup-args: "-usegh -holylib_startdisabled -holylib_enable_${{ matrix.module }} 1"
