@@ -1,5 +1,5 @@
 return {
-    groupName = "sourcetv:GetAll",
+    groupName = "sourcetv:GetClient",
     cases = {
         {
             name = "Function exists globally",
@@ -16,10 +16,16 @@ return {
             end
         },
         {
-            name = "Returns an table object",
+            name = "Is CHLTVClient",
             when = HolyLib_IsModuleEnabled("sourcetv"),
             func = function()
                 expect(sourcetv.GetClient(sourcetv.GetHLTVSlot())).to.beA("CHLTVClient")
+            end
+        },
+        {
+            name = "Is not CHLTVClient",
+            when = HolyLib_IsModuleEnabled("sourcetv"),
+            func = function()
                 expect(sourcetv.GetClient(-1).to.beNil())
             end
         },
