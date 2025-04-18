@@ -41,20 +41,10 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 	}
 };
 
-/*
-static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static void hook_CAutoRefresh_HandleChange_Lua(const std::string *strFolder, const std::string *strFilename, const std::string *strExtenstion)
+static void BootilChangeMonitor()
 {
-};
-*/
 
-/*
-static Detouring::Hook detour_CBootil_File_ChangeMonitor_GetChange;
-static void hook_CBootil_File_ChangeMonitor_GetChange()
-{
-	return;
 }
-*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -76,14 +66,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		return;
 
 	// HandleLuaFileCHange
-	SourceSDK::ModuleLoader server_loader("server");
+	SourceSDK::FactoryLoader server_loader("server");
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
 
-	SourceSDK::FactoryLoader server_loader("server");
 	Bootil::File::ChangeMonitor* monitor = Detour::ResolveSymbol<Bootil::File::ChangeMonitor>(server_loader, Symbols::g_ChangeMonitorSym);
 	Detour::CheckValue("monitor", monitor != NULL);
 
