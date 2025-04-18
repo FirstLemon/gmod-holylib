@@ -638,4 +638,6 @@ namespace Symbols
 
 	typedef void (*Bootil_File_ChangeMonitor_GetChange)(const std::string* filename);
 	extern const std::vector<Symbol> Bootil_File_ChangeMonitor_GetChangeSym;
+
+	extern const std::vector<Symbol> Bootil_File_ChangeMonitorSym;
 }

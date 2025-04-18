@@ -2,6 +2,7 @@
 #include "LuaInterface.h"
 #include "lua.h"
 #include "detours.h"
+#include "Bootil/File/Changes.h"
 
 
 #include "tier0/memdbgon.h"
@@ -82,23 +83,10 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
 
-	/*
-	// HandleChange_Lua
-	Detour::Create(
-		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
-		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
-		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
-	);
-	*/
-	
-	/*
-	// Changemonitor_GetChange
-	Detour::Create(
-		&detour_CBootil_File_ChangeMonitor_GetChange, "CBootil_File_ChangeMonitor_GetChange",
-		server_loader.GetModule(), Symbols::Bootil_File_ChangeMonitor_GetChangeSym,
-		(void*)hook_CBootil_File_ChangeMonitor_GetChange, m_pID
-	);
-	*/
+	SourceSDK::FactoryLoader server_loader("server");
+	Bootil::File::ChangeMonitor* monitor = Detour::ResolveSymbol<Bootil::File::ChangeMonitor>(server_loader, Symbols::g_ChangeMonitorSym);
+	Detour::CheckValue("monitor", monitor != NULL);
+
 }
 
 void CAutoRefreshModule::Think(bool simulating)
