@@ -135,6 +135,9 @@ namespace Symbols
 	typedef void (GMCOMMON_CALLING_CONVENTION* CSteam3Server_NotifyClientDisconnect)(void* server, CBaseClient* client);
 	extern const std::vector<Symbol> CSteam3Server_NotifyClientDisconnectSym;
 
+	typedef void (*SteamGameServer_Shutdown)();
+	extern const std::vector<Symbol> SteamGameServer_ShutdownSym;
+
 	//---------------------------------------------------------------------------------
 	// Purpose: holylib Symbols
 	//---------------------------------------------------------------------------------
@@ -596,6 +599,12 @@ namespace Symbols
 
 	typedef void (*Filter_SendBan)(const netadr_t& adr);
 	extern const std::vector<Symbol> Filter_SendBanSym;
+
+	typedef int (*NET_SendStream)(int nSock, const char * buf, int len, int flags);
+	extern const std::vector<Symbol> NET_SendStreamSym;
+
+	typedef int (*NET_ReceiveStream)(int nSock, char * buf, int len, int flags);
+	extern const std::vector<Symbol> NET_ReceiveStreamSym;
 
 	//---------------------------------------------------------------------------------
 	// Purpose: cvar Symbols
