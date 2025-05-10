@@ -77,6 +77,13 @@ namespace Symbols
 		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x54\x53\x48\x89\xF3\x48\x83\xEC\x20\x48\x85\xF6"), // 55 48 89 E5 41 54 53 48 89 F3 48 83 EC 20 48 85 F6
 	};
 
+	const std::vector<Symbol> SteamGameServer_ShutdownSym = { // Same symbol for all versions.
+		Symbol::FromName("SteamGameServer_Shutdown"),
+		Symbol::FromName("SteamGameServer_Shutdown"),
+		Symbol::FromName("SteamGameServer_Shutdown"),
+		Symbol::FromName("SteamGameServer_Shutdown"),
+	};
+
 	//---------------------------------------------------------------------------------
 	// Purpose: holylib Symbols
 	//---------------------------------------------------------------------------------
@@ -821,6 +828,14 @@ namespace Symbols
 		Symbol::FromName("_Z14Filter_SendBanRK8netadr_s"),
 	};
 
+	const std::vector<Symbol> NET_SendStreamSym = {
+		Symbol::FromName("_Z14NET_SendStreamiPKcii"),
+	};
+
+	const std::vector<Symbol> NET_ReceiveStreamSym = {
+		Symbol::FromName("_Z17NET_ReceiveStreamiPcii"),
+	};
+
 	//---------------------------------------------------------------------------------
 	// Purpose: lagcompensation Symbols
 	//---------------------------------------------------------------------------------
@@ -844,6 +859,10 @@ namespace Symbols
 	};
 
 	const std::vector<Symbol> Bootil_File_ChangeMonitor_GetChangeSym = {
+		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor9GetChangeEv"),
+	};
+
+	const std::vector<Symbol> g_ChangeMonitor = {
 		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor9GetChangeEv"),
 	};
 }

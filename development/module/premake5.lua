@@ -50,6 +50,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		defines("SWDS=1")
 		defines("PROJECT_NAME=\"holylib\"")
 		defines("NO_FRAMESNAPSHOTDEF")
+		defines("NO_VCR")
 
 		files({
 			[[../../source/modules/*.h]],
@@ -58,6 +59,9 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			[[../../source/sourcesdk/*.cpp]],
 			[[../../source/public/*.h]],
 			[[../../source/lua/*.*]],
+			[[../../source/lz4/*.h]],
+			[[../../source/lz4/*.c]],
+			[[../../source/lz4/*.cpp]],
 			[[../../lua/*.h]],
 			[[../../lua/*.hpp]],
 			[[../../README.md]],

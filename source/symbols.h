@@ -135,6 +135,9 @@ namespace Symbols
 	typedef void (GMCOMMON_CALLING_CONVENTION* CSteam3Server_NotifyClientDisconnect)(void* server, CBaseClient* client);
 	extern const std::vector<Symbol> CSteam3Server_NotifyClientDisconnectSym;
 
+	typedef void (*SteamGameServer_Shutdown)();
+	extern const std::vector<Symbol> SteamGameServer_ShutdownSym;
+
 	//---------------------------------------------------------------------------------
 	// Purpose: holylib Symbols
 	//---------------------------------------------------------------------------------
@@ -597,6 +600,12 @@ namespace Symbols
 	typedef void (*Filter_SendBan)(const netadr_t& adr);
 	extern const std::vector<Symbol> Filter_SendBanSym;
 
+	typedef int (*NET_SendStream)(int nSock, const char * buf, int len, int flags);
+	extern const std::vector<Symbol> NET_SendStreamSym;
+
+	typedef int (*NET_ReceiveStream)(int nSock, char * buf, int len, int flags);
+	extern const std::vector<Symbol> NET_ReceiveStreamSym;
+
 	//---------------------------------------------------------------------------------
 	// Purpose: cvar Symbols
 	//---------------------------------------------------------------------------------
@@ -630,12 +639,14 @@ namespace Symbols
 	//---------------------------------------------------------------------------------
 	// Purpose: AutoRefresh Symbols
 	//---------------------------------------------------------------------------------
-	typedef void (*GarrysMod_AutoRefresh_HandleLuaFileChange)(const std::string* fileRelativePath, const std::string* fileContent);
+	typedef void (*GarrysMod_AutoRefresh_HandleLuaFileChange)(const std::string *fileRelativePath, const std::string *fileContent);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym;
 
-	typedef void (*GarrysMod_AutoRefresh_HandleChange_Lua)(const std::string* strFolder, const std::string* strFilename, const std::string* strExtension);
+	typedef void (*GarrysMod_AutoRefresh_HandleChange_Lua)(const std::string *strFolder, const std::string *strFilename, const std::string *strExtension);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym;
 
 	typedef void (*Bootil_File_ChangeMonitor_GetChange)(const std::string* filename);
 	extern const std::vector<Symbol> Bootil_File_ChangeMonitor_GetChangeSym;
+
+	extern const std::vector<Symbol> g_ChangeMonitorSym;
 }

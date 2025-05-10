@@ -21,9 +21,9 @@ public:
 CPASModule g_pPASModule;
 IModule* pPASModule = &g_pPASModule;
 
-inline bool TestPAS(const Vector& hearPos)
+inline bool TestPAS(Util::VisData* pVisData, const Vector& hearPos)
 {
-	return Util::engineserver->CheckOriginInPVS(hearPos, Util::g_pCurrentCluster, sizeof(Util::g_pCurrentCluster));
+	return Util::engineserver->CheckOriginInPVS(hearPos, pVisData->cluster, sizeof(pVisData->cluster));
 }
 
 LUA_FUNCTION_STATIC(pas_TestPAS)
@@ -39,12 +39,12 @@ LUA_FUNCTION_STATIC(pas_TestPAS)
 		orig = (Vector*)&ent->GetAbsOrigin();
 	}
 
-	Util::CM_Vis(*orig, DVIS_PAS);
+	Util::VisData* pVisCluster = Util::CM_Vis(*orig, DVIS_PAS);
 
 	LUA->CheckType(2, GarrysMod::Lua::Type::Vector);
 	if (LUA->IsType(2, GarrysMod::Lua::Type::Vector))
 	{
-		LUA->PushBool(TestPAS(*Get_Vector(LUA, 2)));
+		LUA->PushBool(TestPAS(pVisCluster, *Get_Vector(LUA, 2)));
 	} else if (Is_EntityList(LUA, 2)) {
 		LUA->CreateTable();
 		EntityList* entList = Get_EntityList(LUA, 2, true);
@@ -54,15 +54,16 @@ LUA_FUNCTION_STATIC(pas_TestPAS)
 				entList->CreateReference(pEnt);
 
 			Util::ReferencePush(LUA, iReference);
-			LUA->PushBool(TestPAS(pEnt->GetAbsOrigin()));
+			LUA->PushBool(TestPAS(pVisCluster, pEnt->GetAbsOrigin()));
 			LUA->RawSet(-3);
 		}
 	} else {
 		LUA->CheckType(2, GarrysMod::Lua::Type::Entity);
 		CBaseEntity* ent = Util::Get_Entity(LUA, 2, false);
 
-		LUA->PushBool(TestPAS(ent->GetAbsOrigin()));
+		LUA->PushBool(TestPAS(pVisCluster, ent->GetAbsOrigin()));
 	}
+	delete pVisCluster;
 
 	return 1;
 }
@@ -73,9 +74,11 @@ LUA_FUNCTION_STATIC(pas_CheckBoxInPAS)
 	Vector* maxs = Get_Vector(LUA, 2, true);
 	Vector* orig = Get_Vector(LUA, 3, true);
 
-	Util::CM_Vis(*orig, DVIS_PAS);
+	Util::VisData* pVisCluster = Util::CM_Vis(*orig, DVIS_PAS);
 
-	LUA->PushBool(Util::engineserver->CheckBoxInPVS(*mins, *maxs, Util::g_pCurrentCluster, sizeof(Util::g_pCurrentCluster)));
+	LUA->PushBool(Util::engineserver->CheckBoxInPVS(*mins, *maxs, pVisCluster->cluster, sizeof(pVisCluster->cluster)));
+	delete pVisCluster;
+
 	return 1;
 }
 
@@ -92,7 +95,7 @@ LUA_FUNCTION_STATIC(pas_FindInPAS)
 		orig = (Vector*)&ent->GetAbsOrigin();
 	}
 
-	Util::CM_Vis(*orig, DVIS_PAS);
+	Util::VisData* pVisCluster = Util::CM_Vis(*orig, DVIS_PAS);
 
 	LUA->PreCreateTable(MAX_EDICTS / 16, 0);
 	int idx = 0;
@@ -101,7 +104,7 @@ LUA_FUNCTION_STATIC(pas_FindInPAS)
 		EntityList& pGlobalEntityList = GetGlobalEntityList(LUA);
 		for (auto& [pEnt, iReference] : pGlobalEntityList.GetReferences())
 		{
-			if (Util::engineserver->CheckOriginInPVS(pEnt->GetAbsOrigin(), Util::g_pCurrentCluster, sizeof(Util::g_pCurrentCluster)))
+			if (Util::engineserver->CheckOriginInPVS(pEnt->GetAbsOrigin(), pVisCluster->cluster, sizeof(pVisCluster->cluster)))
 			{
 				if (!pGlobalEntityList.IsValidReference(iReference))
 					pGlobalEntityList.CreateReference(pEnt);
@@ -111,38 +114,23 @@ LUA_FUNCTION_STATIC(pas_FindInPAS)
 				Util::RawSetI(LUA, -2, ++idx);
 			}
 		}
+		delete pVisCluster;
 		return 1;
 	}
 
-#if ARCHITECTURE_IS_X86
-	CBaseEntity* pEnt = Util::entitylist->FirstEnt();
+	CBaseEntity* pEnt = Util::FirstEnt();
 	while (pEnt != NULL)
 	{
-		if (Util::engineserver->CheckOriginInPVS(pEnt->GetAbsOrigin(), Util::g_pCurrentCluster, sizeof(Util::g_pCurrentCluster)))
+		if (Util::engineserver->CheckOriginInPVS(pEnt->GetAbsOrigin(), pVisCluster->cluster, sizeof(pVisCluster->cluster)))
 		{
 			Util::Push_Entity(LUA, pEnt);
 			Util::RawSetI(LUA, -2, ++idx);
 		}
 
-		pEnt = Util::entitylist->NextEnt(pEnt);
+		pEnt = Util::NextEnt(pEnt);
 	}
-#else
-	edict_t* pWorldEdict = Util::engineserver->PEntityOfEntIndex(0);
-	for(int i=0; i<MAX_EDICTS; ++i)
-	{
-		edict_t* pEdict = &pWorldEdict[i]; // Let's hope this works.... It's used in CServerGameEnts::CheckTransmit as an optimization.
-		CBaseEntity* pEnt = Util::GetCBaseEntityFromEdict(pEdict);
-		if (!pEnt)
-			continue;
 
-		if (Util::engineserver->CheckOriginInPVS(pEnt->GetAbsOrigin(), Util::g_pCurrentCluster, sizeof(Util::g_pCurrentCluster)))
-		{
-			Util::Push_Entity(LUA, pEnt);
-			Util::RawSetI(LUA, -2, ++idx);
-		}
-	}
-#endif
-
+	delete pVisCluster;
 	return 1;
 }
 

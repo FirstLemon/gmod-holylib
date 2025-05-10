@@ -2,6 +2,7 @@
 #include "LuaInterface.h"
 #include "lua.h"
 #include "detours.h"
+#include "Bootil/File/Changes.h"
 
 
 #include "tier0/memdbgon.h"
@@ -27,18 +28,23 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 }
 
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-static void hook_CAutoRefresh_HandleLuaFileChange(const std::string* fileRelPath, const std::string* fileContent)
-{
+static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
+{	
 	if (!g_Lua) {
 		return;
 	}
 
 	if (Lua::PushHook("HolyLib:OnLuaFileChange"))
-	{
+	{	
 		g_Lua->PushString(fileRelPath->c_str());
 		g_Lua->CallFunctionProtected(2, 0, true);
 	}
 };
+
+static void BootilChangeMonitor()
+{
+
+}
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -59,13 +65,16 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	if (bPreServer)
 		return;
 
-	// HandleLuaFileChange
-	SourceSDK::ModuleLoader server_loader("server");
+	// HandleLuaFileCHange
+	SourceSDK::FactoryLoader server_loader("server");
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
+
+	Bootil::File::ChangeMonitor* monitor = Detour::ResolveSymbol<Bootil::File::ChangeMonitor>(server_loader, Symbols::g_ChangeMonitorSym);
+	Detour::CheckValue("monitor", monitor != NULL);
 
 }
 
