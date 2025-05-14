@@ -477,9 +477,8 @@ jobs:
           - httpserver
           - gameserver
           - soundscape
-          # - luajit # Removed because rn it loves to crash
+          - autorefresh
     with:
       branch: dev
       extra-startup-args: "-usegh -holylib_startdisabled -holylib_enable_${{ matrix.module }} 1"
       download-artifact: "gluatest_32x"
-      no-checkout: "true"
