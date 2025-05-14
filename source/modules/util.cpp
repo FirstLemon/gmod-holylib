@@ -38,8 +38,8 @@ static void OnDecompressThreadsChange(IConVar* convar, const char* pOldValue, fl
 	Util::StartThreadPool(pDecompressPool, ((ConVar*)convar)->GetInt());
 }
 
-static ConVar compressthreads("holylib_util_compressthreads", "1", 0, "The number of threads to use for util.AsyncCompress", OnCompressThreadsChange);
-static ConVar decompressthreads("holylib_util_decompressthreads", "1", 0, "The number of threads to use for util.AsyncDecompress", OnDecompressThreadsChange);
+static ConVar compressthreads("holylib_util_compressthreads", "1", FCVAR_ARCHIVE, "The number of threads to use for util.AsyncCompress", OnCompressThreadsChange);
+static ConVar decompressthreads("holylib_util_decompressthreads", "1", FCVAR_ARCHIVE, "The number of threads to use for util.AsyncDecompress", OnDecompressThreadsChange);
 
 struct CompressEntry
 {
@@ -373,7 +373,7 @@ LUA_FUNCTION_STATIC(util_CompressLZ4)
 {
 	const char* pData = LUA->CheckString(1);
 	int iLength = LUA->ObjLen(1);
-	int accelerationLevel = LUA->CheckNumberOpt(2, 1);
+	int accelerationLevel = (int)LUA->CheckNumberOpt(2, 1);
 
 	void* pDest = NULL;
 	unsigned int pDestLen = 0;

@@ -59,10 +59,21 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 ## Next Update
 \- [+] Any files in `lua/autorun/_holylua/` are loaded by HolyLib on startup.  
 \- [+] Added a new module `luathreads`  
+\- [+] Added `NS_` enums to `gameserver` module.  
+\- [+] Added missing `CNetChan:Shutdown` function to the `gameserver` module.  
+\- [+] Added LZ4 compression for newly implemented net channel.  
+\- [+] Added `util.CompressLZ4` & `util.DecompressLZ4` to `util` module.  
+\- [+] Implemented a custom `CNetChan` for faster Server <-> Server connections. See https://github.com/RaphaelIT7/gmod-holylib/issues/42  
+\- [+] Added `HolyLib.ReceiveClientMessage` to `HolyLib` module.  
+\- [+] Added `physenv.IVP_NONE` flag to `physenv` module.  
 \- [#] Better support for multiple Lua states  
 \- \- This required most of the lua setup to be changed >:(  
 \- [#] Solved a few possible stack issues  
 \- [#] Fixed a crash after a map change. See https://github.com/RaphaelIT7/gmod-holylib/issues/41  
+\- [#] Update internal `netadr` stuct to now properly support `loopback` and `localhost` inputs for IP's.  
+\- [#] Possibly fixed memory issues caused by `IGModAudioChannel`'s being deleted & having undefined behavior.  
+\- [#] Fixed `HolyLib:OnPhysicsLag` possibly being called recursively causing a crash.  
+\- [#] Fixed every function from the `physenv` module not accepting gmod's PhysObj.  
 
 > [!WARNING]
 > The current builds are unstable and need **A LOT** of testing.  
@@ -72,7 +83,10 @@ You can see all changes here:
 https://github.com/RaphaelIT7/gmod-holylib/compare/Release0.7...main
 
 ### Existing Lua API Changes
-None
+\- [+] Added third `protocolVersion` argument to `gameserver.CreateNetChannel`  
+\- [+] Added fourth `socket`(use `NS_` enums) argument to `gameserver.CreateNetChannel` & `gameserver.SendConnectionlessPacket`  
+\- [+] Added second and thrid arguments to `HolyLib:OnPhysicsLag` providing the entities it was working on when it triggered.  
+\- [#] Fixed `addonsystem.ShouldMount` & `addonsystem.SetShouldMount` `workshopID` arguments being a number when they should have been a string.  
 
 ### QoL updates
 \- [#] Changed some console message to be more consistent.  
@@ -253,6 +267,32 @@ Disconnects the given player from the server.
 
 > [!NOTE]
 > Unlike Gmod's version which internally calls the `kickid` command, we directly call the `Disconnect` function with no delay.  
+
+#### HolyLib.ReceiveClientMessage(number userID, Entity ent, bf_read buffer, number bits)
+`bits` - should always be the value of `bf_read:GetNumBits()`  
+`ent` - The entity to use as the sender, should be a player.  
+
+Allows you to fake client messages.  
+Internally its a direct binding to `IServerGameClients::GMOD_ReceiveClientMessage`  
+
+Example of faking a net message:  
+```lua
+net.Receive("Example", function(len, ply)
+    print("Received example message: " .. tostring(ply) .. " (" .. len .. ")")
+    print("Message contained: " .. net.ReadString())
+end)
+
+local bf = bitbuf.CreateWriteBuffer(64)
+bf:WriteUBitLong(0, 8) -- The message type. 0 = Lua net message
+
+bf:WriteUBitLong(util.AddNetworkString("Example"), 16) -- Header for net.ReadHeader
+bf:WriteString("Hello World") -- Message content
+
+local readBF = bitbuf.CreateReadBuffer(bf:GetData()) -- Make it a read buffer.
+local entity = Entity(0) -- We can use the world but normally we shouldn't.
+local userID = entity:IsPlayer() and entity:UserID() or -1
+HolyLib.ReceiveClientMessage(userID, entity, readBF, readBF:GetNumBits())
+```
 
 ### Hooks
 
@@ -1097,6 +1137,14 @@ ignorecycle - If `true` it won't throw a lua error when you have a table that is
 
 Convers the given table to json.  
 Unlike Gmod's version, this function will turn the numbers to an integer if they are one/fit one.  
+
+#### string util.CompressLZ4(string data, number accelerationLevel = 1)
+Compresses the given data using [LZ4](https://github.com/lz4/lz4)  
+Returns `nil` on failure.  
+
+#### string util.DecompressLZ4(string data)
+Decompresses the given data using [LZ4](https://github.com/lz4/lz4)  
+Returns `nil` on failure. 
 
 ## ConVars
 
@@ -2293,7 +2341,7 @@ Supports: Linux32 | Windows32
 ### Functions
 
 #### physenv.SetLagThreshold(number ms)
-The lag threshold(time in ms) which if exceeded will cause it to call the `HolyLib:PhysicsLag` hook.  
+The lag threshold(time in ms) which if exceeded will cause it to call the `HolyLib:OnPhysicsLag` hook.  
 
 > [!NOTE]
 > Only works on Linux32  
@@ -2692,6 +2740,10 @@ Creates the world physics object and also adds all static props.
 ### Enums
 Theses are the IVP_SkipType enums.  
 
+#### physenv.IVP_NONE = -1
+Do nothing and call the `HolyLib:OnPhysicsLag` hook again if it trigger again.  
+This can be useful if you want the `HolyLib:OnPhysicsLag` hook to run multiple times in the same simulation frame.  
+
 #### physenv.IVP_NoSkip = 0
 Let the simulation run normally.  
 
@@ -2706,13 +2758,16 @@ Skip the entire simulation.
 
 ### Hooks
 
-#### IVP_SkipType HolyLib:OnPhysicsLag(number simulationTime)
+#### IVP_SkipType HolyLib:OnPhysicsLag(number simulationTime, Entity ent1, Entity ent2)
 Called when the physics simulaton is taking longer than the set lag threshold.  
+It provides the two entities it was currently working on when the hook was triggered,  
+most likely they will be the oney causing the lag BUT it should NOT be taken for granted!
 
 You can freeze all props here and then return `physenv.IVP_SkipSimulation` to skip the simulation for this tick if someone is trying to crash the server.  
 
 > [!NOTE]
 > Only works on Linux32  
+> By default its called only **ONCE** per simulation frame, you can return `physenv.IVP_NONE` to get it triggered multiple times in the same frame.  
 
 #### bool HolyLib:OnPhysFrame(number deltaTime)  
 Called when the physics are about to be simulated.  
@@ -3272,7 +3327,7 @@ Calculates and returns the CPU Usage.
 Approximates the memory usage of the server in bytes.  
 It isn't really related to the gameserver itself, but since it has CalculateCPUUsage I want to keep them close.
 
-#### number gameserver.SendConnectionlessPacket(bf_write bf, string ip)
+#### number gameserver.SendConnectionlessPacket(bf_write bf, string ip, bool useDNS = false, number socket = NS_SERVER)
 ip - The target ip. Format `ip:port`  
 Sends out a connectionless packet to the target ip.
 Returns the length of the sent data or `-1` on failure.
@@ -3281,7 +3336,24 @@ Returns the length of the sent data or `-1` on failure.
 > It's expected that **YOU** already added the connectionless header, this was done to not have to copy the buffer.  
 > `bf:WriteLong(-1) -- Write this as the first thing. This is the CONNECTIONLESS_HEADER`
 
-#### CNetChan gameserver.CreateNetChannel(string ip, bool useDNS = false)
+Example on how to send a loopback packet:
+```lua
+hook.Add("HolyLib:ProcessConnectionlessPacket", "LoopbackExample", function(bf, ip)
+	if ip != "loopback" then return end
+
+	print("We got our own packet: " .. bf:ReadString())
+	return true
+end)
+
+local bf = bitbuf.CreateWriteBuffer(64)
+bf:WriteLong(-1)
+bf:WriteString("Hello World")
+
+-- We use NS_CLIENT as a socket because then the packet is queued into the Server loopback queue.
+gameserver.SendConnectionlessPacket(bf, "loopback:" .. gameserver.GetUDPPort(), false, gameserver.NS_CLIENT)
+```
+
+#### CNetChan gameserver.CreateNetChannel(string ip, bool useDNS = false, number protocolVersion = 1, number socket = NS_SERVER)
 ip - The target ip. Format `ip:port`  
 Creates a net channel for the given ip.
 Returns the channel or `nil` on failure.  
@@ -3358,6 +3430,15 @@ Removes/Destroys a net channel invalidating it.
 
 #### table[CNetChan] gameserver.GetCreatedNetChannels()
 Returns a table containing all net channels created by gameserver.CreateNetChannel.  
+
+#### gameserver.NS_CLIENT = 0
+Client socket.
+
+#### gameserver.NS_SERVER = 1
+Server socket.
+
+#### gameserver.NS_HLTV = 2
+HLTV socket.
 
 ### CBaseClient
 This class represents a client.
@@ -4187,3 +4268,8 @@ local fileData = client_lua_files:GetStringUserData(client_lua_files:FindStringI
 local fileTable = string.Split(fileData, ":")
 PrintTable(fileTable)
 ```
+
+## Usage with vphysics jolt
+Currently there might be bugs when combining holylib with VPhysics-Jolt.  
+This mainly affects the `physenv` module and most other modules should be completely fine.  
+Only VPhysics-Jolt builds from https://github.com/RaphaelIT7/VPhysics-Jolt will be suppored for now due to holylib requiring extented functionality.  

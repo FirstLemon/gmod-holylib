@@ -193,13 +193,23 @@ bool Util::CM_Vis(byte* cluster, int clusterSize, int clusterID, int type)
 static Symbols::CBaseEntity_CalcAbsolutePosition func_CBaseEntity_CalcAbsolutePosition;
 void CBaseEntity::CalcAbsolutePosition(void)
 {
-	func_CBaseEntity_CalcAbsolutePosition(this);
+	if (func_CBaseEntity_CalcAbsolutePosition)
+	{
+		func_CBaseEntity_CalcAbsolutePosition(this);
+	} else {
+		Warning(PROJECT_NAME " - Tried to use missing CBaseEntity::CalcAbsolutePosition!\n");
+	}
 }
 
 static Symbols::CCollisionProperty_MarkSurroundingBoundsDirty func_CCollisionProperty_MarkSurroundingBoundsDirty;
 void CCollisionProperty::MarkSurroundingBoundsDirty()
 {
-	func_CCollisionProperty_MarkSurroundingBoundsDirty(this);
+	if (func_CCollisionProperty_MarkSurroundingBoundsDirty)
+	{
+		func_CCollisionProperty_MarkSurroundingBoundsDirty(this);
+	} else {
+		Warning(PROJECT_NAME " - Tried to use missing CCollisionProperty::MarkSurroundingBoundsDirty!\n");
+	}
 }
 
 CBaseEntity* Util::GetCBaseEntityFromEdict(edict_t* edict)
@@ -483,10 +493,10 @@ void Util::CheckVersion()
 	// ToDo: Implement this someday
 }
 
-GMODGet_LuaClass(IRecipientFilter, GarrysMod::Lua::Type::RecipientFilter, "RecipientFilter")
-GMODGet_LuaClass(Vector, GarrysMod::Lua::Type::Vector, "Vector")
-GMODGet_LuaClass(QAngle, GarrysMod::Lua::Type::Angle, "Angle")
-GMODGet_LuaClass(ConVar, GarrysMod::Lua::Type::ConVar, "ConVar")
+GMODGet_LuaClass(IRecipientFilter, GarrysMod::Lua::Type::RecipientFilter, "RecipientFilter", )
+GMODGet_LuaClass(Vector, GarrysMod::Lua::Type::Vector, "Vector", )
+GMODGet_LuaClass(QAngle, GarrysMod::Lua::Type::Angle, "Angle", )
+GMODGet_LuaClass(ConVar, GarrysMod::Lua::Type::ConVar, "ConVar", )
 
 GMODPush_LuaClass(QAngle, GarrysMod::Lua::Type::Angle)
 GMODPush_LuaClass(Vector, GarrysMod::Lua::Type::Vector)

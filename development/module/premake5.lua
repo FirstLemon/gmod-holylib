@@ -11,6 +11,7 @@ newoption({
 local gmcommon = assert(_OPTIONS.gmcommon or os.getenv("GARRYSMOD_COMMON"),
 	"you didn't provide a path to your garrysmod_common (https://github.com/danielga/garrysmod_common) directory")
 include(gmcommon)
+include("../../source/ivp/premake5.lua")
 
 --local file = io.open("../../workflow_info.txt", "r")
 local run_id = "1"
@@ -24,9 +25,11 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 	-- Can define "manual_files", which allows you to manually add files to the project,
 	-- instead of automatically including them from the "source_path"
 	-- Can also define "abi_compatible", for project specific compatibility
+
 	CreateProject({serverside = true, manual_files = false, source_path = "../../source"})
 		kind "SharedLib"
 		symbols "On"
+		
 		-- Remove some or all of these includes if they're not needed
 		IncludeHelpersExtended()
 		--IncludeLuaShared()
@@ -42,6 +45,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		IncludeSteamAPI()
 		IncludeDetouring()
 		IncludeScanning()
+		IncludeIVP()
 
 		-- I don't care about the ID.
 		defines("GITHUB_RUN_NUMBER=\"" .. run_number .. "\"")
@@ -51,8 +55,11 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		defines("PROJECT_NAME=\"holylib\"")
 		defines("NO_FRAMESNAPSHOTDEF")
 		defines("NO_VCR")
+		defines("IVP_NO_MATH_INL")
+		defines("IVP_NO_PERFORMANCE_TIMER")
 
 		files({
+			gmcommon .. [[/sourcesdk-minimal/public/filesystem_helpers.cpp]],
 			[[../../source/modules/*.h]],
 			[[../../source/modules/*.cpp]],
 			[[../../source/sourcesdk/*.h]],
@@ -100,6 +107,9 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		filter({"system:linux", "platforms:x86"})
 			libdirs("../../libs/linux32")
 			links("luajit_32")
+
+		filter({"platforms:x86_64"})
+			defines("PLATFORM_64BITS")
 
 		filter("system:linux")
 			targetextension(".so")

@@ -1,5 +1,5 @@
 #include <GarrysMod/Symbol.hpp>
-#include "sourcesdk/ivp_time.h"
+//#include "sourcesdk/ivp_classes.h"
 #include <steam/isteamuser.h>
 #include "tier0/wchartypes.h"
 #include "Platform.hpp"
@@ -53,6 +53,7 @@ class CNetChan;
 struct MD5Value_t;
 struct dataFragments_s;
 class CBaseClient;
+class IVP_Cache_Ledge_Point;
 
 class	CGameTrace;
 typedef	CGameTrace trace_t;
@@ -463,6 +464,7 @@ namespace Symbols
 	//---------------------------------------------------------------------------------
 	// Purpose: physenv Symbols
 	//---------------------------------------------------------------------------------
+#if 0
 	typedef void (*IVP_Mindist_do_impact)(void* mindist);
 	extern const std::vector<Symbol> IVP_Mindist_do_impactSym;
 
@@ -508,12 +510,27 @@ namespace Symbols
 
 	extern const std::vector<Symbol> g_pCurrentMindistSym;
 	extern const std::vector<Symbol> g_fDeferDeleteMindistSym;
+#endif
 
 	typedef bool (*GMod_Util_IsPhysicsObjectValid)(IPhysicsObject* obj);
 	extern const std::vector<Symbol> GMod_Util_IsPhysicsObjectValidSym;
 
 	typedef void (*PhysFrame)(float deltaTime);
 	extern const std::vector<Symbol> PhysFrameSym;
+
+#if 0
+	typedef IVP_MRC_TYPE (*IVP_Mindist_Minimize_Solver_p_minimize_PP)(void* mindistMinimizeSolver, const IVP_Compact_Edge *A, const IVP_Compact_Edge *B, IVP_Cache_Ledge_Point *m_cache_A, IVP_Cache_Ledge_Point *m_cache_B);
+	extern const std::vector<Symbol> IVP_Mindist_Minimize_Solver_p_minimize_PPSym;
+
+	typedef void (*IVP_Mindist_Base_get_objects)(void* mindist, IVP_Real_Object**);
+	extern const std::vector<Symbol> IVP_Mindist_Base_get_objectsSym;
+
+	typedef void (*IVP_OV_Element_add_oo_collision)(void* ovElement, IVP_Collision* connector);
+	extern const std::vector<Symbol> IVP_OV_Element_add_oo_collisionSym;
+
+	typedef void (*IVP_OV_Element_remove_oo_collision)(void* ovElement, IVP_Collision* connector);
+	extern const std::vector<Symbol> IVP_OV_Element_remove_oo_collisionSym;
+#endif
 
 	//---------------------------------------------------------------------------------
 	// Purpose: net Symbols
@@ -605,6 +622,8 @@ namespace Symbols
 
 	typedef int (*NET_ReceiveStream)(int nSock, char * buf, int len, int flags);
 	extern const std::vector<Symbol> NET_ReceiveStreamSym;
+
+	extern const std::vector<Symbol> s_NetChannelsSym;
 
 	//---------------------------------------------------------------------------------
 	// Purpose: cvar Symbols

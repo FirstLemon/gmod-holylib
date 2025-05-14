@@ -11,6 +11,7 @@ newoption({
 local gmcommon = assert(_OPTIONS.gmcommon or os.getenv("GARRYSMOD_COMMON"),
 	"you didn't provide a path to your garrysmod_common (https://github.com/danielga/garrysmod_common) directory")
 include(gmcommon)
+include("source/ivp/premake5.lua")
 
 local file = io.open("workflow_info.txt", "r") -- Added this file to the workflow so it could also be useful for others.
 local run_id = file and file:read("*l") or "1" -- First like = workflow run id
@@ -27,6 +28,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 	CreateProject({serverside = true, manual_files = false})
 		kind "SharedLib"
 		symbols "On"
+
 		-- Remove some or all of these includes if they're not needed
 		IncludeHelpersExtended()
 		--IncludeLuaShared()
@@ -42,6 +44,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		IncludeSteamAPI()
 		IncludeDetouring()
 		IncludeScanning()
+		IncludeIVP()
 
 		-- I don't care about the ID.
 		defines("GITHUB_RUN_NUMBER=\"" .. run_number .. "\"")
@@ -51,8 +54,11 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		defines("PROJECT_NAME=\"holylib\"")
 		defines("NO_FRAMESNAPSHOTDEF")
 		defines("NO_VCR")
+		defines("IVP_NO_MATH_INL")
+		defines("IVP_NO_PERFORMANCE_TIMER")
 
 		files({
+			gmcommon .. [[/sourcesdk-minimal/public/filesystem_helpers.cpp]],
 			[[source/modules/*.h]],
 			[[source/modules/*.cpp]],
 			[[source/sourcesdk/*.h]],
@@ -98,6 +104,9 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		filter({"system:linux", "platforms:x86"})
 			libdirs("libs/linux32")
 			links("luajit_32")
+
+		filter({"platforms:x86_64"})
+			defines("PLATFORM_64BITS")
 
 		filter("system:linux")
 			disablewarnings({"unused-variable"})
