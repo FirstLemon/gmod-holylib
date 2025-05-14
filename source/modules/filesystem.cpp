@@ -32,33 +32,33 @@ public:
 static CFileSystemModule g_pFileSystemModule;
 IModule* pFileSystemModule = &g_pFileSystemModule;
 
-static ConVar holylib_filesystem_easydircheck("holylib_filesystem_easydircheck", "0", 0, 
+static ConVar holylib_filesystem_easydircheck("holylib_filesystem_easydircheck", "0", FCVAR_ARCHIVE, 
 	"Checks if the folder CBaseFileSystem::IsDirectory checks has a . in the name after the last /. if so assume it's a file extension.");
-static ConVar holylib_filesystem_searchcache("holylib_filesystem_searchcache", "1", 0, 
+static ConVar holylib_filesystem_searchcache("holylib_filesystem_searchcache", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will cache the search path a file was located in and if the same file is requested, it will use that search path directly.");
-static ConVar holylib_filesystem_optimizedfixpath("holylib_filesystem_optimizedfixpath", "1", 0, 
+static ConVar holylib_filesystem_optimizedfixpath("holylib_filesystem_optimizedfixpath", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will optimize CBaseFilesystem::FixUpPath by caching the BASE_PATH search cache.");
-static ConVar holylib_filesystem_earlysearchcache("holylib_filesystem_earlysearchcache", "1", 0, 
+static ConVar holylib_filesystem_earlysearchcache("holylib_filesystem_earlysearchcache", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will check early in CBaseFilesystem::OpenForRead if the file is in the search cache.");
-static ConVar holylib_filesystem_forcepath("holylib_filesystem_forcepath", "1", 0, 
+static ConVar holylib_filesystem_forcepath("holylib_filesystem_forcepath", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will change the paths of some specific files");
-static ConVar holylib_filesystem_predictpath("holylib_filesystem_predictpath", "1", 0, 
+static ConVar holylib_filesystem_predictpath("holylib_filesystem_predictpath", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will try to predict the path of a file");
 static ConVar holylib_filesystem_predictexistance("holylib_filesystem_predictexistance", "0", 0, 
 	"If enabled, it will try to predict the path of a file, but if the file doesn't exist in the predicted path, we'll just say it doesn't exist.");
-static ConVar holylib_filesystem_splitgamepath("holylib_filesystem_splitgamepath", "1", 0, 
+static ConVar holylib_filesystem_splitgamepath("holylib_filesystem_splitgamepath", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will create for each content type like models/, materials/ a game path which will be used to find that content.");
 static ConVar holylib_filesystem_splitluapath("holylib_filesystem_splitluapath", "0", 0, 
 	"If enabled, it will do the same thing holylib_filesystem_splitgamepath does but with lsv. Currently it breaks workshop addons.");
-static ConVar holylib_filesystem_splitfallback("holylib_filesystem_splitfallback", "1", 0, 
+static ConVar holylib_filesystem_splitfallback("holylib_filesystem_splitfallback", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will fallback to the original searchpath if the split path failed.");
-static ConVar holylib_filesystem_fixgmodpath("holylib_filesystem_fixgmodpath", "1", 0, 
+static ConVar holylib_filesystem_fixgmodpath("holylib_filesystem_fixgmodpath", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will fix up weird gamemode paths like sandbox/gamemode/sandbox/gamemode which gmod likes to use.");
 static ConVar holylib_filesystem_cachefilehandle("holylib_filesystem_cachefilehandle", "0", 0, 
 	"If enabled, it will cache the file handle and return it if needed. This will probably cause issues if you open the same file multiple times.");
 static ConVar holylib_filesystem_precachehandle("holylib_filesystem_precachehandle", "1", 0,
 	"If enabled, it will try to predict which file it will open next and open the file to keep a handle ready to be opened.");
-static ConVar holylib_filesystem_savesearchcache("holylib_filesystem_savesearchcache", "1", 0,
+static ConVar holylib_filesystem_savesearchcache("holylib_filesystem_savesearchcache", "1", FCVAR_ARCHIVE,
 	"If enabled, it will write the search cache into a file and restore it when starting, using it to improve performance.");
 
 
@@ -166,7 +166,7 @@ FileHandle_t GetFileHandleFromCache(std::string_view strFilePath)
 		Msg("holylib - GetFileHandleFromCache: File wasn't marked for deletion? (%p)\n", it->second); // This could mean that were actively using it.
 	}
 
-	int iPos = g_pFullFileSystem->Tell(it->second);
+	int iPos = (int)g_pFullFileSystem->Tell(it->second);
 	if (iPos != 0)
 	{
 		if (g_pFileSystemModule.InDebug())
@@ -177,7 +177,7 @@ FileHandle_t GetFileHandleFromCache(std::string_view strFilePath)
 		if (g_pFileSystemModule.InDebug())
 			Msg("holylib - GetFileHandleFromCache: Rewind pos: %llu\n", g_pFullFileSystem->Tell(it->second));
 		
-		int iNewPos = g_pFullFileSystem->Tell(it->second);
+		int iNewPos = (int)g_pFullFileSystem->Tell(it->second);
 		if (iNewPos != 0)
 		{
 			if (g_pFileSystemModule.InDebug())
@@ -776,15 +776,15 @@ static const char* GetOverridePath(const char* pFileName, const char* pathID)
 
 	std::string_view strStart = strFileName.substr(0, pos);
 	static const std::unordered_map<std::string_view, std::string_view> pOverridePaths = {
-        {"materials",	"CONTENT_MATERIALS"},
-        {"models",		"CONTENT_MODELS"},
-        {"sound",		"CONTENT_SOUNDS"},
-        {"maps",		"CONTENT_MAPS"},
-        {"resource",	"CONTENT_RESOURCE"},
-        {"scripts",		"CONTENT_SCRIPTS"},
-        {"cfg",			"CONTENT_CONFIGS"},
-        {"gamemodes",	"LUA_GAMEMODES"}
-    };
+		{"materials",	"CONTENT_MATERIALS"},
+		{"models",		"CONTENT_MODELS"},
+		{"sound",		"CONTENT_SOUNDS"},
+		{"maps",		"CONTENT_MAPS"},
+		{"resource",	"CONTENT_RESOURCE"},
+		{"scripts",		"CONTENT_SCRIPTS"},
+		{"cfg",			"CONTENT_CONFIGS"},
+		{"gamemodes",	"LUA_GAMEMODES"}
+	};
 
 	auto it = pOverridePaths.find(strStart);
 	if (it != pOverridePaths.end())
@@ -1870,12 +1870,12 @@ LUA_FUNCTION_STATIC(filesystem_Exists)
 }
 
 std::string extractDirectoryPath(const std::string& filepath) {
-    size_t lastSlashPos = filepath.find_last_of('/');
-    if (lastSlashPos != std::string::npos) {
-        return filepath.substr(0, lastSlashPos + 1);
-    } else {
-        return "";
-    }
+	size_t lastSlashPos = filepath.find_last_of('/');
+	if (lastSlashPos != std::string::npos) {
+		return filepath.substr(0, lastSlashPos + 1);
+	} else {
+		return "";
+	}
 }
 
 std::vector<std::string> SortByDate(std::vector<std::string> files, const char* filepath, const char* path, bool ascending)
@@ -1887,12 +1887,12 @@ std::vector<std::string> SortByDate(std::vector<std::string> files, const char* 
 	}
 
 	std::sort(files.begin(), files.end(), [&dates](const std::string& a, const std::string& b) {
-        return dates[a] < dates[b];
-    });
+		return dates[a] < dates[b];
+	});
 
 	if (!ascending) {
-        std::reverse(files.begin(), files.end());
-    }
+		std::reverse(files.begin(), files.end());
+	}
 
 	return files;
 }
@@ -2005,7 +2005,7 @@ LUA_FUNCTION_STATIC(filesystem_Rename)
 
 LUA_FUNCTION_STATIC(filesystem_Size)
 {
-	LUA->PushNumber(g_pFullFileSystem->Size(LUA->CheckString(1), LUA->CheckStringOpt(2, "GAME")));
+	LUA->PushNumber((double)g_pFullFileSystem->Size(LUA->CheckString(1), LUA->CheckStringOpt(2, "GAME")));
 
 	return 1;
 }
@@ -2131,7 +2131,7 @@ LUA_FUNCTION_STATIC(addonsystem_Refresh)
 
 LUA_FUNCTION_STATIC(addonsystem_MountFile)
 {
-	const char* strGMAPath = LUA->CheckString(1);
+	//const char* strGMAPath = LUA->CheckString(1);
 
 	std::vector<std::string> files;
 	//LUA->PushNumber(GetAddonFilesystem()->MountFile(strGMAPath, &files, 0, 0, !?));
@@ -2149,14 +2149,17 @@ LUA_FUNCTION_STATIC(addonsystem_MountFile)
 
 LUA_FUNCTION_STATIC(addonsystem_ShouldMount)
 {
-	LUA->PushBool(GetAddonFilesystem()->ShouldMount(LUA->CheckNumber(1)));
+	const char* workshopID64 = LUA->CheckString(1);
+	uint64 workshopID = strtoull(workshopID64, NULL, 0);
+	LUA->PushBool(GetAddonFilesystem()->ShouldMount(workshopID));
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC(addonsystem_SetShouldMount)
 {
-	uint64_t workshopID = LUA->CheckNumber(1);
+	const char* workshopID64 = LUA->CheckString(1);
+	uint64 workshopID = strtoull(workshopID64, NULL, 0);
 	bool bMount = LUA->GetBool(2);
 	GetAddonFilesystem()->SetShouldMount(workshopID, bMount);
 

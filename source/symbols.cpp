@@ -686,6 +686,21 @@ namespace Symbols
 		Symbol::FromName("_ZN19CPhysicsEnvironmentC2Ev"),
 	};
 
+	const std::vector<Symbol> IVP_Mindist_Minimize_Solver_p_minimize_PPSym = {
+		Symbol::FromName("_ZN27IVP_Mindist_Minimize_Solver13p_minimize_PPEPK16IVP_Compact_EdgeS2_P21IVP_Cache_Ledge_PointS4_"),
+	};
+
+	const std::vector<Symbol> IVP_Mindist_Base_get_objectsSym = {
+		Symbol::FromName("_ZN16IVP_Mindist_Base11get_objectsEPP15IVP_Real_Object"),
+	};
+
+	const std::vector<Symbol> IVP_OV_Element_add_oo_collisionSym = {
+		Symbol::FromName("_ZN14IVP_OV_Element16add_oo_collisionEP13IVP_Collision"),
+	};
+
+	const std::vector<Symbol> IVP_OV_Element_remove_oo_collisionSym = {
+		Symbol::FromName("_ZN14IVP_OV_Element19remove_oo_collisionEP13IVP_Collision"),
+	};
 
 	//---------------------------------------------------------------------------------
 	// Purpose: net Symbols
@@ -834,6 +849,10 @@ namespace Symbols
 
 	const std::vector<Symbol> NET_ReceiveStreamSym = {
 		Symbol::FromName("_Z17NET_ReceiveStreamiPcii"),
+	};
+
+	const std::vector<Symbol> s_NetChannelsSym = {
+		Symbol::FromName("_ZL13s_NetChannels"),
 	};
 
 	//---------------------------------------------------------------------------------

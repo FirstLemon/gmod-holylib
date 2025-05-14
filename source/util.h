@@ -214,8 +214,8 @@ namespace Util
 	}
 
 	// Gmod's functions:
-	extern CBasePlayer* Get_Player(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool unknown);
-	extern CBaseEntity* Get_Entity(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool unknown);
+	extern CBasePlayer* Get_Player(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError);
+	extern CBaseEntity* Get_Entity(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError);
 	extern void Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt);
 	extern CBaseEntity* GetCBaseEntityFromEdict(edict_t* edict);
 
@@ -290,7 +290,7 @@ namespace Util
  * PushReferenced_LuaClass - Use this macro if you want to manually delete the userdata, it will hold a reference of itself stopping the GC.
  *
  * NOTE: If you use PushReferenced_LuaClass you should ALWAYS call DeleteAll_[YourClass] for your userdata
- *       as else it COULD persist across lua states which is VERY BAD as the references will ALL be INVALID.
+ *	   as else it COULD persist across lua states which is VERY BAD as the references will ALL be INVALID.
  */
 
 // This WILL slow down userData creation & deletion so we disable this in release builds.
@@ -594,7 +594,7 @@ private:
 	int iTableReference = -1;
 	int pAdditionalData = NULL; // Used by HLTVClient.
 	GarrysMod::Lua::ILuaInterface* pLua = NULL;
-	unsigned char iType = GarrysMod::Lua::Type::None;
+	unsigned char iType = GarrysMod::Lua::Type::Nil;
 };
 
 inline void BaseUserData::ForceGlobalRelease(void* pData)
@@ -658,7 +658,7 @@ void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 	LUA->PushUserType(var, luaType); \
 }
 
-#define GMODGet_LuaClass( className, luaType, strName ) \
+#define GMODGet_LuaClass( className, luaType, strName, additional ) \
 static std::string invalidType_##className = MakeString("Tried to use something that wasn't a ", strName, "!"); \
 static std::string triedNull_##className = MakeString("Tried to use a NULL ", strName, "!"); \
 className* Get_##className(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
@@ -674,6 +674,8 @@ className* Get_##className(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bo
 	className* pVar = LUA->GetUserType<className>(iStackPos, luaType); \
 	if (!pVar && bError) \
 		LUA->ThrowError(triedNull_##className.c_str()); \
+\
+	additional \
 \
 	return pVar; \
 }
@@ -748,6 +750,7 @@ LuaUserData* Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var
  * the GC WONT free the LuaClass meaning this "could" (and did in the past) cause a memory/reference leak
  * The data thats passed won't be freed by lua.
  */
+#pragma warning(disable:4505) // Why would we need a warning if a function got removed because its unused.
 #define PushReferenced_LuaClass( className ) \
 void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 { \
@@ -773,7 +776,7 @@ void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 	} \
 } \
 \
-static void Delete_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
+[[maybe_unused]] static void Delete_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 { \
 	auto pushedUserData = Lua::GetLuaData(LUA)->GetPushedUserData(); \
 	auto it = pushedUserData.find(var); \
@@ -784,7 +787,7 @@ static void Delete_##className(GarrysMod::Lua::ILuaInterface* LUA, className* va
 	} \
 } \
 \
-static void DeleteAll_##className(GarrysMod::Lua::ILuaInterface* LUA) \
+[[maybe_unused]] static void DeleteAll_##className(GarrysMod::Lua::ILuaInterface* LUA) \
 { \
 	Lua::StateData* LUADATA = Lua::GetLuaData(LUA); \
 	int luaType = LUADATA->GetMetaTable(TO_LUA_TYPE(className)); \
@@ -802,16 +805,16 @@ static void DeleteAll_##className(GarrysMod::Lua::ILuaInterface* LUA) \
 	pushedUserData.clear(); \
 } \
 \
-static void DeleteGlobal_##className(className* var) \
+[[maybe_unused]] static void DeleteGlobal_##className(className* var) \
 { \
 	BaseUserData::ForceGlobalRelease(var); \
 }
 
 #define Vector_RemoveElement(vec, element) \
 { \
-    auto _it = std::find((vec).begin(), (vec).end(), (element)); \
-    if (_it != (vec).end()) \
-        (vec).erase(_it); \
+	auto _it = std::find((vec).begin(), (vec).end(), (element)); \
+	if (_it != (vec).end()) \
+		(vec).erase(_it); \
 }
 
 // A default index function for userData,

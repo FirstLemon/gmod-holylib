@@ -33,7 +33,7 @@ static void OnVoiceThreadsChange(IConVar* convar, const char* pOldValue, float f
 	Util::StartThreadPool(pVoiceThreadPool, ((ConVar*)convar)->GetInt());
 }
 
-static ConVar voicechat_threads("holylib_voicechat_threads", "1", 0, "The number of threads to use for voicechat.LoadVoiceStream and voicechat.SaveVoiceStream if you specify async", OnVoiceThreadsChange);
+static ConVar voicechat_threads("holylib_voicechat_threads", "1", FCVAR_ARCHIVE, "The number of threads to use for voicechat.LoadVoiceStream and voicechat.SaveVoiceStream if you specify async", OnVoiceThreadsChange);
 
 static CVoiceChatModule g_pVoiceChatModule;
 IModule* pVoiceChatModule = &g_pVoiceChatModule;
@@ -143,9 +143,15 @@ LUA_FUNCTION_STATIC(VoiceData_GetUncompressedData)
 	VoiceData* pData = Get_VoiceData(LUA, 1, true);
 	int iSize = (int)LUA->CheckNumberOpt(2, 20000); // How many bytes to allocate for the decompressed version. 20000 is default
 
-	ISteamUser* pSteamUser =  Util::GetSteamUser();
+	ISteamUser* pSteamUser = Util::GetSteamUser();
 	if (!pSteamUser)
 		LUA->ThrowError("Failed to get SteamUser!\n");
+
+	if (!pData->pData || pData->iLength == 0)
+	{
+		LUA->PushString("");
+		return 1;
+	}
 
 	uint32 pDecompressedLength;
 	char* pDecompressed = new char[iSize];
@@ -400,7 +406,7 @@ LUA_FUNCTION_STATIC(VoiceStream_SetData)
 			continue;
 		}
 
-		int tick = LUA->GetNumber(-2); // key
+		int tick = (int)LUA->GetNumber(-2); // key
 		VoiceData* data = Get_VoiceData(LUA, -1, false); // value
 
 		if (data)

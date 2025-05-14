@@ -14,7 +14,7 @@
 #include "netmessages.h"
 #include "tier0/vprof.h"
 #include "filesystem_init.h"
-#include "net_chan.h"
+#include "custom_net_chan.h"
 #include <lz4/lz4_compression.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -65,9 +65,9 @@ bool COM_IsValidPath( const char *pszFilename )
 		return false;
 	}
 
-	if ( Q_isempty( pszFilename )    ||
+	if ( Q_isempty( pszFilename )	||
 		Q_strstr( pszFilename, "\\\\" ) ||	// to protect network paths
-		Q_strstr( pszFilename, ":" )    || // to protect absolute paths
+		Q_strstr( pszFilename, ":" )	|| // to protect absolute paths
 		Q_strstr( pszFilename, ".." ) ||   // to protect relative paths
 		Q_strstr( pszFilename, "\n" ) ||   // CFileSystem_Stdio::FS_fopen doesn't allow this
 		Q_strstr( pszFilename, "\r" ) ||   // CFileSystem_Stdio::FS_fopen doesn't allow this
@@ -248,7 +248,7 @@ void CNetChan::CompressFragments()
 			if ( hZipFile != FILESYSTEM_INVALID_HANDLE )
 			{
 				// use the existing compressed file
-				compressedFileSize = g_pFullFileSystem->Size( hZipFile );
+				compressedFileSize = (int)g_pFullFileSystem->Size( hZipFile );
 			}
 			else
 			{
@@ -543,7 +543,7 @@ void CNetChan::Setup(int sock, netadr_t *adr, const char * name, INetChannelHand
 		remote_address.SetType( NA_NULL );
 	}
 	
-	last_received		= net_time;
+	last_received		= (float)net_time;
 	connect_time		= net_time;
 	
 	Q_strncpy( m_Name, name, sizeof(m_Name) ); 
@@ -758,7 +758,7 @@ void CNetChan::SetCompressionMode( bool bUseCompression )
 
 void CNetChan::SetDataRate(float rate)
 {
-	m_Rate = clamp( rate, (float) MIN_RATE, (float) MAX_RATE );
+	m_Rate = (int)clamp( rate, (float) MIN_RATE, (float) MAX_RATE );
 }
 
 const char * CNetChan::GetName() const
@@ -839,7 +839,7 @@ void CNetChan::FlowNewPacket(int flow, int seqnr, int acknr, int nChoked, int nD
 
 			pframe = &pflow->frames[ i & NET_FRAMES_MASK ];
 
-			pframe->time = net_time;	// now
+			pframe->time = (float)net_time;	// now
 			pframe->valid = false;
 			pframe->size = 0;
 			pframe->latency = -1.0f; // not acknowledged yet
@@ -893,7 +893,7 @@ void CNetChan::FlowNewPacket(int flow, int seqnr, int acknr, int nChoked, int nD
 	{
 		// update ping for acknowledged packet, if not already acknowledged before
 		
-		aframe->latency = net_time - aframe->time;
+		aframe->latency = (float)(net_time - aframe->time);
 
 		if ( aframe->latency < 0.0f )
 			aframe->latency = 0.0f;
@@ -909,7 +909,7 @@ void CNetChan::FlowUpdate(int flow, int addbytes)
 	if ( pflow->nextcompute > net_time )
 		return;
 
-	pflow->nextcompute = net_time + FLOW_INTERVAL;
+	pflow->nextcompute = (float)(net_time + FLOW_INTERVAL);
 
 	int		totalvalid = 0;
 	int		totalinvalid = 0;
@@ -921,8 +921,7 @@ void CNetChan::FlowUpdate(int flow, int addbytes)
 	float   starttime = FLT_MAX;
 	float	endtime = 0.0f;
 
-	netframe_t *pprev = &pflow->frames[ NET_FRAMES_BACKUP-1 ];
-
+	//netframe_t *pprev = &pflow->frames[ NET_FRAMES_BACKUP-1 ];
 	for ( int i = 0; i < NET_FRAMES_BACKUP; i++ )
 	{
 		// Most recent message then backward from there
@@ -951,7 +950,7 @@ void CNetChan::FlowUpdate(int flow, int addbytes)
 			totalinvalid++;
 		}
 		
-		pprev = pcurr;
+		//pprev = pcurr;
 	}
 
 	float totaltime = endtime - starttime;
@@ -1143,7 +1142,7 @@ bool CNetChan::CreateFragmentsFromFile( const char *filename, int stream, unsign
 		return false;
 	}
 
-	int totalBytes = g_pFullFileSystem->Size( filename, pPathID );
+	int totalBytes = (int)g_pFullFileSystem->Size( filename, pPathID );
 
 	if ( totalBytes >= (net_maxfilesize.GetInt()*1024*1024) )
 	{
@@ -1933,9 +1932,9 @@ bool CNetChan::ProcessMessages( bf_read &buf  )
 		showmsgname = "1";	// show messages for this packet only
 	}
 
-	bf_read democopy = buf; // create a copy of reading buffer state for demo recording
+	//bf_read democopy = buf; // create a copy of reading buffer state for demo recording
 	
-	int startbit = buf.GetNumBitsRead();
+	//int startbit = buf.GetNumBitsRead();
 
 	while ( true )
 	{
@@ -1951,7 +1950,7 @@ bool CNetChan::ProcessMessages( bf_read &buf  )
 			break;
 		}
 
-		unsigned char cmd = buf.ReadUBitLong( NETMSG_TYPE_BITS );
+		unsigned char cmd = (unsigned char)buf.ReadUBitLong( NETMSG_TYPE_BITS );
 
 		if ( cmd <= net_File )
 		{
@@ -2503,7 +2502,7 @@ void CNetChan::ProcessPacket( netpacket_t * packet, bool bHasHeader )
 			, packet->wiresize );
 	}
 	
-	last_received = net_time;
+	last_received = (float)net_time;
 
 // tell message handler that a new packet has arrived
 	m_MessageHandler->PacketStart( m_nInSequenceNr, m_nOutSequenceNrAck );
@@ -2873,8 +2872,8 @@ bool CNetChan::HasPendingReliableData( void )
 
 float CNetChan::GetTimeConnected() const
 {
-	float t = net_time - connect_time;
-	return (t>0.0f) ? t : 0.0f ;
+	double t = net_time - connect_time;
+	return (float)((t>0.0) ? t : 0.0);
 }
 
 const netadr_t & CNetChan::GetRemoteAddress() const
@@ -2910,8 +2909,8 @@ float CNetChan::GetTimeoutSeconds() const
 
 float CNetChan::GetTimeSinceLastReceived() const
 {
-	float t = net_time - last_received;
-	return (t>0.0f) ? t : 0.0f ;
+	double t = net_time - last_received;
+	return (float)((t>0.0) ? t : 0.0);
 }
 
 bool CNetChan::IsOverflowed() const
@@ -3038,7 +3037,7 @@ float CNetChan::GetAvgLoss( int flow ) const
 
 float CNetChan::GetTime( void ) const
 {
-	return net_time;
+	return (float)net_time;
 }
 
 bool CNetChan::GetStreamProgress( int flow, int *received, int *total ) const
@@ -3104,7 +3103,7 @@ void CNetChan::UpdateMessageStats( int msggroup, int bits)
 	m_MsgStats[msggroup] += bits;
 
 	if ( pframe )
-		pframe->msggroups[msggroup] +=bits;
+		pframe->msggroups[msggroup] += (unsigned short)bits;
 		
 }
 
@@ -3209,36 +3208,36 @@ bool CNetChan::IsValidFileForTransfer( const char *pszFilename )
 		return false;
 
 	if ( V_stristr( szTemp, "lua/" ) ||
-	     V_stristr( szTemp, "gamemodes/" ) ||
-	     V_stristr( szTemp, "addons/" ) ||
-	     V_stristr( szTemp, "~/" ) ||
-	     // V_stristr( szTemp, "//" ) || 		// Don't allow '//'. TODO: Is this check ok?
-	     V_stristr( szTemp, "./././" ) ||	// Don't allow folks to make crazy long paths with ././././ stuff.
-	     V_stristr( szTemp, "   " ) ||		// Don't allow multiple spaces or tab (was being used for an exploit).
-	     V_stristr( szTemp, "\t" ) )
+		 V_stristr( szTemp, "gamemodes/" ) ||
+		 V_stristr( szTemp, "addons/" ) ||
+		 V_stristr( szTemp, "~/" ) ||
+		 // V_stristr( szTemp, "//" ) || 		// Don't allow '//'. TODO: Is this check ok?
+		 V_stristr( szTemp, "./././" ) ||	// Don't allow folks to make crazy long paths with ././././ stuff.
+		 V_stristr( szTemp, "   " ) ||		// Don't allow multiple spaces or tab (was being used for an exploit).
+		 V_stristr( szTemp, "\t" ) )
 	{
 		return false;
 	}
 
 	// If .exe or .EXE or these other strings exist _anywhere_ in the filename, reject it.
 	if ( V_stristr( szTemp, ".cfg" ) ||
-	     V_stristr( szTemp, ".lst" ) ||
-	     V_stristr( szTemp, ".exe" ) ||
-	     V_stristr( szTemp, ".vbs" ) ||
-	     V_stristr( szTemp, ".com" ) ||
-	     V_stristr( szTemp, ".bat" ) ||
-	     V_stristr( szTemp, ".cmd" ) ||
-	     V_stristr( szTemp, ".dll" ) ||
-	     V_stristr( szTemp, ".so" ) ||
-	     V_stristr( szTemp, ".dylib" ) ||
-	     V_stristr( szTemp, ".ini" ) ||
-	     V_stristr( szTemp, ".log" ) ||
-	     V_stristr( szTemp, ".lua" ) ||
-	     V_stristr( szTemp, ".vdf" ) ||
-	     V_stristr( szTemp, ".smx" ) ||
-	     V_stristr( szTemp, ".gcf" ) ||
-	     V_stristr( szTemp, ".lmp" ) ||
-	     V_stristr( szTemp, ".sys" ) )
+		 V_stristr( szTemp, ".lst" ) ||
+		 V_stristr( szTemp, ".exe" ) ||
+		 V_stristr( szTemp, ".vbs" ) ||
+		 V_stristr( szTemp, ".com" ) ||
+		 V_stristr( szTemp, ".bat" ) ||
+		 V_stristr( szTemp, ".cmd" ) ||
+		 V_stristr( szTemp, ".dll" ) ||
+		 V_stristr( szTemp, ".so" ) ||
+		 V_stristr( szTemp, ".dylib" ) ||
+		 V_stristr( szTemp, ".ini" ) ||
+		 V_stristr( szTemp, ".log" ) ||
+		 V_stristr( szTemp, ".lua" ) ||
+		 V_stristr( szTemp, ".vdf" ) ||
+		 V_stristr( szTemp, ".smx" ) ||
+		 V_stristr( szTemp, ".gcf" ) ||
+		 V_stristr( szTemp, ".lmp" ) ||
+		 V_stristr( szTemp, ".sys" ) )
 	{
 		return false;
 	}
@@ -3255,12 +3254,12 @@ bool CNetChan::IsValidFileForTransfer( const char *pszFilename )
 	// If the extension is not exactly 3 or 4 characters, bail.
 	intp extension_len = V_strlen( extension );
 	if ( ( extension_len != 3 ) &&
-	     ( extension_len != 4 ) &&
-	     V_stricmp( extension, ".bsp.bz2" ) &&
-	     V_stricmp( extension, ".xbox.vtx" ) &&
-	     V_stricmp( extension, ".dx80.vtx" ) &&
-	     V_stricmp( extension, ".dx90.vtx" ) &&
-	     V_stricmp( extension, ".sw.vtx" ) )
+		 ( extension_len != 4 ) &&
+		 V_stricmp( extension, ".bsp.bz2" ) &&
+		 V_stricmp( extension, ".xbox.vtx" ) &&
+		 V_stricmp( extension, ".dx80.vtx" ) &&
+		 V_stricmp( extension, ".dx90.vtx" ) &&
+		 V_stricmp( extension, ".sw.vtx" ) )
 	{
 		return false;
 	}

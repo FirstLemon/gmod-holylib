@@ -28,19 +28,19 @@ public:
 	// Update: Fk my old self, Linux64 is just broken and it crashed because I had the wrong symbols.
 };
 
-static ConVar holylib_vprof_exportreport("holylib_vprof_exportreport", "1", 0, "If enabled, vprof results will be dumped into a file in the vprof/ folder");
+static ConVar holylib_vprof_exportreport("holylib_vprof_exportreport", "1", FCVAR_ARCHIVE, "If enabled, vprof results will be dumped into a file in the vprof/ folder");
 //static ConVar holylib_vprof_profilecfunc("holylib_vprof_profilecfunc", "0", 0, "If enabled, Lua->C calls will also be profiled.");
 
 static CVProfModule g_pVProfModule;
 IModule* pVProfModule = &g_pVProfModule;
 static std::string GetCurrentTime() { // Yoink from vprof module
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+	auto now = std::chrono::system_clock::now();
+	std::time_t now_time = std::chrono::system_clock::to_time_t(now);
 
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&now_time), "%Y-%m-%d %H-%M-%S");
+	std::stringstream ss;
+	ss << std::put_time(std::localtime(&now_time), "%Y-%m-%d %H-%M-%S");
 
-    return ss.str();
+	return ss.str();
 }
 
 static std::stringstream ss;
@@ -729,7 +729,7 @@ void CVProfModule::InitDetour(bool bPreServer)
 	DeclareCurrentThreadIsMainThread(); // Update g_ThreadMainThreadID to fix ThreadInMainThread breaking
 
 	unsigned m_TargetThreadId = ThreadGetCurrentId();
-    unsigned long int pthread_Id = ThreadGetCurrentId();
+	unsigned long int pthread_Id = ThreadGetCurrentId();
 	if (m_TargetThreadId != pthread_Id)
 		Warning("[holylib - vprof] Failed to fix ThreadGetCurrentId! (vprof most likely won't work)\n");
 #endif
@@ -749,11 +749,11 @@ void CVProfModule::InitDetour(bool bPreServer)
 
 struct VProfCounter
 {
-	const char* strName;
+	const char* strName = NULL;
 #if ARCHITECTURE_IS_X86_64
-	int* iValue;
+	int* iValue = NULL;
 #else
-	int64* iValue;
+	int64* iValue = NULL;
 #endif
 };
 
@@ -1136,7 +1136,9 @@ LUA_FUNCTION_STATIC(vprof_FindOrCreateCounter)
 
 	VProfCounter* counter = new VProfCounter;
 	counter->strName = pName;
+#ifndef WIN32
 	counter->iValue = g_VProfCurrentProfile.FindOrCreateCounter(pName, group);
+#endif
 
 	Push_VProfCounter(LUA, counter);
 	return 1;
@@ -1154,9 +1156,13 @@ LUA_FUNCTION_STATIC(vprof_GetCounter)
 		return 1; // Not a valid counter. LIAR
 	}
 	
+#ifndef WIN32
 	counter->iValue = g_VProfCurrentProfile.FindOrCreateCounter(counter->strName);
 
 	Push_VProfCounter(LUA, counter);
+#else
+	LUA->PushNil();
+#endif
 	return 1;
 }
 

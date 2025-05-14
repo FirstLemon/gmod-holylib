@@ -9,11 +9,10 @@
 #include "sourcesdk/baseserver.h"
 #include "sourcesdk/net_chan.h"
 #include <framesnapshot.h>
+#include <netadr_new.h> // Better than the normal sdk one as this one actually sets stuff properly.
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-double		net_time;
 
 class CGameServerModule : public IModule
 {
@@ -33,6 +32,7 @@ static ConVar sv_filter_nobanresponse("sv_filter_nobanresponse", "0", 0, "If ena
 CGameServerModule g_pGameServerModule;
 IModule* pGameServerModule = &g_pGameServerModule;
 
+double net_time;
 class SVC_CustomMessage : public CNetMessage
 {
 public:
@@ -244,7 +244,7 @@ LUA_FUNCTION_STATIC(CBaseClient_Disconnect)
 LUA_FUNCTION_STATIC(CBaseClient_SetRate)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int nRate = LUA->CheckNumber(2);
+	int nRate = (int)LUA->CheckNumber(2);
 	bool bForce = LUA->GetBool(3);
 
 	pClient->SetRate(nRate, bForce);
@@ -262,7 +262,7 @@ LUA_FUNCTION_STATIC(CBaseClient_GetRate)
 LUA_FUNCTION_STATIC(CBaseClient_SetUpdateRate)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int nUpdateRate = LUA->CheckNumber(2);
+	int nUpdateRate = (int)LUA->CheckNumber(2);
 	bool bForce = LUA->GetBool(3);
 
 	pClient->SetUpdateRate(nUpdateRate, bForce);
@@ -313,7 +313,7 @@ LUA_FUNCTION_STATIC(CBaseClient_ExecuteStringCommand)
 LUA_FUNCTION_STATIC(CBaseClient_SendNetMsg)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int iType = LUA->CheckNumber(2);
+	int iType = (int)LUA->CheckNumber(2);
 	const char* strName = LUA->CheckString(3);
 	bf_write* bf = Get_bf_write(LUA, 4, true);
 
@@ -381,7 +381,7 @@ LUA_FUNCTION_STATIC(CBaseClient_IsHLTV)
 LUA_FUNCTION_STATIC(CBaseClient_IsHearingClient)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int nPlayerSlot = LUA->CheckNumber(2);
+	int nPlayerSlot = (int)LUA->CheckNumber(2);
 
 	LUA->PushBool(pClient->IsHearingClient(nPlayerSlot));
 	return 1;
@@ -390,7 +390,7 @@ LUA_FUNCTION_STATIC(CBaseClient_IsHearingClient)
 LUA_FUNCTION_STATIC(CBaseClient_IsProximityHearingClient)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int nPlayerSlot = LUA->CheckNumber(2);
+	int nPlayerSlot = (int)LUA->CheckNumber(2);
 
 	LUA->PushBool(pClient->IsProximityHearingClient(nPlayerSlot));
 	return 1;
@@ -399,7 +399,7 @@ LUA_FUNCTION_STATIC(CBaseClient_IsProximityHearingClient)
 LUA_FUNCTION_STATIC(CBaseClient_SetMaxRoutablePayloadSize)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int nMaxRoutablePayloadSize = LUA->CheckNumber(2);
+	int nMaxRoutablePayloadSize = (int)LUA->CheckNumber(2);
 
 	pClient->SetMaxRoutablePayloadSize(nMaxRoutablePayloadSize);
 	return 0;
@@ -408,7 +408,7 @@ LUA_FUNCTION_STATIC(CBaseClient_SetMaxRoutablePayloadSize)
 LUA_FUNCTION_STATIC(CBaseClient_UpdateAcknowledgedFramecount)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int nTick = LUA->CheckNumber(2);
+	int nTick = (int)LUA->CheckNumber(2);
 
 	LUA->PushBool(pClient->UpdateAcknowledgedFramecount(nTick));
 	return 1;
@@ -443,8 +443,8 @@ LUA_FUNCTION_STATIC(CBaseClient_UpdateUserSettings)
 LUA_FUNCTION_STATIC(CBaseClient_SetSignonState) // At some point will replace HolyLib.SetSignOnState
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int iSignOnState = LUA->CheckNumber(2);
-	int iSpawnCount = LUA->GetNumber(3);
+	int iSignOnState = (int)LUA->CheckNumber(2);
+	int iSpawnCount = (int)LUA->GetNumber(3);
 	bool bRawSet = LUA->GetBool(4);
 
 	if (!pClient)
@@ -788,7 +788,7 @@ LUA_FUNCTION_STATIC(CBaseClient_GetTimeout)
 LUA_FUNCTION_STATIC(CBaseClient_SetTimeout)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
-	int seconds = LUA->CheckNumber(2);
+	float seconds = (float)LUA->CheckNumber(2);
 	CNetChan* pNetChannel = (CNetChan*)pClient->GetNetChannel();
 	if (!pNetChannel)
 		LUA->ThrowError("Failed to get a valid net channel");
@@ -844,7 +844,7 @@ LUA_FUNCTION_STATIC(CBaseClient_SetMaxBufferSize)
 {
 	CBaseClient* pClient = Get_CBaseClient(LUA, 1, true);
 	bool bReliable = LUA->GetBool(2);
-	int nBytes = LUA->CheckNumber(3);
+	int nBytes = (int)LUA->CheckNumber(3);
 	bool bVoice = LUA->GetBool(4);
 	CNetChan* pNetChannel = (CNetChan*)pClient->GetNetChannel();
 	if (!pNetChannel)
@@ -1018,7 +1018,7 @@ LUA_FUNCTION_STATIC(CNetChan_IsValid)
 LUA_FUNCTION_STATIC(CNetChan_GetAvgLoss)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int flow = LUA->CheckNumber(2);
+	int flow = (int)LUA->CheckNumber(2);
 
 	LUA->PushNumber(pNetChannel->GetAvgLoss(flow));
 	return 1;
@@ -1027,7 +1027,7 @@ LUA_FUNCTION_STATIC(CNetChan_GetAvgLoss)
 LUA_FUNCTION_STATIC(CNetChan_GetAvgChoke)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int flow = LUA->CheckNumber(2);
+	int flow = (int)LUA->CheckNumber(2);
 
 	LUA->PushNumber(pNetChannel->GetAvgChoke(flow));
 	return 1;
@@ -1036,7 +1036,7 @@ LUA_FUNCTION_STATIC(CNetChan_GetAvgChoke)
 LUA_FUNCTION_STATIC(CNetChan_GetAvgData)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int flow = LUA->CheckNumber(2);
+	int flow = (int)LUA->CheckNumber(2);
 
 	LUA->PushNumber(pNetChannel->GetAvgData(flow));
 	return 1;
@@ -1045,7 +1045,7 @@ LUA_FUNCTION_STATIC(CNetChan_GetAvgData)
 LUA_FUNCTION_STATIC(CNetChan_GetAvgLatency)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int flow = LUA->CheckNumber(2);
+	int flow = (int)LUA->CheckNumber(2);
 
 	LUA->PushNumber(pNetChannel->GetAvgLatency(flow));
 	return 1;
@@ -1054,7 +1054,7 @@ LUA_FUNCTION_STATIC(CNetChan_GetAvgLatency)
 LUA_FUNCTION_STATIC(CNetChan_GetAvgPackets)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int flow = LUA->CheckNumber(2);
+	int flow = (int)LUA->CheckNumber(2);
 
 	LUA->PushNumber(pNetChannel->GetAvgPackets(flow));
 	return 1;
@@ -1121,7 +1121,7 @@ LUA_FUNCTION_STATIC(CNetChan_SetCompressionMode)
 LUA_FUNCTION_STATIC(CNetChan_SetDataRate)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int rate = LUA->CheckNumber(2);
+	float rate = (float)LUA->CheckNumber(2);
 
 	pNetChannel->SetDataRate(rate);
 	return 0;
@@ -1162,7 +1162,7 @@ LUA_FUNCTION_STATIC(CNetChan_GetTimeSinceLastReceived)
 LUA_FUNCTION_STATIC(CNetChan_GetTotalData)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int flow = LUA->CheckNumber(2);
+	int flow = (int)LUA->CheckNumber(2);
 
 	LUA->PushNumber(pNetChannel->GetTotalData(flow));
 	return 1;
@@ -1331,7 +1331,7 @@ LUA_FUNCTION_STATIC(CNetChan_GetTimeout)
 LUA_FUNCTION_STATIC(CNetChan_SetTimeout)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
-	int seconds = LUA->CheckNumber(2);
+	float seconds = (float)LUA->CheckNumber(2);
 
 	pNetChannel->SetTimeout(seconds);
 	return 0;
@@ -1376,7 +1376,7 @@ LUA_FUNCTION_STATIC(CNetChan_SetMaxBufferSize)
 {
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
 	bool bReliable = LUA->GetBool(2);
-	int nBytes = LUA->CheckNumber(3);
+	int nBytes = (int)LUA->CheckNumber(3);
 	bool bVoice = LUA->GetBool(4);
 
 	pNetChannel->SetMaxBufferSize(bReliable, nBytes, bVoice);
@@ -1409,7 +1409,8 @@ void hook_CNetChan_D2(CNetChan* pNetChan)
 		return;
 	}
 
-	Delete_CNetChan(g_Lua, pNetChan);
+	if (g_Lua)
+		Delete_CNetChan(g_Lua, pNetChan);
 
 	detour_CNetChan_D2.GetTrampoline<Symbols::CNetChan_D2>()(pNetChan);
 }
@@ -1435,12 +1436,12 @@ public:
 	virtual bool ProcessLuaNetChanMessage( [[maybe_unused]] NET_LuaNetChanMessage *msg );
 
 public:
-	CNetChan* chan = NULL;
-	NET_LuaNetChanMessage* luaNetChanMessage = NULL;
-	int messageCallbackFunction = -1;
-	int connectionStartFunction = -1;
-	int connectionClosingFunction = -1;
-	int connectionCrashedFunction = -1;
+	CNetChan* m_pChan = NULL;
+	NET_LuaNetChanMessage* m_pLuaNetChanMessage = NULL;
+	int m_iMessageCallbackFunction = -1;
+	int m_iConnectionStartFunction = -1;
+	int m_iConnectionClosingFunction = -1;
+	int m_iConnectionCrashedFunction = -1;
 	GarrysMod::Lua::ILuaInterface* m_pLua;
 };
 
@@ -1487,18 +1488,18 @@ public:
 static std::unordered_set<ILuaNetMessageHandler*> g_pNetMessageHandlers;
 ILuaNetMessageHandler::ILuaNetMessageHandler(GarrysMod::Lua::ILuaInterface* pLua)
 {
-	luaNetChanMessage = new NET_LuaNetChanMessage;
-	luaNetChanMessage->m_pMessageHandler = this;
+	m_pLuaNetChanMessage = new NET_LuaNetChanMessage;
+	m_pLuaNetChanMessage->m_pMessageHandler = this;
 	g_pNetMessageHandlers.insert(this);
 	m_pLua = pLua;
 }
 
 ILuaNetMessageHandler::~ILuaNetMessageHandler()
 {
-	if (luaNetChanMessage)
+	if (m_pLuaNetChanMessage)
 	{
-		delete luaNetChanMessage;
-		luaNetChanMessage = NULL;
+		delete m_pLuaNetChanMessage;
+		m_pLuaNetChanMessage = NULL;
 	}
 
 	g_pNetMessageHandlers.erase(this);
@@ -1509,32 +1510,32 @@ ILuaNetMessageHandler::~ILuaNetMessageHandler()
 		return;
 	}
 
-	if (messageCallbackFunction != -1)
+	if (m_iMessageCallbackFunction != -1)
 	{
-		Util::ReferenceFree(m_pLua, messageCallbackFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
-		messageCallbackFunction = -1;
+		Util::ReferenceFree(m_pLua, m_iMessageCallbackFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
+		m_iMessageCallbackFunction = -1;
 	}
 
-	if (connectionStartFunction != -1)
+	if (m_iConnectionStartFunction != -1)
 	{
-		Util::ReferenceFree(m_pLua, connectionStartFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
-		connectionStartFunction = -1;
+		Util::ReferenceFree(m_pLua, m_iConnectionStartFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
+		m_iConnectionStartFunction = -1;
 	}
 
-	if (connectionClosingFunction != -1)
+	if (m_iConnectionClosingFunction != -1)
 	{
-		Util::ReferenceFree(m_pLua, connectionClosingFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
-		connectionClosingFunction = -1;
+		Util::ReferenceFree(m_pLua, m_iConnectionClosingFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
+		m_iConnectionClosingFunction = -1;
 	}
 
-	if (connectionCrashedFunction != -1)
+	if (m_iConnectionCrashedFunction != -1)
 	{
-		Util::ReferenceFree(m_pLua, connectionCrashedFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
-		connectionCrashedFunction = -1;
+		Util::ReferenceFree(m_pLua, m_iConnectionCrashedFunction, "ILuaNetMessageHandler::~ILuaNetMessageHandler");
+		m_iConnectionCrashedFunction = -1;
 	}
 }
 
-void ILuaNetMessageHandler::ConnectionStart(INetChannel* chan)
+void ILuaNetMessageHandler::ConnectionStart(INetChannel* pChan)
 {
 	if (!ThreadInMainThread())
 	{
@@ -1542,11 +1543,11 @@ void ILuaNetMessageHandler::ConnectionStart(INetChannel* chan)
 		return;
 	}
 
-	if (connectionStartFunction == -1) // We have no callback function set.
+	if (m_iConnectionStartFunction == -1) // We have no callback function set.
 		return;
 
-	m_pLua->ReferencePush(connectionStartFunction);
-	Push_CNetChan(m_pLua, (CNetChan*)chan);
+	m_pLua->ReferencePush(m_iConnectionStartFunction);
+	Push_CNetChan(m_pLua, (CNetChan*)pChan);
 	m_pLua->CallFunctionProtected(1, 0, true);
 }
 
@@ -1558,11 +1559,11 @@ void ILuaNetMessageHandler::ConnectionClosing(const char* reason)
 		return;
 	}
 
-	if (connectionClosingFunction == -1) // We have no callback function set.
+	if (m_iConnectionClosingFunction == -1) // We have no callback function set.
 		return;
 
-	m_pLua->ReferencePush(connectionClosingFunction);
-	Push_CNetChan(m_pLua, chan);
+	m_pLua->ReferencePush(m_iConnectionClosingFunction);
+	Push_CNetChan(m_pLua, m_pChan);
 	m_pLua->PushString(reason);
 	m_pLua->CallFunctionProtected(2, 0, true);
 }
@@ -1575,11 +1576,11 @@ void ILuaNetMessageHandler::ConnectionCrashed(const char* reason)
 		return;
 	}
 
-	if (connectionCrashedFunction == -1) // We have no callback function set.
+	if (m_iConnectionCrashedFunction == -1) // We have no callback function set.
 		return;
 
-	m_pLua->ReferencePush(connectionCrashedFunction);
-	Push_CNetChan(m_pLua, chan);
+	m_pLua->ReferencePush(m_iConnectionCrashedFunction);
+	Push_CNetChan(m_pLua, m_pChan);
 	m_pLua->PushString(reason);
 	m_pLua->CallFunctionProtected(2, 0, true);
 }
@@ -1628,13 +1629,13 @@ bool ILuaNetMessageHandler::ProcessLuaNetChanMessage(NET_LuaNetChanMessage *msg)
 		return false;
 	}
 
-	if (messageCallbackFunction == -1) // We have no callback function set.
+	if (m_iMessageCallbackFunction == -1) // We have no callback function set.
 		return true;
 
 	LuaUserData* pLuaData = Push_bf_read(m_pLua, &msg->m_DataIn);
-	m_pLua->ReferencePush(messageCallbackFunction);
+	m_pLua->ReferencePush(m_iMessageCallbackFunction);
 
-	Push_CNetChan(m_pLua, chan);
+	Push_CNetChan(m_pLua, m_pChan);
 	m_pLua->Push(-3);
 	m_pLua->PushNumber(msg->m_iLength);
 	m_pLua->CallFunctionProtected(3, 0, true);
@@ -1672,13 +1673,13 @@ LUA_FUNCTION_STATIC(CNetChan_SetMessageCallback)
 	if (!pHandler)
 		return 0;
 
-	if (pHandler->messageCallbackFunction != -1)
+	if (pHandler->m_iMessageCallbackFunction != -1)
 	{
-		Util::ReferenceFree(LUA, pHandler->messageCallbackFunction, "CNetChan:SetCallback");
+		Util::ReferenceFree(LUA, pHandler->m_iMessageCallbackFunction, "CNetChan:SetCallback");
 	}
 
 	LUA->Push(2);
-	pHandler->messageCallbackFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
+	pHandler->m_iMessageCallbackFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
 	return 0;
 }
 
@@ -1687,9 +1688,9 @@ LUA_FUNCTION_STATIC(CNetChan_GetMessageCallback)
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
 	ILuaNetMessageHandler* pHandler = (ILuaNetMessageHandler*)pNetChannel->m_MessageHandler;
 	
-	if (pHandler && pHandler->messageCallbackFunction != -1)
+	if (pHandler && pHandler->m_iMessageCallbackFunction != -1)
 	{
-		Util::ReferencePush(LUA, pHandler->messageCallbackFunction);
+		Util::ReferencePush(LUA, pHandler->m_iMessageCallbackFunction);
 	} else {
 		LUA->PushNil();
 	}
@@ -1705,13 +1706,13 @@ LUA_FUNCTION_STATIC(CNetChan_SetConnectionStartCallback)
 	if (!pHandler)
 		return 0;
 
-	if (pHandler->connectionStartFunction != -1)
+	if (pHandler->m_iConnectionStartFunction != -1)
 	{
-		Util::ReferenceFree(LUA, pHandler->connectionStartFunction, "CNetChan:SetCallback");
+		Util::ReferenceFree(LUA, pHandler->m_iConnectionStartFunction, "CNetChan:SetCallback");
 	}
 
 	LUA->Push(2);
-	pHandler->connectionStartFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
+	pHandler->m_iConnectionStartFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
 	return 0;
 }
 
@@ -1720,9 +1721,9 @@ LUA_FUNCTION_STATIC(CNetChan_GetConnectionStartCallback)
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
 	ILuaNetMessageHandler* pHandler = (ILuaNetMessageHandler*)pNetChannel->m_MessageHandler;
 	
-	if (pHandler && pHandler->connectionStartFunction != -1)
+	if (pHandler && pHandler->m_iConnectionStartFunction != -1)
 	{
-		Util::ReferencePush(LUA, pHandler->connectionStartFunction);
+		Util::ReferencePush(LUA, pHandler->m_iConnectionStartFunction);
 	} else {
 		LUA->PushNil();
 	}
@@ -1738,13 +1739,13 @@ LUA_FUNCTION_STATIC(CNetChan_SetConnectionClosingCallback)
 	if (!pHandler)
 		return 0;
 
-	if (pHandler->connectionClosingFunction != -1)
+	if (pHandler->m_iConnectionClosingFunction != -1)
 	{
-		Util::ReferenceFree(LUA, pHandler->connectionClosingFunction, "CNetChan:SetCallback");
+		Util::ReferenceFree(LUA, pHandler->m_iConnectionClosingFunction, "CNetChan:SetCallback");
 	}
 
 	LUA->Push(2);
-	pHandler->connectionClosingFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
+	pHandler->m_iConnectionClosingFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
 	return 0;
 }
 
@@ -1753,9 +1754,9 @@ LUA_FUNCTION_STATIC(CNetChan_GetConnectionClosingCallback)
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
 	ILuaNetMessageHandler* pHandler = (ILuaNetMessageHandler*)pNetChannel->m_MessageHandler;
 	
-	if (pHandler && pHandler->connectionClosingFunction != -1)
+	if (pHandler && pHandler->m_iConnectionClosingFunction != -1)
 	{
-		Util::ReferencePush(LUA, pHandler->connectionClosingFunction);
+		Util::ReferencePush(LUA, pHandler->m_iConnectionClosingFunction);
 	} else {
 		LUA->PushNil();
 	}
@@ -1771,13 +1772,13 @@ LUA_FUNCTION_STATIC(CNetChan_SetConnectionCrashedCallback)
 	if (!pHandler)
 		return 0;
 
-	if (pHandler->connectionCrashedFunction != -1)
+	if (pHandler->m_iConnectionCrashedFunction != -1)
 	{
-		Util::ReferenceFree(LUA, pHandler->connectionCrashedFunction, "CNetChan:SetCallback");
+		Util::ReferenceFree(LUA, pHandler->m_iConnectionCrashedFunction, "CNetChan:SetCallback");
 	}
 
 	LUA->Push(2);
-	pHandler->connectionCrashedFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
+	pHandler->m_iConnectionCrashedFunction = Util::ReferenceCreate(LUA, "CNetChan:SetCallback");
 	return 0;
 }
 
@@ -1786,9 +1787,9 @@ LUA_FUNCTION_STATIC(CNetChan_GetConnectionCrashedCallback)
 	CNetChan* pNetChannel = Get_CNetChan(LUA, 1, true);
 	ILuaNetMessageHandler* pHandler = (ILuaNetMessageHandler*)pNetChannel->m_MessageHandler;
 	
-	if (pHandler && pHandler->connectionCrashedFunction != -1)
+	if (pHandler && pHandler->m_iConnectionCrashedFunction != -1)
 	{
-		Util::ReferencePush(LUA, pHandler->connectionCrashedFunction);
+		Util::ReferencePush(LUA, pHandler->m_iConnectionCrashedFunction);
 	} else {
 		LUA->PushNil();
 	}
@@ -2040,7 +2041,7 @@ LUA_FUNCTION_STATIC(gameserver_SetMaxClients)
 	if (!Util::server || !Util::server->IsActive())
 		return 0;
 
-	int nSlots = LUA->CheckNumber(1);
+	int nSlots = (int)LUA->CheckNumber(1);
 
 	((CBaseServer*)Util::server)->SetMaxClients(nSlots);
 	return 0;
@@ -2073,7 +2074,7 @@ LUA_FUNCTION_STATIC(gameserver_BroadcastMessage)
 	if (!Util::server || !Util::server->IsActive())
 		return 0;
 
-	int iType = LUA->CheckNumber(1);
+	int iType = (int)LUA->CheckNumber(1);
 	const char* strName = LUA->CheckString(2);
 	bf_write* bf = Get_bf_write(LUA, 3, true);
 
@@ -2109,8 +2110,11 @@ LUA_FUNCTION_STATIC(gameserver_SendConnectionlessPacket)
 {
 	bf_write* msg = Get_bf_write(LUA, 1, true);
 
-	netadr_t adr;
+	netadrnew_t adr;
 	adr.SetFromString(LUA->CheckString(2), LUA->GetBool(3));
+
+	CBaseServer* pServer = (CBaseServer*)Util::server;
+	int nSocket = (int)LUA->CheckNumberOpt(4, pServer->m_Socket);
 
 	if (!adr.IsValid())
 	{
@@ -2118,16 +2122,33 @@ LUA_FUNCTION_STATIC(gameserver_SendConnectionlessPacket)
 		return 1;
 	}
 
-	CBaseServer* pServer = (CBaseServer*)Util::server;
-	LUA->PushNumber(func_NET_SendPacket(NULL, pServer->m_Socket, adr, msg->GetData(), msg->GetNumBytesWritten(), NULL, false));
+	LUA->PushNumber(func_NET_SendPacket(NULL, nSocket, (netadr_t&)adr, msg->GetData(), msg->GetNumBytesWritten(), NULL, false));
 	return 1;
+}
+
+static CUtlVectorMT<CUtlVector<CNetChan*>>* s_NetChannels = NULL;
+CNetChan* NET_CreateHolyLibNetChannel(int socket, netadrnew_t* adr, const char* name, INetChannelHandler* handler, bool bForceNewChannel, int nProtocolVersion)
+{
+	CNetChan* pChan = new CNetChan;
+
+	(*s_NetChannels).Lock();
+	(*s_NetChannels).AddToTail(pChan);
+	(*s_NetChannels).Unlock();
+
+	pChan->Setup(socket, (netadr_t*)adr, name, handler, nProtocolVersion);
+
+	return pChan;
 }
 
 static Symbols::NET_CreateNetChannel func_NET_CreateNetChannel;
 LUA_FUNCTION_STATIC(gameserver_CreateNetChannel)
 {
-	netadr_t adr;
+	netadrnew_t adr;
 	adr.SetFromString(LUA->CheckString(1), LUA->GetBool(2));
+	int nProtocolVersion = (int)LUA->CheckNumberOpt(3, 1);
+
+	CBaseServer* pServer = (CBaseServer*)Util::server;
+	int nSocket = (int)LUA->CheckNumberOpt(4, pServer->m_Socket);
 
 	if (!adr.IsValid())
 	{
@@ -2136,11 +2157,9 @@ LUA_FUNCTION_STATIC(gameserver_CreateNetChannel)
 	}
 
 	ILuaNetMessageHandler* pHandler = new ILuaNetMessageHandler(LUA);
-
-	CBaseServer* pServer = (CBaseServer*)Util::server;
-	CNetChan* pNetChannel = (CNetChan*)func_NET_CreateNetChannel(pServer->m_Socket, &adr, adr.ToString(), (INetChannelHandler*)pHandler, true, 1);
-	pNetChannel->RegisterMessage(pHandler->luaNetChanMessage);
-	pHandler->chan = pNetChannel;
+	CNetChan* pNetChannel = NET_CreateHolyLibNetChannel(nSocket, &adr, adr.ToString(), (INetChannelHandler*)pHandler, true, nProtocolVersion);
+	pNetChannel->RegisterMessage(pHandler->m_pLuaNetChanMessage);
+	pHandler->m_pChan = pNetChannel;
 
 	Push_CNetChan(LUA, pNetChannel);
 	return 1;
@@ -2169,7 +2188,7 @@ LUA_FUNCTION_STATIC(gameserver_GetCreatedNetChannels)
 		int idx = 0;
 		for (auto& handler : g_pNetMessageHandlers)
 		{
-			Push_CNetChan(LUA, handler->chan);
+			Push_CNetChan(LUA, handler->m_pChan);
 			Util::RawSetI(LUA, -2, ++idx);
 		}
 
@@ -2244,6 +2263,7 @@ void CGameServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, CNetChan_SetMaxBufferSize, "SetMaxBufferSize");
 		Util::AddFunc(pLua, CNetChan_GetMaxRoutablePayloadSize, "GetMaxRoutablePayloadSize");
 		Util::AddFunc(pLua, CNetChan_SendMessage, "SendMessage");
+		Util::AddFunc(pLua, CNetChan_Shutdown, "Shutdown");
 
 		// Callbacks
 		Util::AddFunc(pLua, CNetChan_SetMessageCallback, "SetMessageCallback");
@@ -2292,6 +2312,10 @@ void CGameServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, gameserver_CreateNetChannel, "CreateNetChannel");
 		Util::AddFunc(pLua, gameserver_RemoveNetChannel, "RemoveNetChannel");
 		Util::AddFunc(pLua, gameserver_GetCreatedNetChannels, "GetCreatedNetChannels");
+
+		Util::AddValue(pLua, NS_CLIENT, "NS_CLIENT");
+		Util::AddValue(pLua, NS_SERVER, "NS_SERVER");
+		Util::AddValue(pLua, NS_HLTV, "NS_HLTV");
 	Util::FinishTable(pLua, "gameserver");
 }
 
@@ -2356,8 +2380,8 @@ static bool hook_CBaseServer_ProcessConnectionlessPacket(void* server, netpacket
 
 /*
  * ToDo: Ask Rubat if were allowed to modify SVC_ServerInfo
- *       I think it "could" be considered breaking gmod server operator rules.
- *       "Do not fake server information. This mostly means player count, but other data also applies."
+ *	   I think it "could" be considered breaking gmod server operator rules.
+ *	   "Do not fake server information. This mostly means player count, but other data also applies."
  * 
  * Update: Rubat said it's fine.
  */
@@ -2950,8 +2974,9 @@ int hook_CNetChan_SendDatagram(CNetChan* chan, bf_write *datagram)
 	int nMinRoutablePayload = MIN_ROUTABLE_PAYLOAD;
 
 #if defined( _DEBUG ) || defined( MIN_ROUTABLE_TESTING )
-	if ( m_Socket == NS_SERVER )
+	if ( chan->m_Socket == NS_SERVER )
 	{
+		ConVarRef net_minroutable("net_minroutable"); // RIP Performance. Anyways.
 		nMinRoutablePayload = net_minroutable.GetInt();
 	}
 #endif
@@ -3099,7 +3124,7 @@ int hook_CNetChan_SendDatagram(CNetChan* chan, bf_write *datagram)
 				if (subchan->numFragments[j] == 0)
 					continue;
 
-				Assert(m_WaitingList[j].Count() > 0);
+				Assert(chan->m_WaitingList[j].Count() > 0);
 
 				CNetChan::dataFragments_t * data = chan->m_WaitingList[j][0];
 
@@ -3245,7 +3270,7 @@ int hook_CNetChan_ProcessPacketHeader(CNetChan* chan, netpacket_t* packet)
 					if ( subchan->numFragments[j] == 0 )
 						continue;
 
-					Assert( m_WaitingList[j].Count() > 0 );
+					Assert( chan->m_WaitingList[j].Count() > 0 );
 					
 					CNetChan::dataFragments_t* data = chan->m_WaitingList[j][0];
 
@@ -3309,11 +3334,6 @@ void hook_Filter_SendBan(const netadr_t& adr)
 		return;
 
 	detour_Filter_SendBan.GetTrampoline<Symbols::Filter_SendBan>()(adr);
-}
-
-INetChannel* NET_CreateNetChannel(int socket, netadr_t* adr, const char* name, INetChannelHandler* handler, bool bForceNewCHannel, int nProtocolVersion)
-{
-	return func_NET_CreateNetChannel(socket, adr, name, handler, bForceNewCHannel, nProtocolVersion);
 }
 
 void NET_RemoveNetChannel(INetChannel* chan, bool bDeleteNetChan)
@@ -3476,4 +3496,6 @@ void CGameServerModule::InitDetour(bool bPreServer)
 
 	func_NET_ReceiveStream = (Symbols::NET_ReceiveStream)Detour::GetFunction(engine_loader.GetModule(), Symbols::NET_ReceiveStreamSym);
 	Detour::CheckFunction((void*)func_NET_ReceiveStream, "NET_ReceiveStream");
+
+	s_NetChannels = Detour::ResolveSymbol<CUtlVectorMT<CUtlVector<CNetChan*>>>(engine_loader, Symbols::s_NetChannelsSym);
 }
