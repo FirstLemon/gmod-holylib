@@ -4,7 +4,6 @@
 #include "detours.h"
 #include "Bootil/File/Changes.h"
 
-
 #include "tier0/memdbgon.h"
 
 class CAutoRefreshModule : public IModule
@@ -43,9 +42,17 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 
 
 static Detouring::Hook detour_CAutoRefresh_GetChange;
-static void hook_CAutoRefresh_GetChange()
+static void hook_CAutoRefresh_GetChange(std::string *strName)
 {
+	if (!g_Lua) {
+		return;
+	}
 
+	if (Lua::PushHook("HolyLib:GetChange"))
+	{
+		g_Lua->PushString(strName->c_str());
+		g_Lua->CallFunctionProtected(2, 0, true);
+	}
 };
 
 
