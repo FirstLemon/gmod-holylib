@@ -30,6 +30,7 @@ jobs:
 
   build_testingarea:
     name: "Build 32x (Testing Area - Dev)"
+    if: ${{ github.event_name == 'push' }}
     uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
     secrets:
       PTERODACTYL_KEY: ${{ secrets.PTERODACTYL_KEY }}
@@ -50,6 +51,7 @@ jobs:
 
   build_testingarea_dev2: # Could make this use the already created artifact but I'm too lazy rn
     name: "Build 32x (Testing Area - Dev2)"
+    if: ${{ github.event_name == 'push' }}
     uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
     secrets:
       PTERODACTYL_KEY: ${{ secrets.PTERODACTYL_KEY }}
@@ -70,6 +72,7 @@ jobs:
 
   build_testingarea_64x:
     name: "Build 64x (Testing Area - 64x)"
+    if: ${{ github.event_name == 'push' }}
     uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
     secrets:
       PTERODACTYL_KEY: ${{ secrets.PTERODACTYL_KEY }}
@@ -210,7 +213,7 @@ jobs:
   test_32bit:
     name: "Test 32x branches"
     needs: setup_32x_artifacts
-    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main # ToDo: Change this later
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
     strategy:
       matrix:
         branch:
@@ -225,7 +228,7 @@ jobs:
   test_32bit_noghostinj:
     name: "Test 32x branches (No GhostInj)"
     needs: setup_32x_artifacts
-    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main # ToDo: Change this later
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
     strategy:
       matrix:
         branch:
@@ -258,7 +261,7 @@ jobs:
   test_32x_holylua:
     name: "Test 32x branches (HolyLua)"
     needs: setup_32x_artifacts
-    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main # ToDo: Change this later
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
     strategy:
       matrix:
         branch:
@@ -273,7 +276,7 @@ jobs:
   test_32x_holylua_noghostinj:
     name: "Test 32x branches (HolyLua, No GhostInj)"
     needs: setup_32x_artifacts
-    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main # ToDo: Change this later
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
     strategy:
       matrix:
         branch:
@@ -405,7 +408,7 @@ jobs:
   test_gmod_tests_32bit:
     name: "Test 32x branches (gmod_tests)"
     needs: setup_gmod_tests_32x_artifacts
-    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main # ToDo: Change this later
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
     strategy:
       matrix:
         branch:
@@ -435,6 +438,45 @@ jobs:
     with:
       branch: x86-64
       extra-startup-args: "-usegh -maxplayers 64"
+      download-artifact: ${{ matrix.artifact }}
+      no-checkout: "true"
+      additional-setup: "wget -q https://github.com/RaphaelIT7/gmod-holytest/releases/latest/download/linux64.tar.gz -O gluatest/docker/_gluatest_artifacts/linux64.tar.gz"
+      collection: 3460542547
+      map: gm_glua_tests
+
+  test_gmod_tests_32bit_with_ivpreplacement:
+    name: "Test 32x branches (gmod_tests & VPhysics replacement)"
+    needs: setup_gmod_tests_32x_artifacts
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
+    strategy:
+      matrix:
+        branch:
+          - live
+          - dev
+          - prerelease
+        artifact:
+          - gmod_tests_32x
+          - gmod_tests_no_ghostinj_32x
+    with:
+      extra-startup-args: "-usegh -maxplayers 64 -holylib_replaceivp"
+      download-artifact: ${{ matrix.artifact }}
+      no-checkout: "true"
+      additional-setup: "wget -q https://github.com/RaphaelIT7/gmod-holytest/releases/latest/download/linux32.tar.gz -O gluatest/docker/_gluatest_artifacts/linux32.tar.gz"
+      collection: 3460542547
+      map: gm_glua_tests
+
+  test_gmod_tests_64bit_with_ivpreplacement:
+    name: "Test x86-64 branch (gmod_tests & VPhysics replacement)"
+    needs: setup_gmod_tests_64x_artifacts
+    uses: CFC-Servers/GLuaTest/.github/workflows/run_tests.yml@main
+    strategy:
+      matrix:
+        artifact:
+          - gmod_tests_64x
+          - gmod_tests_no_ghostinj_64x
+    with:
+      branch: x86-64
+      extra-startup-args: "-usegh -maxplayers 64 -holylib_replaceivp"
       download-artifact: ${{ matrix.artifact }}
       no-checkout: "true"
       additional-setup: "wget -q https://github.com/RaphaelIT7/gmod-holytest/releases/latest/download/linux64.tar.gz -O gluatest/docker/_gluatest_artifacts/linux64.tar.gz"
