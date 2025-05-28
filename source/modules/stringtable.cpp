@@ -6,6 +6,7 @@
 #include <sourcesdk/networkstringtable.h>
 #include <sourcesdk/server.h>
 #include <unordered_map>
+#include "networkstringtableitem.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -18,27 +19,351 @@ public:
 	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
 	virtual void InitDetour(bool bPreServer) OVERRIDE;
 	virtual const char* Name() { return "stringtable"; };
-	virtual int Compatibility() { return LINUX32 | LINUX64; };
+	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
 	virtual bool SupportsMultipleLuaStates() { return true; };
 };
 
 static CStringTableModule g_pStringTableFixModule;
 IModule* pStringTableModule = &g_pStringTableFixModule;
 
+#ifdef SYSTEM_WINDOWS // ISSUE: On Windows CNetworkStringTable::DeleteAllStrings doesn't exist as its inlined into CNetworkStringTable::ReadStringTable
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CNetworkStringTableItem::CNetworkStringTableItem( void )
+{
+	m_pUserData = NULL;
+	m_nUserDataLength = 0;
+	m_nTickChanged = 0;
+
+#ifndef SHARED_NET_STRING_TABLES
+	m_nTickCreated = 0;
+	m_pChangeList = NULL;
+#endif
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CNetworkStringTableItem::~CNetworkStringTableItem( void )
+{
+#ifndef SHARED_NET_STRING_TABLES
+	if ( m_pChangeList )
+	{
+		// free changelist and elements
+
+		for ( int i=0; i < m_pChangeList->Count(); i++ )
+		{
+			itemchange_s item = m_pChangeList->Element( i );
+
+			delete[] item.data;
+		}
+
+		delete m_pChangeList; // destructor calls Purge()
+
+		m_pUserData = NULL;
+	}
+#endif
+		
+	delete[] m_pUserData;
+}
+
+/*
+============
+tmpstr512
+
+rotates through a bunch of string buffers of 512 bytes each
+============
+*/
+char *tmpstr512()
+{
+	static char	string[32][512];
+	static int	curstring = 0;
+	curstring = ( curstring + 1 ) & 31;
+	return string[curstring];  
+}
+
+bool CNetworkStringTable_LessFunc( FileNameHandle_t const &a, FileNameHandle_t const &b )
+{
+	return a < b;
+}
+
+class CNetworkStringFilenameDict : public INetworkStringDict
+{
+public:
+	CNetworkStringFilenameDict()
+	{
+		m_Items.SetLessFunc( CNetworkStringTable_LessFunc );
+	}
+
+	virtual ~CNetworkStringFilenameDict()
+	{
+		Purge();
+	}
+
+	unsigned int Count()
+	{
+		return m_Items.Count();
+	}
+
+	void Purge()
+	{
+		m_Items.Purge();
+	}
+
+	const char *String( int index )
+	{
+		char* pString = tmpstr512();
+		g_pFullFileSystem->String( m_Items.Key( index ), pString, 512 );
+		return pString;
+	}
+
+	bool IsValidIndex( int index )
+	{
+		return m_Items.IsValidIndex( index );
+	}
+
+	int Insert( const char *pString )
+	{
+		FileNameHandle_t fnHandle = g_pFullFileSystem->FindOrAddFileName( pString );
+		return m_Items.Insert( fnHandle );
+	}
+
+	int Find( const char *pString )
+	{
+		FileNameHandle_t fnHandle = g_pFullFileSystem->FindFileName( pString );
+		if ( !fnHandle )
+			return m_Items.InvalidIndex();
+		return m_Items.Find( fnHandle );
+	}
+
+	CNetworkStringTableItem	&Element( int index )
+	{
+		return m_Items.Element( index );
+	}
+
+	const CNetworkStringTableItem &Element( int index ) const
+	{
+		return m_Items.Element( index );
+	}
+
+private:
+	CUtlMap< FileNameHandle_t, CNetworkStringTableItem > m_Items;
+};
+
+#if ARCHITECTURE_X86_64
+class CNetworkStringDict : public INetworkStringDict
+{
+public:
+	CNetworkStringDict( bool bUseDictionary ) : 
+		m_bUseDictionary( bUseDictionary ), 
+		m_Items( 0, 0, CTableItem::Less )
+	{
+	}
+
+	virtual ~CNetworkStringDict() 
+	{ 
+	}
+
+	unsigned int Count()
+	{
+		return -1;
+	}
+
+	void Purge()
+	{
+	}
+
+	const char *String( int index )
+	{
+		return NULL;
+	}
+
+	bool IsValidIndex( int index )
+	{
+		return false;
+	}
+
+	int Insert( const char *pString )
+	{
+		return -1;
+	}
+
+	int Find( const char *pString )
+	{
+		return -1;
+	}
+
+	CNetworkStringTableItem	&Element( int index )
+	{
+		return m_Items.Element( index );
+	}
+
+	const CNetworkStringTableItem &Element( int index ) const
+	{
+		return m_Items.Element( index );
+	}
+
+	virtual void UpdateDictionary( int index )
+	{
+	}
+
+	virtual int DictionaryIndex( int index )
+	{
+		return -1;
+	}
+
+public:
+	bool	m_bUseDictionary;
+
+	// We use this type of item to avoid having two copies of the strings in memory --
+	//  either we have a dictionary slot and point to that, or we have a m_Name CUtlString that gets
+	//  wiped between levels
+	class CTableItem
+	{
+	public:
+		static bool Less( const CTableItem &lhs, const CTableItem &rhs )
+		{
+			return lhs.m_StringHash < rhs.m_StringHash;
+		}
+	private:
+		int						m_DictionaryIndex;
+		CUtlString				m_Name;
+		CRC32_t					m_StringHash;
+	};
+	CUtlMap< CTableItem, CNetworkStringTableItem > m_Items;
+};
+#else
+
+//-----------------------------------------------------------------------------
+// Implementation for general purpose strings
+//-----------------------------------------------------------------------------
+class CNetworkStringDict : public INetworkStringDict
+{
+public:
+	CNetworkStringDict() 
+	{
+	}
+
+	virtual ~CNetworkStringDict() 
+	{ 
+	}
+
+	unsigned int Count()
+	{
+		return m_Lookup.Count();
+	}
+
+	void Purge()
+	{
+		m_Lookup.Purge();
+	}
+
+	const char *String( int index )
+	{
+		return m_Lookup.Key( index ).Get();
+	}
+
+	bool IsValidIndex( int index )
+	{
+		return m_Lookup.IsValidHandle( index );
+	}
+
+	int Insert( const char *pString )
+	{
+		return m_Lookup.Insert( pString );
+	}
+
+	int Find( const char *pString )
+	{
+		return pString ? m_Lookup.Find( pString ) : m_Lookup.InvalidHandle();
+	}
+
+	CNetworkStringTableItem	&Element( int index )
+	{
+		return m_Lookup.Element( index );
+	}
+
+	const CNetworkStringTableItem &Element( int index ) const
+	{
+		return m_Lookup.Element( index );
+	}
+
+private:
+	CUtlStableHashtable< CUtlConstString, CNetworkStringTableItem, CaselessStringHashFunctor, UTLConstStringCaselessStringEqualFunctor<char> > m_Lookup;
+};
+#endif
+
+void CNetworkStringTable::DeleteAllStrings( void )
+{
+	/*
+		 == BUG ==
+		 When the game shuts down our dll is unloaded and then the stringtables are deleted.
+		 This means that when gmod tries to delete the stringtables it would try to call our vtable but we were already unloaded so it would crash.
+		 So we need to copy over the original vtable and replace ours with GMod's vtable so that Gmod uses its functions safely.
+	*/
+	void* m_pItemsVTable = *(void**)m_pItems; // Save original vtable.
+#if ARCHITECTURE_X86_64
+	CNetworkStringDict* dict = (CNetworkStringDict*)m_pItems;
+	bool bUseDictionary = dict->m_bUseDictionary;
+#endif
+
+	delete m_pItems;
+	if ( m_bIsFilenames )
+	{
+		m_pItems = new CNetworkStringFilenameDict;
+	}
+	else
+	{
+#if ARCHITECTURE_X86_64
+		m_pItems = new CNetworkStringDict(bUseDictionary);
+#else
+		m_pItems = new CNetworkStringDict;
+#endif
+	}
+	*(void**)m_pItems = m_pItemsVTable; // Restore original vtable.
+
+	if ( m_pItemsClientSide )
+	{
+#if ARCHITECTURE_X86_64
+		CNetworkStringDict* clientDict = (CNetworkStringDict*)m_pItemsClientSide;
+		bool bUseClientDictionary = clientDict->m_bUseDictionary;
+#endif
+		void* m_pItemsClientSideVTable = *(void**)m_pItemsClientSide; // Save original vtable.
+		delete m_pItemsClientSide;
+#if ARCHITECTURE_X86_64
+		m_pItemsClientSide = new CNetworkStringDict(bUseClientDictionary);
+#else
+		m_pItemsClientSide = new CNetworkStringDict;
+#endif
+		m_pItemsClientSide->Insert( "___clientsideitemsplaceholder0___" ); // 0 slot can't be used
+		m_pItemsClientSide->Insert( "___clientsideitemsplaceholder1___" ); // -1 can't be used since it looks like the "invalid" index from other string lookups
+		*(void**)m_pItemsClientSide = m_pItemsClientSideVTable; // Restore original vtable.
+	}
+}
+#endif
+
 static CNetworkStringTableContainer* networkStringTableContainerServer = NULL;
 void CStringTableModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn)
 {
-	networkStringTableContainerServer = (CNetworkStringTableContainer*)appfn[0](INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
+	if (appfn[0])
+	{
+		networkStringTableContainerServer = (CNetworkStringTableContainer*)appfn[0](INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL);
+	} else {
+		SourceSDK::FactoryLoader engine_loader("engine");
+		networkStringTableContainerServer = engine_loader.GetInterface<CNetworkStringTableContainer>(INTERFACENAME_NETWORKSTRINGTABLESERVER);
+	}
+
 	Detour::CheckValue("get interface", "networkStringTableContainerServer", networkStringTableContainerServer != NULL);
 }
 
-//static int registryIdx = 0;
 PushReferenced_LuaClass(INetworkStringTable)
 Get_LuaClass(INetworkStringTable, "INetworkStringTable")
 
 static Detouring::Hook detour_CNetworkStringTable_Deconstructor;
 static void hook_CNetworkStringTable_Deconstructor(INetworkStringTable* tbl)
 {
+	Msg("Deconstructed StringTable %p\n", tbl);
 	DeleteGlobal_INetworkStringTable(tbl);
 	detour_CNetworkStringTable_Deconstructor.GetTrampoline<Symbols::CNetworkStringTable_Deconstructor>()(tbl);
 }
@@ -52,8 +377,15 @@ LUA_FUNCTION_STATIC(INetworkStringTable__tostring)
 		return 1;
 	}
 
+	const char* pTableName = table->GetTableName();
+	if (!pTableName)
+	{
+		LUA->PushString("INetworkStringTable [NULL NAME]");
+		return 1;
+	}
+
 	char szBuf[128] = {};
-	V_snprintf(szBuf, sizeof(szBuf),"INetworkStringTable [%s]", table->GetTableName()); 
+	V_snprintf(szBuf, sizeof(szBuf),"INetworkStringTable [%s]", pTableName); 
 	LUA->PushString(szBuf);
 	return 1;
 }
@@ -180,10 +512,15 @@ LUA_FUNCTION_STATIC(INetworkStringTable_DeleteAllStrings)
 	INetworkStringTable* table = Get_INetworkStringTable(LUA, 1, true);
 	bool bNukePrecache = LUA->GetBool(2);
 
+#ifndef SYSTEM_WINDOWS
 	if (!func_CNetworkStringTable_DeleteAllStrings)
 		LUA->ThrowError("Failed to get CNetworkStringTable::DeleteAllStrings");
 
 	func_CNetworkStringTable_DeleteAllStrings(table);
+#else
+	CNetworkStringTable* pTable = (CNetworkStringTable*)table;
+	pTable->DeleteAllStrings();
+#endif
 
 	if (!bNukePrecache)
 		return 0;
@@ -307,7 +644,15 @@ LUA_FUNCTION_STATIC(INetworkStringTable_DeleteString)
 		pElements.push_back(pEntry);
 	}
 
+#ifdef SYSTEM_WINDOWS
+	CNetworkStringTable* pTable = (CNetworkStringTable*)table;
+	pTable->DeleteAllStrings();
+#else
+	if (!func_CNetworkStringTable_DeleteAllStrings)
+		LUA->ThrowError("Failed to get CNetworkStringTable::DeleteAllStrings");
+
 	func_CNetworkStringTable_DeleteAllStrings(table); // If this deletes the UserData that we got, were gonna have a problem.
+#endif
 
 	for (StringTableEntry* pEntry : pElements)
 	{
@@ -420,6 +765,83 @@ LUA_FUNCTION_STATIC(INetworkStringTable_GetPrecacheUserData)
 	return 1;
 }
 
+LUA_FUNCTION_STATIC(INetworkStringTable_IsClientSideAddStringAllowed)
+{
+	CNetworkStringTable* table = (CNetworkStringTable*)Get_INetworkStringTable(LUA, 1, true);
+
+	LUA->PushBool(table->m_bAllowClientSideAddString);
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(INetworkStringTable_IsLocked)
+{
+	CNetworkStringTable* table = (CNetworkStringTable*)Get_INetworkStringTable(LUA, 1, true);
+
+	LUA->PushBool(table->m_bLocked);
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(INetworkStringTable_SetLocked)
+{
+	CNetworkStringTable* table = (CNetworkStringTable*)Get_INetworkStringTable(LUA, 1, true);
+	table->m_bLocked = LUA->GetBool(2);
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC(INetworkStringTable_IsFilenames)
+{
+	CNetworkStringTable* table = (CNetworkStringTable*)Get_INetworkStringTable(LUA, 1, true);
+
+	LUA->PushBool(table->m_bIsFilenames);
+	return 1;
+}
+
+static inline void UpdateCGameServerStringTables(INetworkStringTable* pTable)
+{
+	CGameServer* pServer = (CGameServer*)Util::server;
+	if (pServer && pTable)
+	{
+		if (!Q_stricmp(MODEL_PRECACHE_TABLENAME, pTable->GetTableName()) && !pServer->m_pModelPrecacheTable)
+		{
+			pServer->m_pModelPrecacheTable = pTable;
+		} else if (!Q_stricmp(SOUND_PRECACHE_TABLENAME, pTable->GetTableName()) && !pServer->m_pSoundPrecacheTable)
+		{
+			pServer->m_pSoundPrecacheTable = pTable;
+		} else if (!Q_stricmp(DECAL_PRECACHE_TABLENAME, pTable->GetTableName()) && !pServer->m_pDecalPrecacheTable)
+		{
+			pServer->m_pDecalPrecacheTable = pTable;
+		} else if (!Q_stricmp(GENERIC_PRECACHE_TABLENAME, pTable->GetTableName()) && !pServer->m_pGenericPrecacheTable)
+		{
+			pServer->m_pGenericPrecacheTable = pTable;
+		} else if (!Q_stricmp("DynamicModels", pTable->GetTableName()) && !pServer->m_pDynamicModelsTable)
+		{
+			pServer->m_pDynamicModelsTable = pTable;
+		}
+		// Additional CBaseServer tables
+		else if (!Q_stricmp(INSTANCE_BASELINE_TABLENAME, pTable->GetTableName()) && !pServer->m_pInstanceBaselineTable)
+		{
+			pServer->m_pInstanceBaselineTable = pTable;
+		}
+		 else if (!Q_stricmp(LIGHT_STYLES_TABLENAME, pTable->GetTableName()) && !pServer->m_pLightStyleTable)
+		{
+			pServer->m_pLightStyleTable = pTable;
+		}
+		else if (!Q_stricmp(LIGHT_STYLES_TABLENAME, pTable->GetTableName()) && !pServer->m_pUserInfoTable)
+		{
+			pServer->m_pUserInfoTable = pTable;
+		}
+		else if (!Q_stricmp(SERVER_STARTUP_DATA_TABLENAME, pTable->GetTableName()) && !pServer->m_pServerStartupTable)
+		{
+			pServer->m_pServerStartupTable = pTable;
+		}
+		else if (!Q_stricmp("downloadables", pTable->GetTableName()) && !pServer->m_pDownloadableFileTable)
+		{
+			pServer->m_pDownloadableFileTable = pTable;
+		}
+	}
+}
+
 LUA_FUNCTION_STATIC(stringtable_CreateStringTable)
 {
 	const char* name = LUA->CheckString(1);
@@ -435,13 +857,46 @@ LUA_FUNCTION_STATIC(stringtable_CreateStringTable)
 		LUA->ThrowError(err.c_str());
 	}
 
-	Push_INetworkStringTable(LUA, networkStringTableContainerServer->CreateStringTable(name, maxentries, userdatafixedsize, userdatanetworkbits));
+	if ((1 << Q_log2(maxentries)) != maxentries)
+	{
+		std::string err = "String tables must be powers of two in size!, ";
+		err.append(std::to_string(maxentries));
+		err.append(" is not a power of 2\n");
+		LUA->ThrowError(err.c_str());
+	}
+
+	INetworkStringTable* pTable = networkStringTableContainerServer->CreateStringTable(name, maxentries, userdatafixedsize, userdatanetworkbits);
+	Push_INetworkStringTable(LUA, pTable);
+	UpdateCGameServerStringTables(pTable);
+
 	return 1;
 }
 
 LUA_FUNCTION_STATIC(stringtable_RemoveAllTables)
 {
 	networkStringTableContainerServer->RemoveAllTables();
+	DeleteAll_INetworkStringTable(LUA);
+	// ToDo: Nuke the stored stringtables inside CGameServer.
+	// Also, when we create a stringtable like modelprecache, we should update the pointer inside the CGameServer.
+
+	CGameServer* pServer = (CGameServer*)Util::server;
+	if (pServer)
+	{
+		pServer->m_pModelPrecacheTable = NULL;
+		pServer->m_pSoundPrecacheTable = NULL;
+		pServer->m_pGenericPrecacheTable = NULL;
+		pServer->m_pDecalPrecacheTable = NULL;
+		pServer->m_pDynamicModelsTable = NULL;
+
+		// CBaseServer tables.
+		pServer->m_pInstanceBaselineTable = NULL;
+		pServer->m_pLightStyleTable = NULL;
+		pServer->m_pUserInfoTable = NULL;
+		pServer->m_pServerStartupTable = NULL;
+		pServer->m_pDownloadableFileTable = NULL;
+	}
+
+	//Error("GG\n"); // Until we do exactly what we described above, this function will 100% cause a crash.
 
 	return 0;
 }
@@ -496,7 +951,18 @@ LUA_FUNCTION_STATIC(stringtable_CreateStringTableEx)
 		LUA->ThrowError(err.c_str());
 	}
 
-	Push_INetworkStringTable(LUA, networkStringTableContainerServer->CreateStringTableEx(name, maxentries, userdatafixedsize, userdatanetworkbits, bIsFilenames));
+	if ((1 << Q_log2(maxentries)) != maxentries)
+	{
+		std::string err = "String tables must be powers of two in size!, ";
+		err.append(std::to_string(maxentries));
+		err.append(" is not a power of 2\n");
+		LUA->ThrowError(err.c_str());
+	}
+
+	INetworkStringTable* pTable = networkStringTableContainerServer->CreateStringTableEx(name, maxentries, userdatafixedsize, userdatanetworkbits, bIsFilenames);
+	Push_INetworkStringTable(LUA, pTable);
+	UpdateCGameServerStringTables(pTable);
+	
 	return 1;
 }
 
@@ -524,6 +990,13 @@ LUA_FUNCTION_STATIC(stringtable_IsLocked)
 	return 1;
 }
 
+LUA_FUNCTION_STATIC(stringtable_SetLocked)
+{
+	networkStringTableContainerServer->m_bLocked = LUA->GetBool(1);
+
+	return 0;
+}
+
 LUA_FUNCTION_STATIC(stringtable_AllowCreation)
 {
 	networkStringTableContainerServer->m_bAllowCreation = LUA->GetBool(1);
@@ -533,10 +1006,54 @@ LUA_FUNCTION_STATIC(stringtable_AllowCreation)
 
 LUA_FUNCTION_STATIC(stringtable_RemoveTable)
 {
-	INetworkStringTable* table = Get_INetworkStringTable(LUA, 1, true);
+	INetworkStringTable* pTable = Get_INetworkStringTable(LUA, 1, true);
 
-	networkStringTableContainerServer->m_Tables.Remove(table->GetTableId());
-	delete table;
+	networkStringTableContainerServer->m_Tables.Remove(pTable->GetTableId());
+	Msg("RemoveTable StringTable %p\n", pTable);
+	DeleteGlobal_INetworkStringTable(pTable);
+
+	CGameServer* pServer = (CGameServer*)Util::server;
+	if (pServer)
+	{
+		if (pServer->m_pModelPrecacheTable == pTable)
+		{
+			pServer->m_pModelPrecacheTable = NULL;
+		} else if (pServer->m_pSoundPrecacheTable == pTable)
+		{
+			pServer->m_pSoundPrecacheTable = NULL;
+		} else if (pServer->m_pDecalPrecacheTable == pTable)
+		{
+			pServer->m_pDecalPrecacheTable = NULL;
+		} else if (pServer->m_pGenericPrecacheTable == pTable)
+		{
+			pServer->m_pGenericPrecacheTable = NULL;
+		} else if (pServer->m_pDynamicModelsTable == pTable)
+		{
+			pServer->m_pDynamicModelsTable = NULL;
+		}
+		// Additional CBaseServer tables
+		else if (pServer->m_pInstanceBaselineTable == pTable)
+		{
+			pServer->m_pInstanceBaselineTable = NULL;
+		}
+		else if (pServer->m_pLightStyleTable == pTable)
+		{
+			pServer->m_pLightStyleTable = NULL;
+		}
+		else if (pServer->m_pUserInfoTable == pTable)
+		{
+			pServer->m_pUserInfoTable = NULL;
+		}
+		else if (pServer->m_pServerStartupTable == pTable)
+		{
+			pServer->m_pServerStartupTable = NULL;
+		}
+		else if (pServer->m_pDownloadableFileTable == pTable)
+		{
+			pServer->m_pDownloadableFileTable = NULL;
+		}
+	}
+	delete pTable;
 
 	return 0;
 }
@@ -575,6 +1092,11 @@ void CStringTableModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 			Util::AddFunc(pLua, INetworkStringTable_GetNumberUserData, "GetNumberUserData");
 			Util::AddFunc(pLua, INetworkStringTable_SetPrecacheUserData, "SetPrecacheUserData");
 			Util::AddFunc(pLua, INetworkStringTable_GetPrecacheUserData, "GetPrecacheUserData");
+			Util::AddFunc(pLua, INetworkStringTable_IsClientSideAddStringAllowed, "IsClientSideAddStringAllowed");
+			Util::AddFunc(pLua, stringtable_SetAllowClientSideAddString, "SetAllowClientSideAddString"); // Alias to stringtable.SetAllowClientSideAddString to have all Set/Is/Get functions in one place
+			Util::AddFunc(pLua, INetworkStringTable_IsLocked, "IsLocked");
+			Util::AddFunc(pLua, INetworkStringTable_SetLocked, "SetLocked");
+			Util::AddFunc(pLua, INetworkStringTable_IsFilenames, "IsFilenames");
 		pLua->Pop(1);
 
 		if (pLua->PushMetaTable(Lua::GetLuaData(pLua)->GetMetaTable(Lua::LuaTypes::INetworkStringTable)))
@@ -586,7 +1108,7 @@ void CStringTableModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 
 		Util::StartTable(pLua);
 			Util::AddFunc(pLua, stringtable_CreateStringTable, "CreateStringTable");
-			Util::AddFunc(pLua, stringtable_RemoveAllTables, "RemoveAllTables"); // ToDo: Invalidate all pushed stringtables.
+			Util::AddFunc(pLua, stringtable_RemoveAllTables, "RemoveAllTables");
 			Util::AddFunc(pLua, stringtable_FindTable, "FindTable");
 			Util::AddFunc(pLua, stringtable_GetTable, "GetTable");
 			Util::AddFunc(pLua, stringtable_GetNumTables, "GetNumTables");
@@ -594,6 +1116,7 @@ void CStringTableModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 			Util::AddFunc(pLua, stringtable_SetAllowClientSideAddString, "SetAllowClientSideAddString");
 			Util::AddFunc(pLua, stringtable_IsCreationAllowed, "IsCreationAllowed");
 			Util::AddFunc(pLua, stringtable_IsLocked, "IsLocked");
+			Util::AddFunc(pLua, stringtable_SetLocked, "SetLocked");
 			Util::AddFunc(pLua, stringtable_AllowCreation, "AllowCreation");
 			Util::AddFunc(pLua, stringtable_RemoveTable, "RemoveTable");
 
@@ -621,6 +1144,7 @@ void CStringTableModule::InitDetour(bool bPreServer)
 	if (bPreServer)
 		return;
 
+	// Note: This hook exists for safety and if everything goes well we shouldn't even require it.
 	SourceSDK::ModuleLoader engine_loader("engine");
 	Detour::Create(
 		&detour_CNetworkStringTable_Deconstructor, "CNetworkStringTable::~CNetworkStringTable",
