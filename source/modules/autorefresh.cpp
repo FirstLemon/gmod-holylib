@@ -97,7 +97,7 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 
 	Util::StartTable(pLua);
 		Util::AddFunc(pLua, AddPathToBlockList, "AddBlockPathLua");
-	Util::FinishTable(pLua, "autorefresh");
+	Util::FinishTable(pLua, "Autorefresh");
 }
 
 void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
