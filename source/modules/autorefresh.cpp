@@ -79,11 +79,14 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *fileRelPath, c
 	}
 	else {
 		Msg("Received something invalid: arg1=%p, arg2=%p, arg3=%p\n", fileRelPath, fileName, fileExt);
+		return;
 	}
 
 	for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
 	{
 		Msg(" - BLOCKED PATHS: %s/%s\n", iter->first.c_str(), iter->second.c_str());
+
+		std::string findValue = *fileRelPath + *fileName + "." + *fileExt;
 	}
 
 	// the problem has something to do with this fishy mcdouble chili cheese, I do not even know if what I'm trying to do is actually possible or valid
