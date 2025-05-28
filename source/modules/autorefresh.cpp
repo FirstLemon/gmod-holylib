@@ -4,6 +4,8 @@
 #include "detours.h"
 #include "Bootil/File/Changes.h"
 
+#include <unordered_set>
+
 #include "tier0/memdbgon.h"
 
 class CAutoRefreshModule : public IModule
@@ -42,18 +44,29 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 };
 */
 
-static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static void hook_CAutoRefresh_HandleChange_Lua(void *self, const std::string *arg1, const std::string *arg2)
+LUA_FUNCTION_STATIC(AutoRefreshBlock)
 {
-	if (arg1 && arg2) {
-		Msg("Arg1: %s\n Arg2: %s\n", arg1->c_str(), arg2->c_str());
+	LUA->CheckType(1, GarrysMod::Lua::Type::String);
+	LUA->CheckType(2, GarrysMod::Lua::Type::String);
+
+	std::string relPath, filename = (LUA->GetString(1), (LUA->GetString(2)));
+	// unfinished testing something
+}
+
+static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
+static void hook_CAutoRefresh_HandleChange_Lua(const std::string *arg1, const std::string *arg2, const std::string *arg3)
+{
+	// ->
+	if (arg1 && arg2 && arg3) {
+		Msg("----\nAutoRefresh Debug Dump\n----\n Arg1: %s\nArg2: %s\nArg3: %s\n----\n", arg1->c_str(), arg2->c_str(), arg3->c_str());
 	}
 	else {
-		Msg("Received null pointer(s): arg1=%p, arg2=%p\n", arg1, arg2);
+		Msg("Received null pointer(s): arg1=%p, arg2=%p, arg3=%p\n", arg1, arg2, arg3);
 	}
 
-	// the problem has something to do with this fishy mcdouble cheese, I do not even know if what I'm trying to do is actually possible or valid
-	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(self, arg1, arg2);
+	// the problem has something to do with this fishy mcdouble chili cheese, I do not even know if what I'm trying to do is actually possible or valid
+	// I guess it was
+	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(arg1, arg2, arg3);
 };
 
 
