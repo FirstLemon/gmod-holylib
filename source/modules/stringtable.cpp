@@ -865,6 +865,14 @@ LUA_FUNCTION_STATIC(stringtable_CreateStringTable)
 		LUA->ThrowError(err.c_str());
 	}
 
+	if (!networkStringTableContainerServer->m_bAllowCreation)
+	{
+		std::string err = "Tried to create string table '";
+		err.append(std::to_string(maxentries));
+		err.append("' at wrong time\n");
+		LUA->ThrowError(err.c_str());
+	}
+
 	INetworkStringTable* pTable = networkStringTableContainerServer->CreateStringTable(name, maxentries, userdatafixedsize, userdatanetworkbits);
 	Push_INetworkStringTable(LUA, pTable);
 	UpdateCGameServerStringTables(pTable);
@@ -875,7 +883,7 @@ LUA_FUNCTION_STATIC(stringtable_CreateStringTable)
 LUA_FUNCTION_STATIC(stringtable_RemoveAllTables)
 {
 	networkStringTableContainerServer->RemoveAllTables();
-	DeleteAll_INetworkStringTable(LUA);
+	DeleteAll_INetworkStringTable(LUA); // We don't need this since we hooked into the deconstructor. Update: I'm a idiot. We need it to delete the LuaUserData that else would enter a invalid state.
 	// ToDo: Nuke the stored stringtables inside CGameServer.
 	// Also, when we create a stringtable like modelprecache, we should update the pointer inside the CGameServer.
 
@@ -959,6 +967,14 @@ LUA_FUNCTION_STATIC(stringtable_CreateStringTableEx)
 		LUA->ThrowError(err.c_str());
 	}
 
+	if (!networkStringTableContainerServer->m_bAllowCreation)
+	{
+		std::string err = "Tried to create string table '";
+		err.append(std::to_string(maxentries));
+		err.append("' at wrong time\n");
+		LUA->ThrowError(err.c_str());
+	}
+
 	INetworkStringTable* pTable = networkStringTableContainerServer->CreateStringTableEx(name, maxentries, userdatafixedsize, userdatanetworkbits, bIsFilenames);
 	Push_INetworkStringTable(LUA, pTable);
 	UpdateCGameServerStringTables(pTable);
@@ -1008,9 +1024,9 @@ LUA_FUNCTION_STATIC(stringtable_RemoveTable)
 {
 	INetworkStringTable* pTable = Get_INetworkStringTable(LUA, 1, true);
 
-	networkStringTableContainerServer->m_Tables.Remove(pTable->GetTableId());
-	Msg("RemoveTable StringTable %p\n", pTable);
-	DeleteGlobal_INetworkStringTable(pTable);
+	networkStringTableContainerServer->m_Tables.FastRemove(pTable->GetTableId());
+	//DeleteGlobal_INetworkStringTable(pTable); // We don't need this since we hooked into the deconstructor.
+	Delete_INetworkStringTable(LUA, pTable); // Delete our Lua pointer.
 
 	CGameServer* pServer = (CGameServer*)Util::server;
 	if (pServer)

@@ -297,7 +297,7 @@ namespace Util
 #if HOLYLIB_BUILD_RELEASE
 #define HOLYLIB_UTIL_DEBUG_LUAUSERDATA 0
 #else
-#define HOLYLIB_UTIL_DEBUG_LUAUSERDATA 2 // 1 = leak checks, 2 = debug prints
+#define HOLYLIB_UTIL_DEBUG_LUAUSERDATA 1 // 1 = leak checks, 2 = debug prints
 #endif
 #define HOLYLIB_UTIL_DEBUG_BASEUSERDATA 1
 
@@ -478,7 +478,7 @@ struct LuaUserData {
 		{
 			if (pLua)
 			{
-				pLua->ReferencePush(iReference);
+				Util::ReferencePush(pLua, iReference);
 				pLua->SetUserType(-1, NULL);
 				pLua->Pop(1);
 				Util::ReferenceFree(pLua, iReference, "LuaUserData::~LuaUserData(UserData)");
@@ -834,7 +834,7 @@ void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 	auto it = pushedUserData.find(var); \
 	if (it != pushedUserData.end()) \
 	{ \
-		LUA->ReferencePush(it->second->GetReference()); \
+		Util::ReferencePush(LUA, it->second->GetReference()); \
 	} else { \
 		LuaUserData* userData = new LuaUserData; \
 		userData->SetData(var); \
@@ -861,7 +861,7 @@ void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 { \
 	Lua::StateData* LUADATA = Lua::GetLuaData(LUA); \
 	int luaType = LUADATA->GetMetaTable(TO_LUA_TYPE(className)); \
-	auto& pushedUserData = Lua::GetLuaData(LUA)->GetPushedUserData(); \
+	auto& pushedUserData = LUADATA->GetPushedUserData(); \
 	for (auto it = pushedUserData.begin(); it != pushedUserData.end(); ) \
 	{ \
 		if (it->second->GetType() == luaType) \
