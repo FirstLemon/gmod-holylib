@@ -26,7 +26,7 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-// only
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
 {	
@@ -40,6 +40,15 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 		g_Lua->CallFunctionProtected(2, 0, true);
 	}
 };
+*/
+
+/*
+static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
+static void hook_CAutoRefresh_HandleChange_Lua(const std::string *arg1, const std::string *arg2)
+{
+	Msg("Arg1: %s\n Arg2: %s\n", arg1->c_str(), arg2->c_str());
+};
+*/
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -62,12 +71,21 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 
 	SourceSDK::FactoryLoader server_loader("server");
 
+	/*
+	// HandleChange_Lua
+	Detour::Create(
+		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleLuaFileChange",
+		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
+		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
+	);
+
 	// HandleLuaFileCHange
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
+	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
