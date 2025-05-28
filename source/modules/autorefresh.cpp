@@ -42,13 +42,20 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 };
 */
 
-/*
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static void hook_CAutoRefresh_HandleChange_Lua(const std::string *arg1, const std::string *arg2)
+static void hook_CAutoRefresh_HandleChange_Lua(void *self, const std::string *arg1, const std::string *arg2)
 {
-	Msg("Arg1: %s\n Arg2: %s\n", arg1->c_str(), arg2->c_str());
+	if (arg1 && arg2) {
+		Msg("Arg1: %s\n Arg2: %s\n", arg1->c_str(), arg2->c_str());
+	}
+	else {
+		Msg("Received null pointer(s): arg1=%p, arg2=%p\n", arg1, arg2);
+	}
+
+	// the problem has something to do with this fishy mcdouble cheese, I do not even know if what I'm trying to do is actually possible or valid
+	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(self, arg1, arg2);
 };
-*/
+
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -71,7 +78,6 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 
 	SourceSDK::FactoryLoader server_loader("server");
 
-	/*
 	// HandleChange_Lua
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleLuaFileChange",
@@ -79,6 +85,7 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 
+	/*
 	// HandleLuaFileCHange
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
