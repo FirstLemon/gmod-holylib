@@ -4,8 +4,6 @@
 #include "detours.h"
 #include "Bootil/File/Changes.h"
 
-#include <unordered_set>
-
 #include "tier0/memdbgon.h"
 
 class CAutoRefreshModule : public IModule
@@ -44,29 +42,51 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 };
 */
 
-LUA_FUNCTION_STATIC(AutoRefreshBlock)
+// ToDo: Think about this again, maybe 
+// I don't like this approach but I don't know any better as the time of writing this
+static std::unordered_map<std::string, std::string> blockedPaths;
+
+// Should the user be able to push a whole table of paths or have to call the function for each path seperated... mhm :?
+LUA_FUNCTION_STATIC(AddPathToBlockList)
 {
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
 	LUA->CheckType(2, GarrysMod::Lua::Type::String);
 
 	std::string relPath, filename = (LUA->GetString(1), (LUA->GetString(2)));
-	// unfinished testing something
+	
+	// ToDo: Implement checking if boths args are valid or banana
+	// I guess maybe through checking if the files or paths actually exist but that would force weird limits
+
+	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
+		LUA->GetField(-1, "print");
+		LUA->PushString("Adding Path to the blocked list ... ");
+		LUA->Call(1, 0);
+	LUA->Pop();
+
+	blockedPaths.insert({ relPath, filename });
+
+	return 0;
 }
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static void hook_CAutoRefresh_HandleChange_Lua(const std::string *arg1, const std::string *arg2, const std::string *arg3)
+static void hook_CAutoRefresh_HandleChange_Lua(const std::string *fileRelPath, const std::string *fileName, const std::string *fileExt)
 {
 	// ->
-	if (arg1 && arg2 && arg3) {
-		Msg("----\nAutoRefresh Debug Dump\n----\n Arg1: %s\nArg2: %s\nArg3: %s\n----\n", arg1->c_str(), arg2->c_str(), arg3->c_str());
+	if (fileRelPath && fileName && fileExt) {
+		Msg("----\nAutoRefresh Debug Dump\n----\nArg1: %s\nArg2: %s\nArg3: %s\n----\n", fileRelPath->c_str(), fileName->c_str(), fileExt->c_str());
 	}
 	else {
-		Msg("Received null pointer(s): arg1=%p, arg2=%p, arg3=%p\n", arg1, arg2, arg3);
+		Msg("Received something invalid: arg1=%p, arg2=%p, arg3=%p\n", fileRelPath, fileName, fileExt);
+	}
+
+	for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); ++iter)
+	{
+		Msg(" - BLOCKED PATHS: %s%s", iter->first.c_str(), iter->second.c_str());
 	}
 
 	// the problem has something to do with this fishy mcdouble chili cheese, I do not even know if what I'm trying to do is actually possible or valid
 	// I guess it was
-	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(arg1, arg2, arg3);
+	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(fileRelPath, fileName, fileExt);
 };
 
 
@@ -76,6 +96,7 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 		return;
 
 	Util::StartTable(pLua);
+		Util::AddFunc(pLua, AddPathToBlockList, "AddBlockPathLua");
 	Util::FinishTable(pLua, "autorefresh");
 }
 
