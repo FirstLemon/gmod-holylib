@@ -70,6 +70,11 @@ LUA_FUNCTION_STATIC(AddPathToBlockList)
 	return 0;
 }
 
+// decisions, decisions. Should I detour the bootil changemonitor and handle the autorefresh from there? Would that result in better performance but at what cost? Would that even work that way (future me find that out)
+// or should I rather detour HandleChange_Lua, to handle my madness at a later point to get balance between perf and control, again would that even work like that
+// or should I just detour HandleLuaFileChange to get the least heavy implementation, but that would mean that all the previous checks are dealt with even when we block a path or whatever
+// or maybe just a mixture of all. 
+
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *fileRelPath, const std::string *fileName, const std::string *fileExt)
 {
@@ -85,15 +90,13 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *fileRelPath, c
 	for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
 	{
 		Msg(" - BLOCKED PATHS: %s/%s\n", iter->first.c_str(), iter->second.c_str());
-
-		std::string findValue = *fileRelPath + *fileName + "." + *fileExt;
+		
 	}
 
 	// the problem has something to do with this fishy mcdouble chili cheese, I do not even know if what I'm trying to do is actually possible or valid
 	// I guess it was
 	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(fileRelPath, fileName, fileExt);
 };
-
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
