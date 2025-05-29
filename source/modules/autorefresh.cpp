@@ -26,7 +26,7 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-/*
+
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
 {	
@@ -34,7 +34,7 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 
 	return detour_CAutoRefresh_HandleLuaFileChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleLuaFileChange>()(fileRelPath, fileContent);
 };
-*/
+
 
 // ToDo: Think about this again, maybe 
 // I don't like this approach but I don't know any better as the time of writing this
@@ -97,6 +97,13 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 				}
 				else {
 					Msg(" - Path IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
+
+					if (findIter->second.fileName == "" && findIter->second.fileExt == "") {
+						Msg(" - Path for [DIR] IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
+					}
+					else {
+						Msg(" - Path for [FILE] IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
+					}
 					return;
 				}
 			}
@@ -145,14 +152,12 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	);
 
 
-	/*
 	// HandleLuaFileCHange
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
-	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
