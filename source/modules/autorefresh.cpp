@@ -76,14 +76,12 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 {
 	if (pfileRelPath && pfileName && pfileExt) {
 		try {
-			auto fileRelPath = *pfileRelPath;
-			auto fileName = *pfileName;
-			auto fileExt = *pfileExt;
+			std::string fileName = *pfileName;
+			std::string fileExt = *pfileExt;
 
-			Msg("----\nAutoRefresh Debug Dump\n----\nArg1: %s\nArg2: %s\nArg3: %s\n----\n", fileRelPath.c_str(), fileName.c_str(), fileExt.c_str());
+			Msg("----\nAutoRefresh Debug Dump\n----\nArg1: \nArg2: %s\nArg3: %s\n----\n", fileName.c_str(), fileExt.c_str());
 
-			std::string fullFileRelPath = fileRelPath + fileName + "." + fileExt;
-
+			std::string fullFileRelPath = fileName + "." + fileExt;
 			for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
 			{
 				auto findIter = blockedPaths.find(fullFileRelPath);
@@ -97,7 +95,7 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 			}
 		}
 		catch (const std::exception &error) {
-			Msg("[!] Caught exception: %s", error.what());
+			Msg("[!] Caught exception: %s\n", error.what());
 		}
 	}
 	else {
