@@ -2,7 +2,7 @@
 #include "LuaInterface.h"
 #include "lua.h"
 #include "detours.h"
-#include "Bootil/File/Changes.h"
+// #include "Bootil/File/Changes.h"
 
 #include "tier0/memdbgon.h"
 
@@ -26,21 +26,13 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-/*
 static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
 static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
 {	
-	if (!g_Lua) {
-		return;
-	}
+	Msg("HandleLuaFileChange: %s", fileRelPath->c_str());
 
-	if (Lua::PushHook("HolyLib:OnLuaFileChange"))
-	{	
-		g_Lua->PushString(fileRelPath->c_str());
-		g_Lua->CallFunctionProtected(2, 0, true);
-	}
+	return detour_CAutoRefresh_HandleLuaFileChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleLuaFileChange>()(fileRelPath, fileContent);
 };
-*/
 
 // ToDo: Think about this again, maybe 
 // I don't like this approach but I don't know any better as the time of writing this
@@ -53,19 +45,21 @@ LUA_FUNCTION_STATIC(AddPathToBlockList)
 	LUA->CheckType(2, GarrysMod::Lua::Type::String);
 
 	std::string relPath = LUA->GetString(1);
-	std::string filename = LUA->GetString(2);
-	Msg("relPath: %s\nfilename: %s\n", relPath.c_str(), filename.c_str());
+	std::string fileName = LUA->GetString(2);
+	Msg("relPath: %s\nfilename: %s\n", relPath.c_str(), fileName.c_str());
 	
 	// ToDo: Implement checking if boths args are valid or banana
 	// I guess maybe through checking if the files or paths actually exist but that would force weird limits
 
 	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
 		LUA->GetField(-1, "print");
-		LUA->PushString("Adding Path to the blocked list ... ");
+
+		const std::string pathMsg = "Adding '" + relPath + fileName + "' to blocked";
+		LUA->PushString(pathMsg.c_str());
 		LUA->Call(1, 0);
 	LUA->Pop();
 
-	blockedPaths.insert({ relPath, filename });
+	blockedPaths.insert({ relPath, fileName });
 
 	return 0;
 }
@@ -76,26 +70,41 @@ LUA_FUNCTION_STATIC(AddPathToBlockList)
 // or maybe just a mixture of all. 
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static void hook_CAutoRefresh_HandleChange_Lua(const std::string *fileRelPath, const std::string *fileName, const std::string *fileExt)
+static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
 	// ->
-	if (fileRelPath && fileName && fileExt) {
-		Msg("----\nAutoRefresh Debug Dump\n----\nArg1: %s\nArg2: %s\nArg3: %s\n----\n", fileRelPath->c_str(), fileName->c_str(), fileExt->c_str());
+	if (pfileRelPath && pfileName && pfileExt) {
+		Msg("----\nAutoRefresh Debug Dump\n----\nArg1: %s\nArg2: %s\nArg3: %s\n----\n", pfileRelPath->c_str(), pfileName->c_str(), pfileExt->c_str());
 	}
 	else {
-		Msg("Received something invalid: arg1=%p, arg2=%p, arg3=%p\n", fileRelPath, fileName, fileExt);
+		Msg("Received something invalid: arg1=%p, arg2=%p, arg3=%p\n", pfileRelPath, pfileName, pfileExt);
 		return;
 	}
+
+	std::string fileRelPath = "hey/";
+	std::string fileName = "yeh";
+	std::string fileExt = "hey";
+
+	std::string fullFileRelPath = fileRelPath + fileName + "." + fileExt;
 
 	for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
 	{
 		Msg(" - BLOCKED PATHS: %s/%s\n", iter->first.c_str(), iter->second.c_str());
 		
+		auto findIter = blockedPaths.find(fullFileRelPath);
+
+		if (findIter == blockedPaths.end()) {
+			Msg(" - Path IS NOT Refresh blocked: [%s]", fullFileRelPath.c_str());
+		}
+		else {
+			Msg(" - Path IS Refresh blocked, denying refresh: [%s]", fullFileRelPath.c_str());
+			return;
+		}
 	}
 
 	// the problem has something to do with this fishy mcdouble chili cheese, I do not even know if what I'm trying to do is actually possible or valid
 	// I guess it was
-	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(fileRelPath, fileName, fileExt);
+	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
 };
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
@@ -127,14 +136,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 
-	/*
+
 	// HandleLuaFileCHange
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
 		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
-	*/
 }
 
 void CAutoRefreshModule::Think(bool simulating)
