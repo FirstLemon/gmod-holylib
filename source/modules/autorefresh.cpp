@@ -73,9 +73,46 @@ LUA_FUNCTION_STATIC(AddPathToBlockList)
 	return 0;
 }
 
+// Doesn't work, causes crash due to bad handlui
+LUA_FUNCTION_STATIC(RemovePathFromBlockList)
+{
+	LUA->CheckType(1, GarrysMod::Lua::Type::String);
+	LUA->CheckType(2, GarrysMod::Lua::Type::String);
+	LUA->CheckType(3, GarrysMod::Lua::Type::String);
+
+	std::string relPath = LUA->GetString(1);
+	std::string fileName = LUA->GetString(2);
+	std::string fileExt = LUA->GetString(3);
+	Msg("relPath: %s\nfilename: %s\nfileExt: %s\n", relPath.c_str(), fileName.c_str(), fileExt.c_str());
+
+	// ToDo: Implement checking if boths args are valid or banana
+	// I guess maybe through checking if the files or paths actually exist but that would force weird limits
+
+	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
+	LUA->GetField(-1, "print");
+
+	const std::string pathMsg = "Removing '" + relPath + fileName + "." + fileExt + "' from blocked list";
+	LUA->PushString(pathMsg.c_str());
+	LUA->Call(1, 0);
+	LUA->Pop();
+
+	std::string abc = relPath + fileName + "." + fileExt;
+	auto it = blockedPaths.find(abc);
+
+	if (it == blockedPaths.end()) {
+		Msg("No path found in block list");
+	}
+	else {
+		Msg("Path found in block list, removing ...");
+		blockedPaths.erase(it);
+	}
+
+	return 0;
+}
+
 // decisions, decisions. Should I detour the bootil changemonitor and handle the autorefresh from there? Would that result in better performance but at what cost? Would that even work that way (future me find that out)
 // or should I rather detour HandleChange_Lua, to handle my madness at a later point to get balance between perf and control, again would that even work like that
-// or should I just detour HandleLuaFileChange to get the least heavy implementation, but that would mean that all the previous checks are dealt with even when we block a path or whatever
+// or should I just detour HandleLuaFileChange to get the least heavy implementation, but that would mean that all tshe previous checks are dealt with even when we block a path or whatever
 // or maybe just a mixture of all. 
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
@@ -88,16 +125,15 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 
 			for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
 			{	
-				Msg("Compare 1: %s\n", pfileRelPath->c_str());
-				Msg("Compare 2: %s\n", iter->first.c_str());
-
 				auto findIter = blockedPaths.find(pfileRelPath->c_str());
+
+				Msg("Compare 1: %s\n", pfileRelPath->c_str());
+				Msg("Compare 2: %s\n", findIter->first.c_str());
+
 				if (findIter == blockedPaths.end()) {
 					Msg(" - Path IS NOT Refresh blocked: [%s]\n", pfileRelPath->c_str());
 				}
 				else {
-					Msg(" - Path IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
-
 					if (findIter->second.fileName == "" && findIter->second.fileExt == "") {
 						Msg(" - Path for [DIR] IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
 					}
@@ -129,6 +165,7 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 
 	Util::StartTable(pLua);
 		Util::AddFunc(pLua, AddPathToBlockList, "AddBlockPathLua");
+		Util::AddFunc(pLua, RemovePathFromBlockList, "RemoveBlockPathLua");
 	Util::FinishTable(pLua, "Autorefresh");
 }
 
