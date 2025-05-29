@@ -38,17 +38,24 @@ static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath
 
 // ToDo: Think about this again, maybe 
 // I don't like this approach but I don't know any better as the time of writing this
-static std::unordered_map<std::string, std::string> blockedPaths;
+struct BlockedPathData {
+	std::string fileName;
+	std::string fileExt;
+};
+
+static std::unordered_map<std::string, BlockedPathData> blockedPaths;
 
 // Should the user be able to push a whole table of paths or have to call the function for each path seperated... mhm :?
 LUA_FUNCTION_STATIC(AddPathToBlockList)
 {
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
 	LUA->CheckType(2, GarrysMod::Lua::Type::String);
+	LUA->CheckType(3, GarrysMod::Lua::Type::String);
 
 	std::string relPath = LUA->GetString(1);
 	std::string fileName = LUA->GetString(2);
-	Msg("relPath: %s\nfilename: %s\n", relPath.c_str(), fileName.c_str());
+	std::string fileExt = LUA->GetString(3);
+	Msg("relPath: %s\nfilename: %s\nfileExt: %s\n", relPath.c_str(), fileName.c_str(), fileExt.c_str());
 	
 	// ToDo: Implement checking if boths args are valid or banana
 	// I guess maybe through checking if the files or paths actually exist but that would force weird limits
@@ -56,12 +63,12 @@ LUA_FUNCTION_STATIC(AddPathToBlockList)
 	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
 		LUA->GetField(-1, "print");
 
-		const std::string pathMsg = "Adding '" + relPath + "/" + fileName + "' to blocked";
+		const std::string pathMsg = "Adding '" + relPath + "/" + fileName + "." + fileExt + "' to blocked";
 		LUA->PushString(pathMsg.c_str());
 		LUA->Call(1, 0);
 	LUA->Pop();
 
-	blockedPaths.insert({ relPath, fileName });
+	blockedPaths.insert({relPath, {fileName, fileExt}});
 
 	return 0;
 }
@@ -81,16 +88,17 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 
 			for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
 			{	
-				/*
-				auto findIter = blockedPaths.find(fullFileRelPath);
+				Msg("Compare 1: %s\n", pfileRelPath->c_str());
+				Msg("Compare 2: %s\n", iter->first.c_str());
+
+				auto findIter = blockedPaths.find(pfileRelPath->c_str());
 				if (findIter == blockedPaths.end()) {
-					Msg(" - Path IS NOT Refresh blocked: [%s]\n", fullFileRelPath.c_str());
+					Msg(" - Path IS NOT Refresh blocked: [%s]\n", pfileRelPath->c_str());
 				}
 				else {
-					Msg(" - Path IS Refresh blocked, denying refresh: [%s]\n", fullFileRelPath.c_str());
+					Msg(" - Path IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
 					return;
 				}
-				*/
 			}
 		}
 		catch (const std::exception &error) {
