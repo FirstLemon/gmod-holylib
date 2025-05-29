@@ -76,15 +76,12 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 {
 	if (pfileRelPath && pfileName && pfileExt) {
 		try {
-			const std::string fileName = *pfileRelPath;
-			const std::string fileName = *pfileName;
-			const std::string fileExt = *pfileExt;
 
-			Msg("----\nAutoRefresh Debug Dump\n----\nArg1: \nArg2: %s\nArg3: %s\n----\n", fileName.c_str(), fileExt.c_str());
+			Msg("----\nAutoRefresh Debug Dump\n----\nArg1: %s\nArg2: %s\nArg3: %s\n----\n", pfileRelPath->c_str(), pfileName->c_str(), pfileExt->c_str());
 
-			std::string fullFileRelPath = fileName + "." + fileExt;
 			for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
-			{
+			{	
+				/*
 				auto findIter = blockedPaths.find(fullFileRelPath);
 				if (findIter == blockedPaths.end()) {
 					Msg(" - Path IS NOT Refresh blocked: [%s]\n", fullFileRelPath.c_str());
@@ -93,6 +90,7 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 					Msg(" - Path IS Refresh blocked, denying refresh: [%s]\n", fullFileRelPath.c_str());
 					return;
 				}
+				*/
 			}
 		}
 		catch (const std::exception &error) {
