@@ -2,6 +2,7 @@
 #include "LuaInterface.h"
 #include "lua.h"
 #include "detours.h"
+#include <variant>
 // #include "Bootil/File/Changes.h"
 
 #include "tier0/memdbgon.h"
@@ -26,137 +27,60 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-
-static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
-static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
-{	
-	Msg("HandleLuaFileChange: %s\n", fileRelPath->c_str());
-
-	return detour_CAutoRefresh_HandleLuaFileChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleLuaFileChange>()(fileRelPath, fileContent);
-};
-
-
-// ToDo: Think about this again, maybe 
-// I don't like this approach but I don't know any better as the time of writing this
-struct BlockedPathData {
-	std::string fileName;
-	std::string fileExt;
-};
-
-static std::unordered_map<std::string, BlockedPathData> blockedPaths;
-
-// Should the user be able to push a whole table of paths or have to call the function for each path seperated... mhm :?
-LUA_FUNCTION_STATIC(AddPathToBlockList)
+bool InitLuaHookBeforeRefresh(const std::string *pfileRelPath, const std::string *pfileName)
 {
-	LUA->CheckType(1, GarrysMod::Lua::Type::String);
-	LUA->CheckType(2, GarrysMod::Lua::Type::String);
-	LUA->CheckType(3, GarrysMod::Lua::Type::String);
-
-	std::string relPath = LUA->GetString(1);
-	std::string fileName = LUA->GetString(2);
-	std::string fileExt = LUA->GetString(3);
-	Msg("relPath: %s\nfilename: %s\nfileExt: %s\n", relPath.c_str(), fileName.c_str(), fileExt.c_str());
-	
-	// ToDo: Implement checking if boths args are valid or banana
-	// I guess maybe through checking if the files or paths actually exist but that would force weird limits
-
-	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
-		LUA->GetField(-1, "print");
-
-		const std::string pathMsg = "Adding '" + relPath + "/" + fileName + "." + fileExt + "' to blocked";
-		LUA->PushString(pathMsg.c_str());
-		LUA->Call(1, 0);
-	LUA->Pop();
-
-	blockedPaths.insert({relPath, {fileName, fileExt}});
-
-	return 0;
-}
-
-// Doesn't work, causes crash
-LUA_FUNCTION_STATIC(RemovePathFromBlockList)
-{
-	LUA->CheckType(1, GarrysMod::Lua::Type::String);
-	LUA->CheckType(2, GarrysMod::Lua::Type::String);
-	LUA->CheckType(3, GarrysMod::Lua::Type::String);
-
-	std::string relPath = LUA->GetString(1);
-	std::string fileName = LUA->GetString(2);
-	std::string fileExt = LUA->GetString(3);
-	Msg("relPath: %s\nfilename: %s\nfileExt: %s\n", relPath.c_str(), fileName.c_str(), fileExt.c_str());
-
-	// ToDo: Implement checking if boths args are valid or banana
-	// I guess maybe through checking if the files or paths actually exist but that would force weird limits
-
-	LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
-	LUA->GetField(-1, "print");
-
-	const std::string pathMsg = "Removing '" + relPath + fileName + "." + fileExt + "' from blocked list";
-	LUA->PushString(pathMsg.c_str());
-	LUA->Call(1, 0);
-	LUA->Pop();
-
-	std::string abc = relPath + fileName + "." + fileExt;
-	auto it = blockedPaths.find(abc);
-
-	if (it == blockedPaths.end()) {
-		Msg("No path found in block list");
-	}
-	else {
-		Msg("Path found in block list, removing ...");
-		blockedPaths.erase(it);
+	if (!g_Lua)
+	{
+		return false;
 	}
 
-	return 0;
+	bool bDenyRefresh = false;
+	if (Lua::PushHook("HolyLib:GetBeforeRefresh"))
+	{
+		g_Lua->PushString(pfileRelPath->c_str());
+		g_Lua->PushString(pfileName->c_str());
+		
+		if (g_Lua->CallFunctionProtected(3, 1, true)) {
+			bDenyRefresh = !g_Lua->GetBool(-1);
+			g_Lua->Pop(1);
+		}
+	}
+
+	return bDenyRefresh;
 }
 
-// decisions, decisions. Should I detour the bootil changemonitor and handle the autorefresh from there? Would that result in better performance but at what cost? Would that even work that way (future me find that out)
-// or should I rather detour HandleChange_Lua, to handle my madness at a later point to get balance between perf and control, again would that even work like that
-// or should I just detour HandleLuaFileChange to get the least heavy implementation, but that would mean that all tshe previous checks are dealt with even when we block a path or whatever
-// or maybe just a mixture of all. 
+void InitLuaHookAfterRefresh()
+{
+
+}
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
 	if (pfileRelPath && pfileName && pfileExt) {
-		try {
-
-			Msg("----\nAutoRefresh Debug Dump\n----\nArg1: %s\nArg2: %s\nArg3: %s\n----\n", pfileRelPath->c_str(), pfileName->c_str(), pfileExt->c_str());
-
-			for (auto iter = blockedPaths.begin(); iter != blockedPaths.end(); iter++)
-			{	
-				auto findIter = blockedPaths.find(pfileRelPath->c_str());
-
-
-				if (findIter == blockedPaths.end()) {
-					Msg(" - Path IS NOT Refresh blocked: [%s]\n", pfileRelPath->c_str());
-				}
-				else {
-					Msg("Compare 1: %s\n", pfileRelPath->c_str());
-					Msg("Compare 2: %s\n", findIter->first.c_str());
-
-					if (findIter->second.fileName == "" && findIter->second.fileExt == "") {
-						Msg(" - Path for [DIR] IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
-					}
-					else {
-						Msg(" - Path for [FILE] IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
-					}
-					return;
-				}
-			}
-		}
-		catch (const std::exception &error) {
-			Msg("[!] Caught exception: %s\n", error.what());
-		}
-	}
-	else {
-		Msg("Received something invalid: arg1=%p, arg2=%p, arg3=%p\n", pfileRelPath, pfileName, pfileExt);
+		Warning(PROJECT_NAME ": Autorefresh: HandleChange_Lua received invalid args!\n");
 		return;
 	}
+	else {
+		// Debug
+		Msg("Received something invalid: arg1=%p, arg2=%p, arg3=%p\n", pfileRelPath, pfileName, pfileExt);
+	}
 
-	// the problem has something to do with this fishy mcdouble chili cheese, I do not even know if what I'm trying to do is actually possible or valid
-	// I guess it was
-	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
+	bool bDenyRefresh = false;
+	if (pfileExt->c_str() == "lua") {
+		bDenyRefresh = InitLuaHookBeforeRefresh(pfileRelPath, pfileName);
+	}
+
+	static const std::string tempHold = "";
+	const std::string *fileExt = bDenyRefresh ? &tempHold : pfileExt;
+
+	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, fileExt);
+};
+
+static Detouring::Hook detour_CAutoRefresh_HandleLuaFileChange;
+static void hook_CAutoRefresh_HandleLuaFileChange(const std::string *fileRelPath, const std::string *fileContent)
+{
+	return detour_CAutoRefresh_HandleLuaFileChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleLuaFileChange>()(fileRelPath, fileContent);
 };
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
@@ -165,8 +89,6 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 		return;
 
 	Util::StartTable(pLua);
-		Util::AddFunc(pLua, AddPathToBlockList, "AddBlockPathLua");
-		Util::AddFunc(pLua, RemovePathFromBlockList, "RemoveBlockPathLua");
 	Util::FinishTable(pLua, "Autorefresh");
 }
 
@@ -189,12 +111,11 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 
-
 	// HandleLuaFileCHange
 	Detour::Create(
 		&detour_CAutoRefresh_HandleLuaFileChange, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleLuaFileChangeSym,
-		(void*)hook_CAutoRefresh_HandleLuaFileChange, m_pID
+		(void *)hook_CAutoRefresh_HandleLuaFileChange, m_pID
 	);
 }
 
