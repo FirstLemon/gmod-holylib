@@ -73,7 +73,7 @@ LUA_FUNCTION_STATIC(AddPathToBlockList)
 	return 0;
 }
 
-// Doesn't work, causes crash due to bad handlui
+// Doesn't work, causes crash
 LUA_FUNCTION_STATIC(RemovePathFromBlockList)
 {
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
@@ -127,13 +127,14 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 			{	
 				auto findIter = blockedPaths.find(pfileRelPath->c_str());
 
-				Msg("Compare 1: %s\n", pfileRelPath->c_str());
-				Msg("Compare 2: %s\n", findIter->first.c_str());
 
 				if (findIter == blockedPaths.end()) {
 					Msg(" - Path IS NOT Refresh blocked: [%s]\n", pfileRelPath->c_str());
 				}
 				else {
+					Msg("Compare 1: %s\n", pfileRelPath->c_str());
+					Msg("Compare 2: %s\n", findIter->first.c_str());
+
 					if (findIter->second.fileName == "" && findIter->second.fileExt == "") {
 						Msg(" - Path for [DIR] IS Refresh blocked, denying refresh: [%s]\n", pfileRelPath->c_str());
 					}
