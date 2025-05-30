@@ -42,7 +42,6 @@ bool InitLuaHookBeforeRefresh(const std::string *pfileRelPath, const std::string
 		
 		if (g_Lua->CallFunctionProtected(3, 1, true)) {
 			bDenyRefresh = g_Lua->GetBool(-1);
-			Msg("Bool val = %s", bDenyRefresh ? "true" : "false");
 			g_Lua->Pop(1);
 		}
 	}
@@ -58,19 +57,14 @@ void InitLuaHookAfterRefresh()
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
-	Msg("Executing - function\n");
-
 	if (!pfileRelPath && !pfileName && !pfileExt) {
 		Warning(PROJECT_NAME ": Autorefresh - HandleChange_Lua received invalid args!\n");
 		
 		return;
 	}
 
-	Msg("Arg3: %s\n", pfileExt->c_str());
-
 	bool bDenyRefresh = InitLuaHookBeforeRefresh(pfileRelPath, pfileName);
 	if (bDenyRefresh) {
-		Msg(PROJECT_NAME ": Autorefresh - denying Refresh\n");
 		return;
 	}
 
