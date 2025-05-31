@@ -27,7 +27,7 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-bool InitLuaHookBeforeRefresh(const std::string *pfileRelPath, const std::string *pfileName)
+bool InitHookBeforeRefresh(const std::string *pfileRelPath, const std::string *pfileName)
 {
 	if (!g_Lua)
 	{
@@ -54,6 +54,7 @@ void InitLuaHookAfterRefresh()
 
 }
 
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
@@ -69,6 +70,24 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 	}
 
 	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
+};
+*/
+
+static Detouring::Hook detour_CAutoRefresh_HandleChange;
+static void hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
+{
+	if (!pfileRelPath && !pfileName && !pfileExt) {
+		Warning(PROJECT_NAME ": Autorefresh - HandleChange received invalid args!\n");
+
+		return;
+	}
+
+	bool bDenyRefresh = InitHookBeforeRefresh(pfileRelPath, pfileName);
+	if (bDenyRefresh) {
+		return;
+	}
+
+	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfileRelPath, pfileName, pfileExt);
 };
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
@@ -92,11 +111,20 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 
 	SourceSDK::FactoryLoader server_loader("server");
 
+	/*
 	// HandleChange_Lua
 	Detour::Create(
-		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleLuaFileChange",
+		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
+	);
+	*/
+
+	// HandleChange
+	Detour::Create(
+		&detour_CAutoRefresh_HandleChange, "CAutoRefresh_HandleChange_Lua",
+		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym,
+		(void *)hook_CAutoRefresh_HandleChange, m_pID
 	);
 }
 
