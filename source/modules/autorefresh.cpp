@@ -74,22 +74,22 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 */
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange;
-static int hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
+static void hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
 	using handleChange = int(__cdecl *)(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt);
-	auto originalFunction = detour_CAutoRefresh_HandleChange.GetTrampoline<HandleChange>;
+	auto originalFunction = detour_CAutoRefresh_HandleChange.GetTrampoline<handleChange>();
 	int result = originalFunction(pfileRelPath, pfileName, pfileExt);
 
 	// just for future me, sanity check because I got mad
 	if (!pfileRelPath && !pfileName && !pfileExt) {
 		Warning(PROJECT_NAME ": Autorefresh - HandleChange received invalid args!\n");
 
-		return 0;
+		return;
 	}
 
 	bool bDenyRefresh = InitHookBeforeRefresh(pfileRelPath, pfileName);
 	if (bDenyRefresh) {
-		return 0;
+		return;
 	}
 
 	return result;
