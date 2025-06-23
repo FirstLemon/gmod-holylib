@@ -78,6 +78,26 @@ bool CModule::IsEnabled()
 	return m_bEnabled;
 }
 
+void CModule::SetupConfig()
+{
+	IConfig* pConfig = g_pModuleManager.GetConfig();
+	if (!pConfig)
+		return;
+
+	Bootil::Data::Tree& pData = pConfig->GetData().GetChild(m_pModule->Name());
+	m_bEnabled = pData.EnsureChildVar<bool>("enabled", m_bEnabled);
+	m_pModule->SetDebug(pData.EnsureChildVar<int>("debugLevel", m_pModule->InDebug()));
+}
+
+/*
+	Module activation priority from low to high.
+	Based on this priority modules are enabled/disabled.
+
+	1 - IModule::IsEnabledByDefault - The module's default state
+	2 - CModule::SetupConfig - The module config
+	3 - Command line - The module's command line argument
+	4 - holylib_startdisabled - If all modules should start disabled.
+*/
 void CModule::SetModule(IModule* module)
 {
 	m_bStartup = true;
@@ -100,16 +120,23 @@ void CModule::SetModule(IModule* module)
 #endif
 #endif
 
+	m_bEnabled = m_pModule->IsEnabledByDefault() ? m_bCompatible : false;
+
+	SetupConfig();
+
 	std::string pStrName = "holylib_enable_";
 	pStrName.append(module->Name());
 	std::string cmdStr = "-";
 	cmdStr.append(pStrName);
 	int cmd = CommandLine()->ParmValue(cmdStr.c_str(), -1); // checks for "-holylib_enable_[module name] [1 / 0]"
-	if (cmd > -1)
+	if (cmd > -1) {
 		SetEnabled(cmd == 1, true);
-	else
-		if (!CommandLine()->FindParm("-holylib_startdisabled"))
-			m_bEnabled = m_pModule->IsEnabledByDefault() ? m_bCompatible : false;
+	} else {
+		if (CommandLine()->FindParm("-holylib_startdisabled"))
+		{
+			m_bEnabled = false;
+		}
+	}
 
 	m_pCVarName = new char[48];
 	V_strncpy(m_pCVarName, pStrName.c_str(), 48);
@@ -204,15 +231,31 @@ void CModule::Shutdown()
 CModuleManager::CModuleManager()
 {
 	/*
-	BUG: Calling SetValue causes a instant crash!
+	BUG: Calling SetValue causes a instant crash! GG :3
 	if (CommandLine()->FindParm("-holylib_module_debug") > -1)
 	{
 		module_debug.SetValue("1");
 	}*/
 
+	if (!m_pConfig)
+	{
+		m_pConfig = g_pConfigSystem->LoadConfig("garrysmod/holylib/cfg/modules.json");
+		if (m_pConfig->GetState() == ConfigState::INVALID_JSON)
+		{
+			Warning(PROJECT_NAME " - modulesystem: Failed to load modules.json!\n- Check if the json is valid or delete the config to let a new one be generated!\n");
+			m_pConfig->Destroy(); // Our config is in a invaid state :/
+			m_pConfig = NULL;
+		}
+	}
+
 #ifndef LIB_HOLYLIB
 	LoadModules();
 #endif
+
+	if (m_pConfig)
+	{
+		m_pConfig->Save();
+	}
 }
 
 CModuleManager::~CModuleManager()
@@ -221,6 +264,13 @@ CModuleManager::~CModuleManager()
 		delete pModule;
 
 	m_pModules.clear();
+
+	if (m_pConfig)
+	{
+		//m_pConfig->Save(); // We don't save because we else would possibly override any changes made while the server was running, which we don't want.
+		m_pConfig->Destroy();
+		m_pConfig = NULL;
+	}
 }
 
 void CModuleManager::LoadModules()
@@ -461,3 +511,18 @@ static void ModuleStatus(const CCommand &args)
 		Msg("\"%p\"", interface);
 }
 static ConCommand modulestatus("holylib_modulestatus", ModuleStatus, "Debug command. Prints out the status of all modules.", 0);
+
+static void SaveModuleConfig(const CCommand &args)
+{
+	IConfig* pConfig = g_pModuleManager.GetConfig();
+	if (!pConfig)
+		return;
+
+	for (auto pModule : g_pModuleManager.GetModules())
+	{
+		pConfig->GetData().SetChildVar<bool>(pModule->FastGetModule()->Name(), pModule->FastIsEnabled());
+	}
+
+	pConfig->Save();
+}
+static ConCommand savemoduleconfig("holylib_savemoduleconfig", SaveModuleConfig, "Saves the module config by storing all currently enabled/disabled modules", 0);

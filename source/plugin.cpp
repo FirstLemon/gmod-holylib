@@ -1,7 +1,7 @@
 #include <GarrysMod/InterfacePointers.hpp>
 #include <GarrysMod/FactoryLoader.hpp>
 #include "LuaInterface.h"
-#include <GarrysMod/Lua/LuaShared.h>
+#include "sourcesdk/iluashared.h"
 #include "filesystem.h"
 #include "detours.h"
 #include <tier2/tier2.h>
@@ -58,6 +58,8 @@ void CServerPlugin::GhostInj()
 #ifdef LIB_HOLYLIB
 	g_pModuleManager.LoadModules();
 #endif
+
+	Util::Load();
 
 	g_pModuleManager.SetGhostInj();
 	g_pModuleManager.InitDetour(true);
@@ -118,6 +120,8 @@ bool CServerPlugin::Load(CreateInterfaceFn interfaceFactory, CreateInterfaceFn g
 
 	if (playerinfomanager)
 		gpGlobals = playerinfomanager->GetGlobalVars();
+
+	Util::Load();
 
 	g_pModuleManager.Setup(interfaceFactory, gameServerFactory); // Setup so that Util won't cause issues
 	Lua::AddDetour();

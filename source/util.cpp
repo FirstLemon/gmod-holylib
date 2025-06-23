@@ -509,6 +509,95 @@ void Util::CheckVersion()
 	// ToDo: Implement this someday
 }
 
+static bool g_bUtilInit = false;
+void Util::Load()
+{
+	if (g_bUtilInit)
+		return;
+
+	g_bUtilInit = true;
+	IConfig* pConVarConfig = g_pConfigSystem->LoadConfig("garrysmod/holylib/cfg/convars.json");
+	if (pConVarConfig)
+	{
+		Bootil::Data::Tree& pData = pConVarConfig->GetData();
+		ConCommandBase *pCur, *pNext;
+		pCur = ConCommandBase::InternalConCommandBases();
+		while (pCur)
+		{
+			pNext = pCur->InternalNext();
+			if (!pCur->IsCommand())
+			{
+				ConVar* pConVar = (ConVar*)pCur;
+				Bootil::Data::Tree& pEntry = pData.GetChild(pCur->GetName());
+				pConVar->SetValue(pEntry.EnsureChildVar<Bootil::BString>("value", pConVar->GetString()).c_str());
+				pEntry.EnsureChildVar<Bootil::BString>("help", pConVar->GetHelpText());
+			}
+			pCur = pNext;
+		}
+
+		pConVarConfig->Save();
+		pConVarConfig->Destroy();
+	}
+}
+
+void Util::Unload()
+{
+	if (!g_bUtilInit)
+		return;
+
+	g_bUtilInit = false;
+}
+
+static void CreateDebugDump(const CCommand &args)
+{
+	IConfig* pDebugDump = g_pConfigSystem->LoadConfig("garrysmod/holylib/debug/dump.json");
+	if (pDebugDump)
+	{
+		Bootil::Data::Tree& pData = pDebugDump->GetData();
+
+		// This will contain all kind of information that could be useful to figure out an issue
+		Bootil::Data::Tree& pInformation = pData.GetChild("information");
+		pInformation.EnsureChildVar<Bootil::BString>("runID", GITHUB_RUN_NUMBER);
+		pInformation.EnsureChildVar<bool>("release", HOLYLIB_BUILD_RELEASE == 1);
+		pInformation.EnsureChildVar<int>("slots", Util::server->GetMaxClients());
+		pInformation.EnsureChildVar<Bootil::BString>("map", Util::server->GetMapName());
+		pInformation.EnsureChildVar<bool>("dedicated", Util::server->IsDedicated());
+		pInformation.EnsureChildVar<int>("numclients", Util::server->GetNumClients());
+		pInformation.EnsureChildVar<int>("numfakeclients", Util::server->GetNumFakeClients());
+		pInformation.EnsureChildVar<int>("numproxies", Util::server->GetNumProxies());
+		pInformation.EnsureChildVar<int>("tick", Util::server->GetTick());
+		pInformation.EnsureChildVar<int>("tickinterval", Util::server->GetTickInterval());
+
+		// Dump all holylib convars.
+		{
+		#if ARCHITECTURE_IS_X86_64
+			ICvar::Iterator iter(g_pCVar);
+			for ( iter.SetFirst() ; iter.IsValid() ; iter.Next() )
+			{
+				ConCommandBase* pCommand = iter.Get();
+		#else
+			for (const ConCommandBase* pCommand = g_pCVar->GetCommands(); pCommand; pCommand = pCommand->GetNext())
+			{
+		#endif
+				if (!pCommand->IsCommand() && pCommand->GetDLLIdentifier() == *ConVar_GetDLLIdentifier())
+				{
+					ConVar* pConVar = (ConVar*)pCommand;
+					Bootil::Data::Tree& pEntry = pData.GetChild("convars").GetChild(pConVar->GetName());
+					pEntry.EnsureChildVar<Bootil::BString>("value", pConVar->GetString());
+				}
+			}
+		}
+
+		pDebugDump->Save();
+		pDebugDump->Destroy();
+
+		Msg(PROJECT_NAME ": Created dump inside holylib/debug/dump.json!\n");
+	} else {
+		Msg(PROJECT_NAME ": Failed to create debug dump!\n");
+	}
+}
+static ConCommand createdebugdump("holylib_createdebugdump", CreateDebugDump, "Creates a debug dump that can be provided in a issue or bug report", 0);
+
 GMODGet_LuaClass(IRecipientFilter, GarrysMod::Lua::Type::RecipientFilter, "RecipientFilter", )
 GMODGet_LuaClass(Vector, GarrysMod::Lua::Type::Vector, "Vector", )
 GMODGet_LuaClass(QAngle, GarrysMod::Lua::Type::Angle, "Angle", )
