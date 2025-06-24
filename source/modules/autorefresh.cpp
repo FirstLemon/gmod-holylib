@@ -45,7 +45,6 @@ bool InitHookBeforeRefresh(const std::string *pfileRelPath, const std::string *p
 			g_Lua->Pop(1);
 		}
 	}
-
 	return bDenyRefresh;
 }
 
