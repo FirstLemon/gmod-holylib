@@ -57,6 +57,18 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 		return;
 	}
 
+	detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
+
+	if (Lua::PushHook("HolyLib:GetAfterRefresh"))
+	{
+		g_Lua->PushString(pfileRelPath->c_str());
+		g_Lua->PushString(pfileName->c_str());
+
+		if (g_Lua->CallFunctionProtected(2, 1, true)) {
+			g_Lua->Pop(1);
+		}
+	}
+
 	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
 };
 
