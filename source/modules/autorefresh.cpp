@@ -76,10 +76,6 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 static Detouring::Hook detour_CAutoRefresh_HandleChange;
 static void hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
-	using handleChange = int(__cdecl *)(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt);
-	auto originalFunction = detour_CAutoRefresh_HandleChange.GetTrampoline<handleChange>();
-	int result = originalFunction(pfileRelPath, pfileName, pfileExt);
-
 	// just for future me, sanity check because I got mad
 	if (!pfileRelPath && !pfileName && !pfileExt) {
 		Warning(PROJECT_NAME ": Autorefresh - HandleChange received invalid args!\n");
@@ -92,7 +88,7 @@ static void hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, cons
 		return;
 	}
 
-	return result;
+	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfileRelPath, pfileName, pfileExt);
 };
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
