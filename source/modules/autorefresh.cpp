@@ -10,45 +10,30 @@
 class CAutoRefreshModule : public IModule
 {
 public:
-	virtual void Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn) OVERRIDE;
-	virtual void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) OVERRIDE;
-	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
+	virtual void Init(CreateInterfaceFn *appfn, CreateInterfaceFn *gamefn) OVERRIDE;
+	virtual void LuaInit(GarrysMod::Lua::ILuaInterface *pLua, bool bServerInit) OVERRIDE;
+	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface *pLua) OVERRIDE;
 	virtual void InitDetour(bool bPreServer) OVERRIDE;
 	virtual void Think(bool bSimulating) OVERRIDE;
 	virtual void Shutdown() OVERRIDE;
-	virtual const char* Name() { return "autorefresh"; };
+	virtual const char *Name() { return "autorefresh"; };
 	virtual int Compatibility() { return LINUX32; };
 };
 
 CAutoRefreshModule g_pAutoRefreshModule;
-IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
+IModule *pAutoRefreshModule = &g_pAutoRefreshModule;
 
-void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn)
+void CAutoRefreshModule::Init(CreateInterfaceFn *appfn, CreateInterfaceFn *gamefn)
 {
 }
 
-/*
-static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
+bool InitLuaHookBeforeRefresh(const std::string *pfileRelPath, const std::string *pfileName)
 {
-	if (!pfileRelPath && !pfileName && !pfileExt) {
-		Warning(PROJECT_NAME ": Autorefresh - HandleChange_Lua received invalid args!\n");
-		
-		return;
+	if (!g_Lua)
+	{
+		return false;
 	}
 
-	bool bDenyRefresh = InitLuaHookBeforeRefresh(pfileRelPath, pfileName);
-	if (bDenyRefresh) {
-		return;
-	}
-
-	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
-};
-*/
-
-static Detouring::Hook detour_CAutoRefresh_HandleChange;
-static void hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
-{
 	bool bDenyRefresh = false;
 	if (Lua::PushHook("HolyLib:GetBeforeRefresh"))
 	{
@@ -61,28 +46,32 @@ static void hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, cons
 		}
 	}
 
+	return bDenyRefresh;
+}
+
+void InitLuaHookAfterRefresh()
+{
+
+}
+
+static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
+static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
+{
+	if (!pfileRelPath && !pfileName && !pfileExt) {
+		Warning(PROJECT_NAME ": Autorefresh - HandleChange_Lua received invalid args!\n");
+
+		return;
+	}
+
+	bool bDenyRefresh = InitLuaHookBeforeRefresh(pfileRelPath, pfileName);
 	if (bDenyRefresh) {
 		return;
 	}
 
-	// detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfileRelPath, pfileName, pfileExt);
-
-	/*
-	if (Lua::PushHook("HolyLib:GetAfterRefresh"))
-	{
-		g_Lua->PushString(pfileRelPath->c_str());
-		g_Lua->PushString(pfileName->c_str());
-
-		if (g_Lua->CallFunctionProtected(2, 1, true)) {
-			g_Lua->Pop(1);
-		}
-	}
-	*/
-
-	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfileRelPath, pfileName, pfileExt);
+	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
 };
 
-void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
+void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface *pLua, bool bServerInit)
 {
 	if (bServerInit)
 		return;
@@ -91,7 +80,7 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 	Util::FinishTable(pLua, "Autorefresh");
 }
 
-void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
+void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface *pLua)
 {
 	Util::NukeTable(pLua, "autorefresh");
 }
@@ -103,20 +92,11 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 
 	SourceSDK::FactoryLoader server_loader("server");
 
-	/*
 	// HandleChange_Lua
 	Detour::Create(
-		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
+		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleLuaFileChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
-	);
-	*/
-
-	// HandleChange
-	Detour::Create(
-		&detour_CAutoRefresh_HandleChange, "CAutoRefresh_HandleChange_Lua",
-		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym,
-		(void *)hook_CAutoRefresh_HandleChange, m_pID
 	);
 }
 
