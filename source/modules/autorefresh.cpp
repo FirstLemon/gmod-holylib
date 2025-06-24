@@ -27,32 +27,6 @@ void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamef
 {
 }
 
-bool InitHookBeforeRefresh(const std::string *pfileRelPath, const std::string *pfileName)
-{
-	if (!g_Lua)
-	{
-		return false;
-	}
-
-	bool bDenyRefresh = false;
-	if (Lua::PushHook("HolyLib:GetBeforeRefresh"))
-	{
-		g_Lua->PushString(pfileRelPath->c_str());
-		g_Lua->PushString(pfileName->c_str());
-		
-		if (g_Lua->CallFunctionProtected(3, 1, true)) {
-			bDenyRefresh = g_Lua->GetBool(-1);
-			g_Lua->Pop(1);
-		}
-	}
-	return bDenyRefresh;
-}
-
-void InitLuaHookAfterRefresh()
-{
-
-}
-
 /*
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
@@ -75,17 +49,35 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 static Detouring::Hook detour_CAutoRefresh_HandleChange;
 static void hook_CAutoRefresh_HandleChange(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
-	// just for future me, sanity check because I got mad
-	if (!pfileRelPath && !pfileName && !pfileExt) {
-		Warning(PROJECT_NAME ": Autorefresh - HandleChange received invalid args!\n");
+	bool bDenyRefresh = false;
+	if (Lua::PushHook("HolyLib:GetBeforeRefresh"))
+	{
+		g_Lua->PushString(pfileRelPath->c_str());
+		g_Lua->PushString(pfileName->c_str());
 
-		return;
+		if (g_Lua->CallFunctionProtected(3, 1, true)) {
+			bDenyRefresh = g_Lua->GetBool(-1);
+			g_Lua->Pop(1);
+		}
 	}
 
-	bool bDenyRefresh = InitHookBeforeRefresh(pfileRelPath, pfileName);
 	if (bDenyRefresh) {
 		return;
 	}
+
+	// detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfileRelPath, pfileName, pfileExt);
+
+	/*
+	if (Lua::PushHook("HolyLib:GetAfterRefresh"))
+	{
+		g_Lua->PushString(pfileRelPath->c_str());
+		g_Lua->PushString(pfileName->c_str());
+
+		if (g_Lua->CallFunctionProtected(2, 1, true)) {
+			g_Lua->Pop(1);
+		}
+	}
+	*/
 
 	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfileRelPath, pfileName, pfileExt);
 };
