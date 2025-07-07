@@ -2,7 +2,6 @@
 #include "LuaInterface.h"
 #include "lua.h"
 #include "detours.h"
-#include <variant>
 // #include "Bootil/File/Changes.h"
 
 #include "tier0/memdbgon.h"
@@ -79,12 +78,12 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface *pLua, bool bServ
 		return;
 
 	Util::StartTable(pLua);
-	Util::FinishTable(pLua, "Autorefresh");
+	Util::FinishTable(pLua, "autorefresh");
 }
 
 void CAutoRefreshModule::LuaShutdown(GarrysMod::Lua::ILuaInterface *pLua)
 {
-	Util::NukeTable(pLua, "Autorefresh");
+	Util::NukeTable(pLua, "autorefresh");
 }
 
 void CAutoRefreshModule::InitDetour(bool bPreServer)
