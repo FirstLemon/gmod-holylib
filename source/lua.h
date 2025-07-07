@@ -175,4 +175,5 @@ namespace Lua
 union TValue;
 namespace RawLua {
 	extern TValue *index2adr(lua_State *L, int idx);
+	extern void PushTValue(lua_State* L, TValue* o);
 }
