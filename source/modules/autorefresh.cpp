@@ -29,6 +29,7 @@ void CAutoRefreshModule::Init(CreateInterfaceFn *appfn, CreateInterfaceFn *gamef
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
+	Msg("--- Test ---");
 	if (!pfileRelPath && !pfileName && !pfileExt) {
 		Warning(PROJECT_NAME ": Autorefresh - HandleChange_Lua received invalid args!\n");
 
