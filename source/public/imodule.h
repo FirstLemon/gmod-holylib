@@ -1,4 +1,5 @@
 #include "interface.h"
+#include "string"
 
 enum Module_Compatibility
 {
@@ -13,10 +14,23 @@ namespace GarrysMod::Lua
 	class ILuaInterface;
 }
 
+namespace Bootil
+{
+	typedef std::string BString;
+
+	namespace Data
+	{
+		template <typename TString>
+		class TreeT;
+		typedef TreeT<Bootil::BString> Tree;
+	}
+}
+
 class ConVar;
 class KeyValues;
 struct edict_t;
 class CBaseEntity;
+struct lua_State;
 
 class IModule
 {
@@ -84,8 +98,15 @@ public:
 	// NOTE: If we fail to load the g_pEntityList, this won't be called!
 	virtual void OnEntityDeleted(CBaseEntity* pEntity) { (void)pEntity; };
 
+	// Called when the module config is loaded
+	// You can load any custom fields from here.
+	virtual void OnConfigLoad(Bootil::Data::Tree& pConfig) { (void)pConfig; };
+
 	// Called on level shutdown
 	virtual void LevelShutdown() {};
+
+	virtual void PreLuaModuleLoaded(lua_State* L, const char* pFileName) { (void)L; (void)pFileName; };
+	virtual void PostLuaModuleLoaded(lua_State* L, const char* pFileName) { (void)L; (void)pFileName; };
 
 public: // I would like to remove these at some point but it's more efficient if the modules themself have them.
 	unsigned int m_pID = 0; // Set by the CModuleManager when registering it! Don't touch it.
@@ -194,4 +215,6 @@ public:
 	virtual void OnEntitySpawned(CBaseEntity* pEntity) = 0;
 	virtual void OnEntityDeleted(CBaseEntity* pEntity) = 0;
 	virtual void LevelShutdown() = 0;
+	virtual void PreLuaModuleLoaded(lua_State* L, const char* pFileName) = 0;
+	virtual void PostLuaModuleLoaded(lua_State* L, const char* pFileName) = 0;
 };

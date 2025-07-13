@@ -74,6 +74,12 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 \- [+] Added a new hook `HolyLib:OnClientTimeout` to the `gameserver` module.  
 \- [+] Optimized `GM:PlayerCanHearPlayersVoice` by **only** calling it for actively speaking players/when a voice packet is received.  
 \- [+] Added `voicechat.IsPlayerTalking` & `voicechat.LastPlayerTalked` to the `voicechat` module.  
+\- [+] Added `util.FancyJSONToTable` & `util.AsyncTableToJSON` to the `util` module.  
+\- [+] Added `gameserver.GetClientByUserID` to the `gameserver` module.  
+\- [+] Added a config system allowing one to set convars without using the command line.  
+\- [+] Added `IPhysicsEnvironment:SetInSimulation` to the `physenv` module.  
+\- [#] Added some more safeguards to `IPhysicsEnvironment:Simulate` to prevent one from simulating a environment that is already being simulated.  
+\- [#] Highly optimized `util` module's json code to be noticably faster and use noticably less memory.  
 \- [#] Better support for multiple Lua states  
 \- \- This required most of the lua setup to be changed >:(  
 \- [#] Solved a few possible stack issues  
@@ -1174,6 +1180,11 @@ ignorecycle - If `true` it won't throw a lua error when you have a table that is
 
 Convers the given table to json.  
 Unlike Gmod's version, this function will turn the numbers to an integer if they are one/fit one.  
+This version is noticably faster than Gmod's version and uses less memory in the process.  
+
+#### table util.FancyJSONToTable(string json)
+Convers the json into a table.
+This version is noticably faster than Gmod's version and uses less memory in the process.
 
 #### string util.CompressLZ4(string data, number accelerationLevel = 1)
 Compresses the given data using [LZ4](https://github.com/lz4/lz4)  
@@ -1183,6 +1194,20 @@ Returns `nil` on failure.
 Decompresses the given data using [LZ4](https://github.com/lz4/lz4)  
 Returns `nil` on failure. 
 
+#### util.AsyncTableToJSON(table tbl, function callback, bool pretty = false)
+callback = `function(json) end`
+
+Turns the given table into a json string just like `util.FancyTableToJSON` but it will do this on a different thread.  
+
+> [!WARNING]
+> By giving the table to this function you make a promise to **not** modify the table while the json string is being created!  
+> This is because we don't copy the table, we instead copy the pointer into a new Lua state where we then iterate/access it from another state/thread and if you **modify** it in any way you will experience a crash.  
+> You still can access the table in that time, you are just not allowed to modify it.  
+> It was observed that you can kinda modify the table though if you add new elements/the size of the table changes while its still creating the json string you will crash.  
+
+> [!NOTE]
+> This function requires the `luajit` module to be enabled.
+
 ## ConVars
 
 ### holylib_util_compressthreads(default `1`)
@@ -1191,6 +1216,9 @@ When changing it, it will wait for all queried jobs to first finish before chang
 
 ### holylib_util_decompressthreads(default `1`)
 The number of threads to use for `util.AsyncDecompress`.  
+
+### holylib_util_jsonthreads(default `1`)
+The number of threads to use for `util.AsyncTableToJSON`.  
 
 > [!NOTE]
 > Decompressing seems to be far faster than compressing so it won't need as many threads.  
@@ -2765,6 +2793,9 @@ returns a table containing all physics objects.
 #### bool IPhysicsEnvironment:IsInSimulation()
 returns true if the current physics environment is in simulation.  
 
+#### IPhysicsEnvironment:SetInSimulation(bool simulating = false)
+Sets if the current physics environment is in simulation or not.  
+
 #### IPhysicsEnvironment:ResetSimulationClock()
 resets the simulation clock.  
 
@@ -3281,8 +3312,43 @@ This module updates luajit to a newer version.
 > [!WARNING]
 > It's **not** recommended to enable/disable it at runtime!  
 
-The `ffi` and `string.buffer` packages are already added when enabled.  
-It also restores `debug.setlocal`, `debug.setupvalue`, `debug.upvalueid` and `debug.upvaluejoin`.  
+The `string.buffer` package is already added by default.  
+
+### FFI - cdata
+cdata is slightly different as we changed it's typeID to be `7` instead of `10` since `10` is already used for `Vector` so we mark it to be `7(UserData)`.  
+
+### Functions
+
+#### table jit.getffi()
+If ffi is enabled in the config, then this will return a valid table, else it will return nothing.
+
+#### jit.markFFITypeAsGmodUserData(cdata data)
+If ffi is enabled in the config, then this will allow you to mark cdata to be compatible with gmod allowing you to mimic types.
+
+### table jit.require(string name)
+LuaJITs default require function, this function does **not** exist when ffi is disabled.
+
+### debug.setreadonly(table tbl, bool readOnly = false)
+Forces a table to become read only, meaning it cannot be modified in any way.  
+This readonly logic was added into our LuaJIT build and does **not** exist in the normal LuaJIT.
+
+### bool debug.isreadonly(table tbl)
+Checks if the table is set to be read only.
+
+### debug.setdebugblocked(function func)
+Marks the function to be inaccessable by any debug function & `setfenv` & `getfenv`.  
+
+### bool debug.isdebugblocked(function func)
+Checks if the function is set to be inaccessable by any debug function.
+
+### Config
+
+#### `enableFFI = false`
+If set to `true`, `jit.require` will exist and `jit.getffi` will return ffi.
+
+#### `keepRemovedDebugFunctions = false`
+If set to `true`, all debug function listed below are restored.  
+`debug.setlocal`, `debug.setupvalue`, `debug.upvalueid` and `debug.upvaluejoin`
 
 ## gameserver
 This module adds a library that exposes the `CBaseServer` and `CBaseClient`.  
@@ -3306,6 +3372,9 @@ returns the udp port the server is running on.
 
 #### CGameClient gameserver.GetClient(number playerSlot)
 Returns the CGameClient at that player slot or `nil` on failure.  
+
+#### CGameClient gameserver.GetClientByUserID(number userID)
+Returns the CGameClient for the given userID or `nil` on failure.  
 
 #### number gameserver.GetClientCount()
 returns client count for iteration  

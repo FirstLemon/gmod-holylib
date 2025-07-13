@@ -464,8 +464,8 @@ extern void hook_CPhysicsEnvironment_DestroyObject(GMODSDK::CPhysicsEnvironment*
 class CPhysicsEnvironmentProxy : public Detouring::ClassProxy<IPhysicsEnvironment, CPhysicsEnvironmentProxy> {
 public:
 	CPhysicsEnvironmentProxy(IPhysicsEnvironment* env) {
-		if (Detour::CheckValue("initialize", "CLuaInterfaceProxy", Initialize(env)))
-			Detour::CheckValue("CLuaInterface::PushPooledString", Hook(&IPhysicsEnvironment::DestroyObject, &CPhysicsEnvironmentProxy::DestroyObject));
+		if (Detour::CheckValue("initialize", "CPhysicsEnvironmentProxy", Initialize(env)))
+			Detour::CheckValue("CPhysicsEnvironment::DestroyObject", Hook(&IPhysicsEnvironment::DestroyObject, &CPhysicsEnvironmentProxy::DestroyObject));
 	}
 
 	void DeInit()
@@ -1269,7 +1269,7 @@ LUA_FUNCTION_STATIC(IPhysicsEnvironment_SetInSimulation)
 {
 	CPhysicsEnvironment* pEnvironment = (CPhysicsEnvironment*)GetPhysicsEnvironmentFromLua(LUA, 1, true);
 
-	pEnvironment->m_inSimulation = LUA->GetBool(1);
+	pEnvironment->m_inSimulation = LUA->GetBool(2);
 	return 0;
 }
 

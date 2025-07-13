@@ -87,6 +87,8 @@ void CModule::SetupConfig()
 	Bootil::Data::Tree& pData = pConfig->GetData().GetChild(m_pModule->Name());
 	m_bEnabled = pData.EnsureChildVar<bool>("enabled", m_bEnabled);
 	m_pModule->SetDebug(pData.EnsureChildVar<int>("debugLevel", m_pModule->InDebug()));
+
+	m_pModule->OnConfigLoad(pData);
 }
 
 /*
@@ -476,6 +478,16 @@ void CModuleManager::OnEntityDeleted(CBaseEntity* pEntity)
 void CModuleManager::LevelShutdown()
 {
 	VCALL_ENABLED_MODULES(LevelShutdown());
+}
+
+void CModuleManager::PreLuaModuleLoaded(lua_State* L, const char* pFileName)
+{
+	VCALL_ENABLED_MODULES(PreLuaModuleLoaded(L, pFileName));
+}
+
+void CModuleManager::PostLuaModuleLoaded(lua_State* L, const char* pFileName)
+{
+	VCALL_ENABLED_MODULES(PostLuaModuleLoaded(L, pFileName));
 }
 
 CModuleManager g_pModuleManager;

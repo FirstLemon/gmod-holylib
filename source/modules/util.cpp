@@ -4,6 +4,12 @@
 #include "Bootil/Bootil.h"
 #include <lz4/lz4_compression.h>
 
+#include "bootil/src/3rdParty/rapidjson/rapidjson.h"
+#include "bootil/src/3rdParty/rapidjson/document.h"
+#include "bootil/src/3rdParty/rapidjson/stringbuffer.h"
+#include "bootil/src/3rdParty/rapidjson/prettywriter.h"
+#include "bootil/src/3rdParty/rapidjson/writer.h"
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -57,7 +63,7 @@ static void OnJsonThreadsChange(IConVar* convar, const char* pOldValue, float fl
 
 static ConVar compressthreads("holylib_util_compressthreads", "1", FCVAR_ARCHIVE, "The number of threads to use for util.AsyncCompress", OnCompressThreadsChange);
 static ConVar decompressthreads("holylib_util_decompressthreads", "1", FCVAR_ARCHIVE, "The number of threads to use for util.AsyncDecompress", OnDecompressThreadsChange);
-static ConVar jsonthreads("holylib_util_decompressthreads", "1", FCVAR_ARCHIVE, "The number of threads to use for util.AsyncTableToJSON & util.AsyncJSONToTable", OnJsonThreadsChange);
+static ConVar jsonthreads("holylib_util_jsonthreads", "1", FCVAR_ARCHIVE, "The number of threads to use for util.AsyncTableToJSON & util.AsyncJSONToTable", OnJsonThreadsChange);
 
 class IJobEntry
 {
@@ -105,7 +111,6 @@ public:
 			pLua->PushString((const char*)buffer.GetBase(), buffer.GetWritten());
 		}
 		pLua->CallFunctionProtected(1, 0, true);
-		m_pLua = pLua;
 
 		return true;
 	}
@@ -117,10 +122,10 @@ public:
 	const char* pData = NULL;
 	int iDataReference = -1; // Keeping a reference to stop GC from potentially nuking it.
 
-	int iLength;
-	int iLevel;
-	int iDictSize;
-	double iRatio;
+	int iLength = 0;
+	int iLevel = 7;
+	int iDictSize = 65536;
+	double iRatio = 99.98;
 	Bootil::AutoBuffer buffer;
 };
 
@@ -250,8 +255,8 @@ inline bool IsInt(float pNumber)
 	return static_cast<int>(pNumber) == pNumber && INT32_MAX >= pNumber && pNumber >= INT32_MIN;
 }
 
-extern void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData* pData, Bootil::Data::Tree& pTree);
-void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData* pData, Bootil::Data::Tree& pTree)
+extern void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData* pData, rapidjson::Value& outValue, rapidjson::Document::AllocatorType& allocator);
+void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData* pData, rapidjson::Value& outValue, rapidjson::Document::AllocatorType& allocator)
 {
 	bool bEqual = false;
 	for (int iReference : pData->pRecursiveTableScope)
@@ -282,6 +287,15 @@ void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData
 	pData->pRecursiveTableScope.push_back(Util::ReferenceCreate(pLua, "TableToJSONRecursive - Scope"));
 
 	int idx = 1;
+	bool wasSequential = true;
+	rapidjson::Value jsonObj(rapidjson::kObjectType);
+	rapidjson::Value jsonArr(rapidjson::kArrayType);
+	//int tableSize = pLua->ObjLen(-2);
+	//if (tableSize > 0)
+	//{
+	//	jsonArr.Reserve(tableSize * 8, allocator); // * 8 because we assume each key-value will take up atleast 8 bytes.
+	//}
+
 	while (pLua->Next(-2)) {
 		// In bootil, you just don't give a child a name to indicate that it's sequentail. 
 		// so we need to support that.
@@ -323,42 +337,28 @@ void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData
 			}
 		}
 
+		rapidjson::Value value;
 		switch (pLua->GetType(-1))
 		{
 			case GarrysMod::Lua::Type::String:
-				if (isSequential)
-					pTree.AddChild().Value(pLua->GetString(-1));
-				else
-					pTree.SetChild(key, pLua->GetString(-1));
+				value.SetString(pLua->GetString(-1), pLua->ObjLen(-1), allocator);
 				break;
 			case GarrysMod::Lua::Type::Number:
 				{
 					double pNumber = pLua->GetNumber(-1);
 					if (IsInt(pNumber))
-						if (isSequential)
-							pTree.AddChild().Var(static_cast<int>(pNumber));
-						else
-							pTree.SetChildVar(key, static_cast<int>(pNumber));
+						value.SetInt(pNumber);
 					else
-						if (isSequential)
-							pTree.AddChild().Var(pNumber);
-						else
-							pTree.SetChildVar(key, pNumber);
+						value.SetDouble(pNumber);
 				}
 				break;
 			case GarrysMod::Lua::Type::Bool:
-				if (isSequential)
-					pTree.AddChild().Var(pLua->GetBool(-1));
-				else
-					pTree.SetChildVar(key, pLua->GetBool(-1));
+				value.SetBool(pLua->GetBool(-1));
 				break;
 			case GarrysMod::Lua::Type::Table: // now make it recursive >:D
 				pLua->Push(-1);
 				pLua->PushNil();
-				if (isSequential)
-					TableToJSONRecursive(pLua, pData, pTree.AddChild());
-				else
-					TableToJSONRecursive(pLua, pData, pTree.AddChild(key));
+				TableToJSONRecursive(pLua, pData, value, allocator);
 				break;
 			case GarrysMod::Lua::Type::Vector:
 				{
@@ -366,11 +366,8 @@ void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData
 					if (!vec)
 						break;
 
-					snprintf(pData->buffer, sizeof(pData->buffer), "[%.16g %.16g %.16g]", vec->x, vec->y, vec->z); // Do we even need to be this percice?
-					if (isSequential)
-						pTree.AddChild().Value(pData->buffer);
-					else
-						pTree.SetChild(key, pData->buffer);
+					int length = snprintf(pData->buffer, sizeof(pData->buffer), "[%.16g %.16g %.16g]", vec->x, vec->y, vec->z); // Do we even need to be this percice?
+					value.SetString(pData->buffer, length, allocator);
 				}
 				break;
 			case GarrysMod::Lua::Type::Angle:
@@ -379,19 +376,42 @@ void TableToJSONRecursive(GarrysMod::Lua::ILuaInterface* pLua, LuaUtilModuleData
 					if (!ang)
 						break;
 
-					snprintf(pData->buffer, sizeof(pData->buffer), "{%.12g %.12g %.12g}", ang->x, ang->y, ang->z);
-					if (isSequential)
-						pTree.AddChild().Value(pData->buffer);
-					else
-						pTree.SetChild(key, pData->buffer);
+					int length = snprintf(pData->buffer, sizeof(pData->buffer), "{%.12g %.12g %.12g}", ang->x, ang->y, ang->z);
+					value.SetString(pData->buffer, length, allocator);
 				}
 				break;
 			default:
 				break; // We should fallback to nil
 		}
 
+		if (wasSequential && !isSequential)
+		{
+			for (rapidjson::SizeType i=0; i<jsonArr.Size(); ++i)
+			{
+				char indexKey[32];
+				snprintf(indexKey, sizeof(indexKey), "%u", i + 1);
+				rapidjson::Value k(indexKey, allocator);
+				jsonObj.AddMember(k, jsonArr[i], allocator);
+			}
+			jsonArr.Clear();
+			//jsonArr.~GenericValue();
+			//new (&jsonArr) rapidjson::Value(rapidjson::kArrayType);
+			//jsonObj.Reserve(tableSize * 8, allocator); // Since we use the jsonObj now, we can instead go in and reserve space there.
+			wasSequential = false;
+		}
+
+		if (wasSequential && isSequential)
+		{
+			jsonArr.PushBack(std::move(value), allocator);
+		} else {
+			rapidjson::Value k(key, allocator);
+			jsonObj.AddMember(std::move(k), std::move(value), allocator);
+		}
+
 		pLua->Pop(1);
 	}
+
+	outValue = std::move(wasSequential ? jsonArr : jsonObj);
 
 	pLua->Pop(1);
 
@@ -408,17 +428,114 @@ LUA_FUNCTION_STATIC(util_TableToJSON)
 	pData->bRecursiveNoError = LUA->GetBool(3);
 
 	pData->iRecursiveStartTop = LUA->Top();
-	Bootil::Data::Tree pTree;
 	LUA->Push(1);
 	LUA->PushNil();
 
-	TableToJSONRecursive(LUA, pData, pTree);
+	rapidjson::Document doc;
+	TableToJSONRecursive(LUA, pData, doc, doc.GetAllocator());
 
-	Bootil::BString pOut;
-	Bootil::Data::Json::Export(pTree, pOut, bPretty);
+	rapidjson::StringBuffer buffer;
+	if (bPretty)
+	{
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+		writer.SetIndent( '\t', 1 );
+		doc.Accept(writer);
+	} else {
+		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+		doc.Accept(writer);
+	}
 
-	LUA->PushString(pOut.c_str());
+	LUA->PushString(buffer.GetString(), buffer.GetLength());
+	return 1;
+}
 
+// When called, we expect the top of the stack to be the main table that we will be writing into
+// noSet = If true, we expect only the value to get pushed or nil, and the key will be ignored.
+extern void JSONToTableRecursive(GarrysMod::Lua::ILuaInterface* pLua, const rapidjson::Value& jsonValue, bool noSet = false);
+void PushJSONValue(GarrysMod::Lua::ILuaInterface* pLua, const rapidjson::Value& jsonValue)
+{
+	if (jsonValue.IsObject()) {
+		pLua->CreateTable();
+		JSONToTableRecursive(pLua, jsonValue, false);
+	} else if (jsonValue.IsArray()) {
+		pLua->PreCreateTable(jsonValue.Size(), 0);
+		int idx = 1;
+		for (rapidjson::SizeType i = 0; i < jsonValue.Size(); ++i) {
+			JSONToTableRecursive(pLua, jsonValue[i], true);
+			Util::RawSetI(pLua, -2, idx++);
+		}
+	} else if (jsonValue.IsString()) {
+		const char* valueStr = jsonValue.GetString();
+		if (jsonValue.GetStringLength() > 2 && valueStr[0] == '[' && valueStr[jsonValue.GetStringLength() - 1] == ']') {
+			Vector vec;
+			sscanf(valueStr + 1, "%f %f %f", &vec.x, &vec.y, &vec.z);
+			pLua->PushVector(vec);
+		} else if (jsonValue.GetStringLength() > 2 && valueStr[0] == '{' && valueStr[jsonValue.GetStringLength() - 1] == '}') {
+			QAngle ang;
+			sscanf(valueStr + 1, "%f %f %f", &ang.x, &ang.y, &ang.z);
+			pLua->PushAngle(ang);
+		} else {
+			pLua->PushString(valueStr);
+		}
+	} else if (jsonValue.IsNumber()) {
+		pLua->PushNumber(jsonValue.GetDouble());
+	} else if (jsonValue.IsBool()) {
+		pLua->PushBool(jsonValue.GetBool());
+	} else {
+		pLua->PushNil();
+	}
+}
+
+void JSONToTableRecursive(GarrysMod::Lua::ILuaInterface* pLua, const rapidjson::Value& jsonValue, bool noSet)
+{
+	if (jsonValue.IsObject()) {
+		for (rapidjson::Value::ConstMemberIterator itr = jsonValue.MemberBegin(); itr != jsonValue.MemberEnd(); ++itr) {
+			const rapidjson::Value& value = itr->value;
+
+			if (!noSet)
+			{
+				if (itr->name.IsString()) {
+					pLua->PushString(itr->name.GetString());
+				} else if (itr->name.IsNumber()) {
+					pLua->PushNumber(itr->name.GetDouble());
+				} else if (itr->name.IsBool()) {
+					pLua->PushBool(itr->name.GetBool());
+				}
+			}
+
+			PushJSONValue(pLua, itr->value);
+
+			if (!noSet)
+			{
+				pLua->SetTable(-3);
+			}
+		}
+	} else if (jsonValue.IsArray()) {
+		int idx = 0;
+		for (rapidjson::SizeType i = 0; i < jsonValue.Size(); ++i)
+		{
+			JSONToTableRecursive(pLua, jsonValue[i], true);
+			Util::RawSetI(pLua, -2, ++idx);
+		}
+	} else if (noSet) {
+		PushJSONValue(pLua, jsonValue);
+	}
+}
+
+LUA_FUNCTION_STATIC(util_JSONToTable)
+{
+	const char* jsonString = LUA->CheckString(1);
+
+	rapidjson::Document doc;
+	doc.Parse(jsonString);
+
+	if (doc.HasParseError()) {
+		LUA->ThrowError("Invalid JSON string");
+		return 0;
+    }
+
+	LUA->CreateTable();
+	JSONToTableRecursive(LUA, doc);
 	return 1;
 }
 
@@ -477,6 +594,11 @@ public:
 		{
 			Util::ReferenceFree(m_pLua, m_iCallback, "JsonEntry(callback) - util.AsyncJson");
 		}
+
+		if (m_pObject)
+		{
+			delete m_pObject;
+		}
 	}
 
 	virtual bool OnThink(GarrysMod::Lua::ILuaInterface* pLua)
@@ -490,26 +612,28 @@ public:
 		}
 
 		Util::ReferencePush(pLua, m_iCallback);
-		pLua->PushString(m_strOut.c_str());
+		pLua->PushString(m_strOut.GetString(), m_strOut.GetLength());
 		pLua->CallFunctionProtected(1, 0, true);
 
 		return true;
 	}
 
 	int m_iReference = -1;
-	TValue* m_pObject;
+	TValue* m_pObject = NULL;
 	bool m_bPretty = false;
 
 	bool m_bIsDone = false;
-	Bootil::BString m_strOut;
+	rapidjson::StringBuffer m_strOut;
 	int m_iCallback = -1;
-
 };
 
 static void JsonJob(JsonEntry*& entry)
 {
 	if (entry->m_bCancel)
+	{
+		RawLua::SetReadOnly(entry->m_pObject, false);
 		return;
+	}
 
 	GarrysMod::Lua::ILuaInterface* LUA = Lua::CreateInterface();
 
@@ -517,22 +641,31 @@ static void JsonJob(JsonEntry*& entry)
 	pData.bRecursiveNoError = true;
 
 	pData.iRecursiveStartTop = LUA->Top();
-	Bootil::Data::Tree pTree;
 	RawLua::PushTValue(LUA->GetState(), entry->m_pObject);
 	LUA->PushNil();
 
-	TableToJSONRecursive(LUA, &pData, pTree);
+	rapidjson::Document doc;
+	TableToJSONRecursive(LUA, &pData, doc, doc.GetAllocator());
 
 	if (entry->m_bCancel)
 	{
 		Lua::DestroyInterface(LUA);
+		RawLua::SetReadOnly(entry->m_pObject, false);
 		return;
 	}
 
-	Bootil::BString pOut;
-	Bootil::Data::Json::Export(pTree, pOut, entry->m_bPretty);
+	if (entry->m_bPretty)
+	{
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(entry->m_strOut);
+		writer.SetIndent('\t', 1);
+		doc.Accept(writer);
+	} else {
+		rapidjson::Writer<rapidjson::StringBuffer> writer(entry->m_strOut);
+		doc.Accept(writer);
+	}
 
 	Lua::DestroyInterface(LUA);
+	RawLua::SetReadOnly(entry->m_pObject, false);
 
 	entry->m_bIsDone = true;
 }
@@ -546,11 +679,20 @@ inline void StartJsonThread()
 	Util::StartThreadPool(pJsonPool, jsonthreads.GetInt());
 }
 
-LUA_FUNCTION_STATIC(util_AsyncTableToJson)
+LUA_FUNCTION_STATIC(util_AsyncTableToJSON)
 {
 	LUA->CheckType(1, GarrysMod::Lua::Type::Table);
 	LUA->CheckType(2, GarrysMod::Lua::Type::Function);
 	bool bPretty = LUA->GetBool(3);
+
+	LUA->GetField(GarrysMod::Lua::INDEX_REGISTRY, "HOLYLIB_LUAJIT");
+	if (!LUA->IsType(-1, GarrysMod::Lua::Type::Bool))
+	{
+		LUA->Pop(1);
+		LUA->ThrowError("This function is not functional without the luajit module enabled!");
+		return 0;
+	}
+	LUA->Pop(1);
 
 	JsonEntry* entry = new JsonEntry;
 	entry->m_bPretty = bPretty;
@@ -559,8 +701,11 @@ LUA_FUNCTION_STATIC(util_AsyncTableToJson)
 	entry->m_iCallback = LUA->ReferenceCreate();
 
 	LUA->Push(1);
-	entry->m_pObject = RawLua::index2adr(LUA->GetState(), -1);
+	entry->m_pObject = RawLua::CopyTValue(LUA->GetState(), RawLua::index2adr(LUA->GetState(), -1));
 	entry->m_iReference = LUA->ReferenceCreate();
+	entry->m_pLua = LUA;
+
+	RawLua::SetReadOnly(entry->m_pObject, true);
 
 	GetLuaData(LUA)->pEntries.push_back(entry);
 
@@ -610,10 +755,11 @@ void CUtilModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 		Util::AddFunc(pLua, util_AsyncCompress, "AsyncCompress");
 		Util::AddFunc(pLua, util_AsyncDecompress, "AsyncDecompress");
 		Util::AddFunc(pLua, util_TableToJSON, "FancyTableToJSON");
+		Util::AddFunc(pLua, util_JSONToTable, "FancyJSONToTable");
 		Util::AddFunc(pLua, util_CompressLZ4, "CompressLZ4");
 		Util::AddFunc(pLua, util_DecompressLZ4, "DecompressLZ4");
-		Util::AddFunc(pLua, util_AsyncTableToJson, "AsyncTableToJson");
-		//Util::AddFunc(pLua, util_AsyncJsonToTable, "AsyncJsonToTable");
+		Util::AddFunc(pLua, util_AsyncTableToJSON, "AsyncTableToJSON");
+		// Util::AddFunc(pLua, util_AsyncJSONToTable, "AsyncJSONToTable");
 		Util::PopTable(pLua);
 	}
 }
