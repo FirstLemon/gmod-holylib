@@ -5,14 +5,14 @@ return {
             name = "Function exists globally",
             when = HolyLib_IsModuleEnabled("bass"),
             func = function()
-                expect( PlayFile ).to.beA( "function" )
+                expect( bass.PlayFile ).to.beA( "function" )
             end
         },
         {
             name = "Function doesn't exists globally",
             when = not HolyLib_IsModuleEnabled("bass"),
             func = function()
-                expect( PlayFile ).to.beA( "nil" )
+                expect( bass.PlayFile ).to.beA( "nil" )
             end
         },
         {
