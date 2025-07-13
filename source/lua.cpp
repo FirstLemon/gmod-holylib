@@ -150,13 +150,26 @@ static void hook_InitLuaClasses(GarrysMod::Lua::ILuaInterface* LUA) // ToDo: Add
 static Detouring::Hook detour_CLuaInterface_Shutdown;
 static void hook_CLuaInterface_Shutdown(GarrysMod::Lua::ILuaInterface* LUA)
 {
-	if ((void*)LUA == (void*)g_Lua)
+	bool bIsOurInterface = ((void*)LUA == (void*)g_Lua);
+	if (bIsOurInterface)
 		Lua::Shutdown();
 
 	detour_CLuaInterface_Shutdown.GetTrampoline<Symbols::CLuaInterface_Shutdown>()(LUA); 
 	// Garbage collection will kick in so our remaining objects could call theirs __gc function so g_Lua still needs to be valid.
 
-	Lua::FinalShutdown();
+	if (bIsOurInterface)
+		Lua::FinalShutdown();
+}
+
+static Detouring::Hook detour_GMOD_LoadBinaryModule;
+static void hook_GMOD_LoadBinaryModule(lua_State* L, const char* pFileName)
+{
+	g_pModuleManager.PreLuaModuleLoaded(L, pFileName);
+
+	detour_GMOD_LoadBinaryModule.GetTrampoline<Symbols::GMOD_LoadBinaryModule>()(L, pFileName); 
+	// Garbage collection will kick in so our remaining objects could call theirs __gc function so g_Lua still needs to be valid.
+
+	g_pModuleManager.PostLuaModuleLoaded(L, pFileName);
 }
 
 void Lua::AddDetour() // Our Lua Loader.
@@ -177,6 +190,13 @@ void Lua::AddDetour() // Our Lua Loader.
 			(void*)hook_CLuaInterface_Shutdown, 0
 		);
 	}
+
+	SourceSDK::ModuleLoader lua_shared_loader("lua_shared");
+	Detour::Create(
+		&detour_GMOD_LoadBinaryModule, "GMOD_LoadBinaryModule",
+		lua_shared_loader.GetModule(), Symbols::GMOD_LoadBinaryModuleSym,
+		(void*)hook_GMOD_LoadBinaryModule, 0
+	);
 }
 
 void Lua::SetManualShutdown()

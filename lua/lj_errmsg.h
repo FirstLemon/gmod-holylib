@@ -1,6 +1,6 @@
 /*
 ** VM error messages.
-** Copyright (C) 2005-2023 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2025 Mike Pall. See Copyright Notice in luajit.h
 */
 
 /* This file may be included multiple times with different ERRDEF macros. */
@@ -21,6 +21,7 @@ ERRDEF(TABOV,	"table overflow")
 ERRDEF(NANIDX,	"table index is NaN")
 ERRDEF(NILIDX,	"table index is nil")
 ERRDEF(NEXTIDX,	"invalid key to " LUA_QL("next"))
+ERRDEF(READONLY, "table is in read only")
 
 /* Metamethod resolving. */
 ERRDEF(BADCALL,	"attempt to call a %s value")
@@ -41,6 +42,7 @@ ERRDEF(BADSELF,	"calling " LUA_QS " on bad self (%s)")
 ERRDEF(BADARG,	"bad argument #%d to " LUA_QS " (%s)")
 ERRDEF(BADTYPE,	"%s expected, got %s")
 ERRDEF(BADVAL,	"invalid value")
+ERRDEF(DENYCDATA, "cdata is not allowed to be used here")
 ERRDEF(NOVAL,	"value expected")
 ERRDEF(NOCORO,	"coroutine expected")
 ERRDEF(NOTABN,	"nil or table expected")
@@ -51,6 +53,7 @@ ERRDEF(NOPROXY,	"boolean or proxy expected")
 ERRDEF(FORINIT,	LUA_QL("for") " initial value must be a number")
 ERRDEF(FORLIM,	LUA_QL("for") " limit must be a number")
 ERRDEF(FORSTEP,	LUA_QL("for") " step must be a number")
+ERRDEF(BLOCKDEBUG, "function is marked to block any debug access")
 
 /* C API checks. */
 ERRDEF(NOENV,	"no calling environment")
@@ -79,6 +82,7 @@ ERRDEF(SETFENV,	LUA_QL("setfenv") " cannot change environment of given object")
 ERRDEF(CORUN,	"cannot resume running coroutine")
 ERRDEF(CODEAD,	"cannot resume dead coroutine")
 ERRDEF(COSUSP,	"cannot resume non-suspended coroutine")
+ERRDEF(PRNGSD,	"PRNG seeding failed")
 ERRDEF(TABINS,	"wrong number of arguments to " LUA_QL("insert"))
 ERRDEF(TABCAT,	"invalid value (%s) at index %d in table for " LUA_QL("concat"))
 ERRDEF(TABSORT,	"invalid order function for sorting")
@@ -139,6 +143,7 @@ ERRDEF(XDOTS,	"cannot use " LUA_QL("...") " outside a vararg function")
 ERRDEF(XSYNTAX,	"syntax error")
 ERRDEF(XFOR,	LUA_QL("=") " or " LUA_QL("in") " expected")
 ERRDEF(XBREAK,	"no loop to break")
+ERRDEF(XCONTINUE,	"no loop to continue")
 ERRDEF(XLUNDEF,	"undefined label " LUA_QS)
 ERRDEF(XLDUP,	"duplicate label " LUA_QS)
 ERRDEF(XGSCOPE,	"<goto %s> jumps into the scope of local " LUA_QS)
