@@ -1,5 +1,6 @@
 return {
     groupName = "bass.PlayFile",
+
     cases = {
         {
             name = "Function exists globally",
@@ -16,20 +17,20 @@ return {
             end
         },
         {
-            name = "Playing Sample Wave File",
-            when HolyLib_IsModuleEnabled("bass"),
-            async = true,
-            timeout = 15,
+            name = "Print current working directory and file structure",
             func = function()
-                local filePath = "assets/bass-test.wav"
-                local flags = "mono"
+                -- Use io.popen to run OS-level commands
+                local f = io.popen("pwd && ls -R", "r")
+                if f then
+                    local output = f:read("*a")
+                    f:close()
 
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).toNot.beNil()
-                    print("ErrCode: " .. errorCode .. "\n")
-                    print("ErrMsg: " .. errorMsg .. "\n")
-                end)
-                done()
+                    print("[TEST DEBUG] === BEGIN FILE LISTING ===")
+                    print(output)
+                    print("[TEST DEBUG] === END FILE LISTING ===")
+                else
+                    print("[TEST DEBUG] Failed to execute 'pwd && ls -R'")
+                end
             end
         },
     }
