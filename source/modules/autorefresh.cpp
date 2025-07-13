@@ -29,8 +29,46 @@ void CAutoRefreshModule::Init(CreateInterfaceFn *appfn, CreateInterfaceFn *gamef
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
-	Msg("Hello :> - %s", pfileRelPath->c_str());
-	return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
+	if (!pfileRelPath && !pfileName && !pfileExt) {
+		Warning(PROJECT_NAME ": Autorefresh - HandleChange_Lua received invalid args!\n");
+
+		return detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
+	}
+
+	if (!g_Lua)
+	{
+		return;
+	}
+
+	bool bDenyRefresh = false;
+	if (Lua::PushHook("HolyLib:GetBeforeRefresh"))
+	{
+		g_Lua->PushString(pfileRelPath->c_str());
+		g_Lua->PushString(pfileName->c_str());
+
+		if (g_Lua->CallFunctionProtected(3, 1, true))
+		{
+			bDenyRefresh = g_Lua->GetBool(-1);
+			g_Lua->Pop(1);
+		}
+	}
+
+	if (bDenyRefresh) {
+		return;
+	}
+
+	detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
+
+	/* 
+	if (Lua::PushHook("HolyLib:GetAfterRefresh"))
+	{
+		g_Lua->PushString(pfileRelPath->c_str());
+		g_Lua->PushString(pfileName->c_str());
+
+		g_Lua->CallFunctionProtected(2, 1, true);
+	}
+	*/
+	return;
 };
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface *pLua, bool bServerInit)
