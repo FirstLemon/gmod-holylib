@@ -172,11 +172,18 @@ LUA_FUNCTION_STATIC(VoiceData_GetUncompressedData)
 
 	uint32 pDecompressedLength;
 	char* pDecompressed = new char[iSize];
-	pSteamUser->DecompressVoice(
+	int returnCode = pSteamUser->DecompressVoice(
 		pData->pData, pData->iLength,
 		pDecompressed, iSize,
 		&pDecompressedLength, 44100
 	);
+
+	if (returnCode != k_EVoiceResultOK)
+	{
+		delete[] pDecompressed; // Lua will already have a copy of it.
+		LUA->PushNumber(returnCode);
+		return 1;
+	}
 
 	LUA->PushString(pDecompressed, pDecompressedLength);
 	delete[] pDecompressed; // Lua will already have a copy of it.
@@ -373,6 +380,168 @@ struct VoiceStream {
 			voiceData->pData = data;
 
 			pStream->SetIndex(tickNumber * scaleRate, voiceData);
+		}
+
+		return pStream;
+	}
+
+	void SaveWave(FileHandle_t fh)
+	{
+		if (pVoiceData.empty())
+			return;
+
+		ISteamUser* pSteamUser = Util::GetSteamUser();
+		if (!pSteamUser)
+			return;
+
+		const int sampleRate = 44100;
+		const int bytesPerSample = 2; // 16-bit mono
+		std::map<int, VoiceData*> sorted(pVoiceData.begin(), pVoiceData.end());
+
+		std::vector<char> wavePCM;
+		int lastTick = 0;
+		bool first = true;
+		uint32_t uncompressedLength = 40000;
+		char* uncompressed = new char[uncompressedLength];
+		for (auto& [tick, voiceData] : sorted)
+		{
+			uint32_t uncompressedWritten = 0;
+			EVoiceResult res = pSteamUser->DecompressVoice(
+				voiceData->pData, voiceData->iLength,
+				uncompressed, uncompressedLength,
+				&uncompressedWritten, sampleRate
+			);
+
+			if (res != k_EVoiceResultOK && res != k_EVoiceResultBufferTooSmall)
+				continue;
+
+			if (!first)
+			{
+				int tickDelta = tick - lastTick;
+				if (tickDelta > 1)
+				{
+					float timeGap = tickDelta * gpGlobals->interval_per_tick;
+					int silentSamples = static_cast<int>(sampleRate * timeGap);
+					int silenceBytes = silentSamples * bytesPerSample;
+
+					wavePCM.insert(wavePCM.end(), silenceBytes, 0);
+				}
+			}
+
+			first = false;
+			lastTick = tick;
+
+			wavePCM.insert(wavePCM.end(), uncompressed, uncompressed + uncompressedWritten);
+		}
+		delete[] uncompressed;
+
+		int dataSize = wavePCM.size();
+		int byteRate = sampleRate * bytesPerSample;
+		int blockAlign = bytesPerSample;
+		int bitsPerSample = 16;
+		struct WAVHeader {
+			char riff[4] = { 'R','I','F','F' };
+			int fileSize;
+			char wave[4] = { 'W','A','V','E' };
+
+			char fmt[4] = { 'f','m','t',' ' };
+			int fmtSize = 16;
+			short audioFormat = 1; // PCM
+			short numChannels = 1;
+			int sampleRate;
+			int byteRate;
+			short blockAlign;
+			short bitsPerSample;
+
+			char data[4] = { 'd','a','t','a' };
+			int dataSize;
+		};
+
+		WAVHeader header;
+		header.fileSize = sizeof(WAVHeader) - 8 + dataSize;
+		header.sampleRate = sampleRate;
+		header.byteRate = byteRate;
+		header.blockAlign = blockAlign;
+		header.bitsPerSample = bitsPerSample;
+		header.dataSize = dataSize;
+
+		g_pFullFileSystem->Write(&header, sizeof(WAVHeader), fh);
+		if (dataSize > 0)
+			g_pFullFileSystem->Write(wavePCM.data(), dataSize, fh);
+	}
+
+	static VoiceStream* LoadWave(FileHandle_t fh)
+	{
+		VoiceStream* pStream = new VoiceStream;
+
+		struct WAVHeader {
+			char riff[4];
+			int fileSize;
+			char wave[4];
+			char fmt[4];
+			int fmtSize;
+			short audioFormat;
+			short numChannels;
+			int sampleRate;
+			int byteRate;
+			short blockAlign;
+			short bitsPerSample;
+			char data[4];
+			int dataSize;
+		};
+
+		WAVHeader header;
+		if (g_pFullFileSystem->Read(&header, sizeof(header), fh) != sizeof(header)) {
+			delete pStream;
+			return NULL;
+		}
+
+		if (strncmp(header.riff, "RIFF", 4) != 0 || strncmp(header.wave, "WAVE", 4) != 0 ||
+			strncmp(header.fmt, "fmt ", 4) != 0 || strncmp(header.data, "data", 4) != 0 ||
+			header.audioFormat != 1 || header.numChannels != 1 || header.bitsPerSample != 16) {
+			delete pStream;
+			return NULL;
+		}
+
+		std::vector<char> pcmData(header.dataSize);
+		if (g_pFullFileSystem->Read(pcmData.data(), header.dataSize, fh) != header.dataSize) {
+			delete pStream;
+			return NULL;
+		}
+
+		const int sampleRate = header.sampleRate;
+		const int bytesPerSample = 2;
+		const int samplesPerTick = (int)(sampleRate * gpGlobals->interval_per_tick);
+		const int chunkSize = samplesPerTick * bytesPerSample;
+
+		char recompressBuffer[6000];
+		uint64_t fakeSteamID = 0x0110000100000001; // STEAM_0:1:0
+		int tick = 0;
+		for (size_t offset = 0; offset < pcmData.size(); offset += chunkSize, ++tick)
+		{
+			int thisChunk = std::min<int>(chunkSize, pcmData.size() - offset);
+			if (thisChunk <= 0)
+				break;
+
+			const char* decompressedBuffer = pcmData.data() + offset;
+
+			static SteamOpus::Opus_FrameDecoder opus_codec;
+			int bytesWritten = SteamVoice::CompressIntoBuffer(
+				fakeSteamID,
+				&opus_codec,
+				decompressedBuffer,
+				thisChunk,
+				recompressBuffer,
+				sizeof(recompressBuffer),
+				sampleRate
+			);
+
+			if (bytesWritten <= 0)
+				continue;
+
+			VoiceData* voiceData = new VoiceData;
+			voiceData->SetData(recompressBuffer, bytesWritten);
+			pStream->SetIndex(tick, voiceData);
 		}
 
 		return pStream;
@@ -943,6 +1112,7 @@ LUA_FUNCTION_STATIC(voicechat_CreateVoiceStream)
 }
 
 enum VoiceStreamTaskStatus {
+	VoiceStreamTaskStatus_FAILED_INVALID_FILE = -4,
 	VoiceStreamTaskStatus_FAILED_INVALID_VERSION = -3,
 	VoiceStreamTaskStatus_FAILED_FILE_NOT_FOUND = -2,
 	VoiceStreamTaskStatus_FAILED_INVALID_TYPE = -1,
@@ -953,7 +1123,7 @@ enum VoiceStreamTaskStatus {
 enum VoiceStreamTaskType {
 	VoiceStreamTask_NONE,
 	VoiceStreamTask_SAVE,
-	VoiceStreamTask_LOAD
+	VoiceStreamTask_LOAD,
 };
 
 struct VoiceStreamTask {
@@ -990,6 +1160,14 @@ public:
 	std::unordered_set<VoiceStreamTask*> pVoiceStreamTasks;
 };
 
+static std::string_view getFileExtension(const std::string_view& fileName) {
+	size_t lastDotPos = fileName.find_last_of('.');
+	if (lastDotPos == std::string::npos || lastDotPos == fileName.length() - 1)
+		return "";
+
+	return fileName.substr(lastDotPos + 1);
+}
+
 static void VoiceStreamJob(VoiceStreamTask*& task)
 {
 	switch(task->iType)
@@ -999,13 +1177,19 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 			FileHandle_t fh = g_pFullFileSystem->Open(task->pFileName, "rb", task->pGamePath);
 			if (fh)
 			{
-				task->pStream = VoiceStream::Load(fh);
-				g_pFullFileSystem->Close(fh);
-
-				if (task->pStream == NULL)
+				bool bIsWave = getFileExtension(task->pFileName) == "wav";
+				if (bIsWave)
 				{
-					task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_VERSION;
+					task->pStream = VoiceStream::LoadWave(fh);
+					if (task->pStream == NULL)
+						task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_FILE;
+				} else {
+					task->pStream = VoiceStream::Load(fh);
+					if (task->pStream == NULL)
+						task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_VERSION;
 				}
+
+				g_pFullFileSystem->Close(fh);
 			} else {
 				task->iStatus = VoiceStreamTaskStatus_FAILED_FILE_NOT_FOUND;
 			}
@@ -1016,7 +1200,14 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 			FileHandle_t fh = g_pFullFileSystem->Open(task->pFileName, "wb", task->pGamePath);
 			if (fh)
 			{
-				task->pStream->Save(fh);
+				bool bIsWave = getFileExtension(task->pFileName) == "wav";
+				if (bIsWave)
+				{
+					task->pStream->SaveWave(fh);
+				} else {
+					task->pStream->Save(fh);
+				}
+
 				g_pFullFileSystem->Close(fh);
 			} else {
 				task->iStatus = VoiceStreamTaskStatus_FAILED_FILE_NOT_FOUND;
@@ -1025,7 +1216,7 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 		}
 		default:
 		{
-			Warning("holylib - VoiceChat(VoiceStreamJob): Managed to get a job without a type. How.\n");
+			Warning("holylib - VoiceChat(VoiceStreamJob): Managed to get a job without a valid type. How.\n");
 			task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_TYPE;
 			return;
 		}
