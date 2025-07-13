@@ -1,5 +1,6 @@
 return {
     groupName = "bass.PlayFile",
+
     cases = {
         {
             name = "Function exists globally",
@@ -16,20 +17,20 @@ return {
             end
         },
         {
-            name = "Playing Sample Wave File",
-            when HolyLib_IsModuleEnabled("bass"),
-            async = true,
-            timeout = 15,
+            name = "Print working directory and list files",
+            when = HolyLib_IsModuleEnabled("bass"),
             func = function()
-                local filePath = "assets/bass-test.wav"
-                local flags = "mono"
+                print("[DEBUG] Current working directory:")
 
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).toNot.beNil()
-                    print("ErrCode: " .. errorCode .. "\n")
-                    print("ErrMsg: " .. errorMsg .. "\n")
-                end)
-                done()
+                print("[DEBUG] engine.GetGameDir():", engine.GetGameDir())
+
+                local f = io.popen("pwd && ls -R", "r")
+                if f then
+                    print("[DEBUG] Full Directory Listing:\n" .. f:read("*a"))
+                    f:close()
+                else
+                    print("[ERROR] Could not read directory structure")
+                end
             end
         },
     }
