@@ -67,9 +67,8 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 
 		g_Lua->CallFunctionProtected(2, 1, true);
 	}
-
-	return;
 	*/
+	return;
 };
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface *pLua, bool bServerInit)
