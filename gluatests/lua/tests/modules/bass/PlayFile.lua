@@ -16,14 +16,20 @@ return {
             end
         },
         {
-            name = "Playing Sample File",
-            when = HolyLib_IsModuleEnabled("bass"),
+            name = "Playing Sample Wave File",
+            when HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 15,
             func = function()
-                bass.PlayFile("../../../assets/audio/bass-test.wav", "3d", function(channel, errorCode, error)
-                    expect(channel).toNot.beNil
-                    print("ErrorCode: " .. errorCode .. "\n")
-                    print("Error: ".. error .. "\n")
+                local filePath = "assets/bass-test.wav"
+                local flags = "mono"
+
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    expect(channel).toNot.beNil()
+                    print("ErrCode: " .. errorCode .. "\n")
+                    print("ErrMsg: " .. errorMsg .. "\n")
                 end)
+                done()
             end
         },
     }
