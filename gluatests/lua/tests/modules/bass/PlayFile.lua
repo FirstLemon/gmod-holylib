@@ -17,20 +17,39 @@ return {
             end
         },
         {
-            name = "Print current working directory and file structure",
+            name = "Does Soundfile exist?",
+            when = not HolyLib_IsModuleEnabled("bass"),
             func = function()
-                -- Use io.popen to run OS-level commands
-                local f = io.popen("pwd && ls -R", "r")
-                if f then
-                    local output = f:read("*a")
-                    f:close()
+                local exists1 = file.Exists("sound/buttons/button1.wav", "GAME")
+                expect(exists1).to.beTrue()
 
-                    print("[TEST DEBUG] === BEGIN FILE LISTING ===")
-                    print(output)
-                    print("[TEST DEBUG] === END FILE LISTING ===")
-                else
-                    print("[TEST DEBUG] Failed to execute 'pwd && ls -R'")
-                end
+                local exists2 = file.Exists("buttons/button1.wav", "GAME")
+                expect(exists2).to.beTrue()
+
+                local exists3 = file.Exists("button1.wav", "GAME")
+                expect(exists3).to.beTrue()
+            end
+        },
+        {
+            name = "trying to play valid wav File",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 20,
+            func = function()
+                filePath = "buttons/blip1.wav"
+                local flags = "mono"
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    print("channel: ", channel)
+                    print("errorCode: ", errorCode)
+                    print("errorMsg: ", errorMsg)
+
+                    expect(channel).toNot.beNil()
+                    expect(errorCode).to.beNil()
+                    expect(errorMsg).to.beNil()
+                    
+                    done()
+                end)
             end
         },
     }
