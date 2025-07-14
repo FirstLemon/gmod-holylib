@@ -63,13 +63,14 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 
 		files({
 			gmcommon .. [[/sourcesdk-minimal/public/filesystem_helpers.cpp]],
-			[[source/opus/*.h]],
+			[[../../source/opus/*.h]],
 			[[../../source/modules/*.h]],
 			[[../../source/modules/*.cpp]],
 			[[../../source/sourcesdk/*.h]],
 			[[../../source/sourcesdk/*.cpp]],
 			[[../../source/public/*.h]],
 			[[../../source/lua/*.*]],
+			[[../../source/lua/scripts/*.lua]],
 			[[../../source/lz4/*.h]],
 			[[../../source/lz4/*.c]],
 			[[../../source/lz4/*.cpp]],
