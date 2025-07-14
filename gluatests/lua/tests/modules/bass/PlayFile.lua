@@ -17,20 +17,25 @@ return {
             end
         },
         {
-            name = "Print current working directory and file structure",
+            name = "trying to play valid wav File",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 20,
             func = function()
-                -- Use io.popen to run OS-level commands
-                local f = io.popen("pwd && ls -R", "r")
-                if f then
-                    local output = f:read("*a")
-                    f:close()
+                filePath = "buttons/blip1.wav"
+                local flags = "mono"
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    print("channel: ", channel)
+                    print("errorCode: ", errorCode)
+                    print("errorMsg: ", errorMsg)
 
-                    print("[TEST DEBUG] === BEGIN FILE LISTING ===")
-                    print(output)
-                    print("[TEST DEBUG] === END FILE LISTING ===")
-                else
-                    print("[TEST DEBUG] Failed to execute 'pwd && ls -R'")
-                end
+                    expect(channel).toNot.beNil()
+                    expect(errorCode).to.beNil()
+                    expect(errorMsg).to.beNil()
+                    
+                    done()
+                end)
             end
         },
     }
