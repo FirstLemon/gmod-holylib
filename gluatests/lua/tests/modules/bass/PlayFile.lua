@@ -16,36 +16,116 @@ return {
                 expect( bass.PlayFile ).to.beA( "nil" )
             end
         },
+        -- #############
+        -- Success Cases
+        -- #############
         {
-            name = "Does Soundfile exist?",
-            when = not HolyLib_IsModuleEnabled("bass"),
-            func = function()
-                local exists1 = file.Exists("sound/buttons/button1.wav", "GAME")
-                expect(exists1).to.beTrue()
-
-                local exists2 = file.Exists("buttons/button1.wav", "GAME")
-                expect(exists2).to.beTrue()
-
-                local exists3 = file.Exists("button1.wav", "GAME")
-                expect(exists3).to.beTrue()
-            end
-        },
-        {
-            name = "trying to play valid wav File",
+            name = "Success Case - Playing valid sample audio file with mono flag",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
-            timeout = 20,
+            timeout = 2,
             func = function()
-                filePath = "buttons/blip1.wav"
+                filePath = "assets/sound/bass-test.wav"
                 local flags = "mono"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    print("channel: ", channel)
-                    print("errorCode: ", errorCode)
-                    print("errorMsg: ", errorMsg)
+                    print("- [GLuaTest] Channel: ", channel)
+                    print("- [GLuaTest] ErrorCode: ", errorCode)
+                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
 
                     expect(channel).toNot.beNil()
-                    expect(errorCode).to.beNil()
+                    expect(errorCode).to.equal(0)
+                    expect(errorMsg).to.beNil()
+                    
+                    done()
+                end)
+            end
+        },
+        {
+            name = "Success Case - Playing valid sample audio file with no flag",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                filePath = "assets/sound/bass-test.wav"
+                local flags = ""
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    print("- [GLuaTest] Channel: ", channel)
+                    print("- [GLuaTest] ErrorCode: ", errorCode)
+                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
+
+                    expect(channel).toNot.beNil()
+                    expect(errorCode).to.equal(0)
+                    expect(errorMsg).to.beNil()
+                    
+                    done()
+                end)
+            end
+        },
+        {
+            name = "Success Case - Playing valid sample audio file with noplay flag",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                filePath = "assets/sound/bass-test.wav"
+                local flags = ""
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    print("- [GLuaTest] Channel: ", channel)
+                    print("- [GLuaTest] ErrorCode: ", errorCode)
+                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
+
+                    expect(channel).toNot.beNil()
+                    expect(errorCode).to.equal(0)
+                    expect(errorMsg).to.beNil()
+                    
+                    done()
+                end)
+            end
+        },
+        {
+            name = "Success Case - Playing valid sample audio file with noplay flag",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                filePath = "assets/sound/bass-test.wav"
+                local flags = "noblock"
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    print("- [GLuaTest] Channel: ", channel)
+                    print("- [GLuaTest] ErrorCode: ", errorCode)
+                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
+
+                    expect(channel).toNot.beNil()
+                    expect(errorCode).to.equal(0)
+                    expect(errorMsg).to.beNil()
+                    
+                    done()
+                end)
+            end
+        },
+        -- #############
+        -- Failure Cases
+        -- #############
+        {
+            name = "Failure - Invalid Path",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                filePath = "assets/sound/thisFileIsCool.wav"
+                local flags = "noblock"
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    print("- [GLuaTest] Channel: ", channel)
+                    print("- [GLuaTest] ErrorCode: ", errorCode)
+                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
+
+                    expect(channel).toNot.beNil()
+                    expect(errorCode).to.equal(0)
                     expect(errorMsg).to.beNil()
                     
                     done()
