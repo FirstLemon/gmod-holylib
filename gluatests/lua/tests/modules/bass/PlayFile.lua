@@ -25,14 +25,10 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                filePath = "assets/sound/bass-test.wav"
+                local filePath = "assets/sound/bass-test.wav"
                 local flags = "mono"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    print("- [GLuaTest] Channel: ", channel)
-                    print("- [GLuaTest] ErrorCode: ", errorCode)
-                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
-
                     expect(channel).toNot.beNil()
                     expect(errorCode).to.equal(0)
                     expect(errorMsg).to.beNil()
@@ -47,14 +43,10 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                filePath = "assets/sound/bass-test.wav"
+                local filePath = "assets/sound/bass-test.wav"
                 local flags = ""
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    print("- [GLuaTest] Channel: ", channel)
-                    print("- [GLuaTest] ErrorCode: ", errorCode)
-                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
-
                     expect(channel).toNot.beNil()
                     expect(errorCode).to.equal(0)
                     expect(errorMsg).to.beNil()
@@ -69,14 +61,10 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                filePath = "assets/sound/bass-test.wav"
+                local filePath = "assets/sound/bass-test.wav"
                 local flags = ""
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    print("- [GLuaTest] Channel: ", channel)
-                    print("- [GLuaTest] ErrorCode: ", errorCode)
-                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
-
                     expect(channel).toNot.beNil()
                     expect(errorCode).to.equal(0)
                     expect(errorMsg).to.beNil()
@@ -86,19 +74,15 @@ return {
             end
         },
         {
-            name = "Success Case - Playing valid sample audio file with noplay flag",
+            name = "Success Case - Playing valid sample audio file with noblock flag",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
             func = function()
-                filePath = "assets/sound/bass-test.wav"
+                local filePath = "assets/sound/bass-test.wav"
                 local flags = "noblock"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    print("- [GLuaTest] Channel: ", channel)
-                    print("- [GLuaTest] ErrorCode: ", errorCode)
-                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
-
                     expect(channel).toNot.beNil()
                     expect(errorCode).to.equal(0)
                     expect(errorMsg).to.beNil()
@@ -111,22 +95,73 @@ return {
         -- Failure Cases
         -- #############
         {
-            name = "Failure - Invalid Path",
+            name = "Failure Case - Invalid Path",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
             func = function()
-                filePath = "assets/sound/thisFileIsCool.wav"
-                local flags = "noblock"
+                local filePath = "assets/sound/thisFileIsCool.wav"
+                local flags = "mono"
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    expect(channel).to.beNil()
+                    expect(errorCode).to.equal(2)
+                    expect(errorMsg).to.equal("BASS_ERROR_FILEOPEN")
+                    
+                    done()
+                end)
+            end
+        },
+        {
+            name = "Failure Case - incorrect 3d usage",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                local filePath = "assets/sound/bass-test.wav"
+                local flags = "3d mono"
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    expect(channel).to.beNil()
+                    expect(errorCode).to.equal(21)
+                    expect(errorMsg).to.equal("BASS_ERROR_NO3D")
+                    
+                    done()
+                end)
+            end
+        },
+        {
+            name = "Failure Case - Not an audio file",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                local filePath = "assets/sound/not-real.txt"
+                local flags = ""
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    expect(channel).to.beNil()
+                    expect(errorCode).to.equal(41)
+                    expect(errorMsg).to.equal("BASS_ERROR_FILEFORM")
+                    
+                    done()
+                end)
+            end
+        },
+        {
+            name = "Failure Case - Nonsense flag",
+            skip = true, -- Skip, because a nonsense flag doesn't throw an error? I'm surely missing something
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                local filePath = "assets/sound/bass-test.wav"
+                local flags = "fhuoasgfgakjfd"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
                     print("- [GLuaTest] Channel: ", channel)
                     print("- [GLuaTest] ErrorCode: ", errorCode)
                     print("- [GLuaTest] ErrorMsg: ", errorMsg)
-
-                    expect(channel).toNot.beNil()
-                    expect(errorCode).to.equal(0)
-                    expect(errorMsg).to.beNil()
                     
                     done()
                 end)
