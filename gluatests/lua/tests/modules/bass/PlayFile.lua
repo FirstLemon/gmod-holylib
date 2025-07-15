@@ -25,13 +25,15 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "assets/sound/bass-test.wav"
+                local filePath = "sound/bass-test.wav"
                 local flags = "mono"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).toNot.beNil()
-                    expect(errorCode).to.equal(0)
-                    expect(errorMsg).to.beNil()
+                    expect( channel ).toNot.beNil()
+                    expect( errorCode ).to.equal( 0 )
+                    expect( errorMsg ).to.beNil()
+
+                    expect( channel:GetState() ).to.equal( 1 )
                     
                     done()
                 end)
@@ -43,13 +45,15 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "assets/sound/bass-test.wav"
+                local filePath = "sound/bass-test.wav"
                 local flags = ""
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).toNot.beNil()
-                    expect(errorCode).to.equal(0)
-                    expect(errorMsg).to.beNil()
+                    expect( channel ).toNot.beNil()
+                    expect( errorCode ).to.equal( 0 )
+                    expect( errorMsg ).to.beNil()
+
+                    expect( channel:GetState() ).to.equal( 1 )
                     
                     done()
                 end)
@@ -61,13 +65,15 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "assets/sound/bass-test.wav"
-                local flags = ""
+                local filePath = "sound/bass-test.wav"
+                local flags = "noplay"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).toNot.beNil()
-                    expect(errorCode).to.equal(0)
-                    expect(errorMsg).to.beNil()
+                    expect( channel ).toNot.beNil()
+                    expect( errorCode ).to.equal( 0 )
+                    expect( errorMsg ).to.beNil()
+
+                    expect( channel:GetState() ).to.equal( 0 )
                     
                     done()
                 end)
@@ -79,13 +85,35 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "assets/sound/bass-test.wav"
+                local filePath = "sound/bass-test.wav"
                 local flags = "noblock"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).toNot.beNil()
-                    expect(errorCode).to.equal(0)
-                    expect(errorMsg).to.beNil()
+                    expect( channel ).toNot.beNil()
+                    expect( errorCode ).to.equal( 0 )
+                    expect( errorMsg ).to.beNil()
+
+                    expect( channel:GetState() ).to.equal( 1 )
+                    
+                    done()
+                end)
+            end
+        },
+        {
+            name = "Success Case - Ignores invalid / nonsense flag",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                local filePath = "sound/bass-test.wav"
+                local flags = "holy noplay hello"
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    expect( channel ).toNot.beNil()
+                    expect( errorCode ).to.equal( 0 )
+                    expect( errorMsg ).to.beNil()
+
+                    expect( channel:GetState() ).to.equal( 0 )
                     
                     done()
                 end)
@@ -100,13 +128,13 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "assets/sound/thisFileIsCool.wav"
+                local filePath = "sound/thisFileIsCool.wav"
                 local flags = "mono"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).to.beNil()
-                    expect(errorCode).to.equal(2)
-                    expect(errorMsg).to.equal("BASS_ERROR_FILEOPEN")
+                    expect( channel ).to.beNil()
+                    expect( errorCode ).to.equal( 2 )
+                    expect( errorMsg ).to.equal( "BASS_ERROR_FILEOPEN" )
                     
                     done()
                 end)
@@ -118,13 +146,13 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "assets/sound/bass-test.wav"
+                local filePath = "sound/bass-test.wav"
                 local flags = "3d mono"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).to.beNil()
-                    expect(errorCode).to.equal(21)
-                    expect(errorMsg).to.equal("BASS_ERROR_NO3D")
+                    expect( channel ).to.beNil()
+                    expect( errorCode ).to.equal( 21 )
+                    expect( errorMsg ).to.equal( "BASS_ERROR_NO3D" )
                     
                     done()
                 end)
@@ -136,32 +164,13 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "assets/sound/not-real.txt"
+                local filePath = "sound/not-real.txt"
                 local flags = ""
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    expect(channel).to.beNil()
-                    expect(errorCode).to.equal(41)
-                    expect(errorMsg).to.equal("BASS_ERROR_FILEFORM")
-                    
-                    done()
-                end)
-            end
-        },
-        {
-            name = "Failure Case - Nonsense flag",
-            skip = true, -- Skip, because a nonsense flag doesn't throw an error? I'm surely missing something
-            when = HolyLib_IsModuleEnabled("bass"),
-            async = true,
-            timeout = 2,
-            func = function()
-                local filePath = "assets/sound/bass-test.wav"
-                local flags = "fhuoasgfgakjfd"
-        
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    print("- [GLuaTest] Channel: ", channel)
-                    print("- [GLuaTest] ErrorCode: ", errorCode)
-                    print("- [GLuaTest] ErrorMsg: ", errorMsg)
+                    expect( channel ).to.beNil()
+                    expect( errorCode ).to.equal( 41 )
+                    expect( errorMsg ).to.equal( "BASS_ERROR_FILEFORM" )
                     
                     done()
                 end)
