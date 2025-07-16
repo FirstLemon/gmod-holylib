@@ -77,6 +77,15 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			[[../../lua/*.h]],
 			[[../../lua/*.hpp]],
 			[[../../README.md]],
+			[[../../.github/workflows/**.yml]],
+		})
+
+		vpaths({
+			["Source files/sourcesdk/"] = gmcommon .. "/**.*",
+			["Lua Headers"] = "../../lua/*.h",
+			["Lua Scrips"] = "../../source/lua/scripts/*.lua",
+			["README"] = "../../README.md",
+			["Workflows"] = "../../.github/workflows/**.yml",
 		})
 
 		removefiles({
