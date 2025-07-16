@@ -110,6 +110,9 @@ https://github.com/RaphaelIT7/gmod-holylib/compare/Release0.7...main
 \- [+] Added second and thrid arguments to `HolyLib:OnPhysicsLag` providing the entities it was working on when it triggered.  
 \- [#] Fixed `addonsystem.ShouldMount` & `addonsystem.SetShouldMount` `workshopID` arguments being a number when they should have been a string.  
 \- [#] Changed `VoiceData:GetUncompressedData` to now returns a statusCode/a number on failure instead of possibly returning a garbage string.  
+\- [#] Limited `HttpServer:SetName` to have a length limit of `64` characters.  
+\- [#] Fixed `IGModAudioChannel:IsValid` throwing a error when it's NULL instead of returning false.  
+\- [-] Removed `gameserver.CalculateCPUUsage` and `gameserver.ApproximateProcessMemoryUsage` since they never worked.  
 
 ### QoL updates
 \- [#] Changed some console message to be more consistent.  
@@ -3192,7 +3195,8 @@ Returns the address that was originally passed to `HttpServer:Start()`
 Returns the name set by `HttpServer:SetName()`, defaults to `NONAME`
 
 #### HttpServer:SetName(string name)
-Sets the name of the HttpServer.
+Sets the name of the HttpServer.  
+The length of the name is limited to 64 characters.
 
 #### (Experimental) HttpServer:AddPreparedResponse(number userID, string path, string method, table headers, function callback)
 callback - function(HttpResponse response)  
@@ -3357,6 +3361,7 @@ Checks if the table is set to be read only.
 
 ### debug.setblocked(function func)
 Marks the function to be inaccessable by any debug function & `setfenv` & `getfenv`.  
+This function is used internally for the FFI Scripts executed by HolyLib to prevent access to FFI functions when their disabled.  
 
 ### bool debug.isblocked(function func)
 Checks if the function is set to be inaccessable by any debug function.
@@ -3474,13 +3479,6 @@ bf:WriteString("1") -- ConVar value
 -- You can use CBaseClient:SendNetMsg to send it to specific clients.
 gameserver.BroadcastMessage(5, "NET_SetConVar", bf) -- 5 = net_SetConVar / net message type.
 ```
-
-#### number gameserver.CalculateCPUUsage()
-Calculates and returns the CPU Usage.
-
-#### number gameserver.ApproximateProcessMemoryUsage()
-Approximates the memory usage of the server in bytes.  
-It isn't really related to the gameserver itself, but since it has CalculateCPUUsage I want to keep them close.
 
 #### number gameserver.SendConnectionlessPacket(bf_write bf, string ip, bool useDNS = false, number socket = NS_SERVER)
 ip - The target ip. Format `ip:port`  
