@@ -921,19 +921,7 @@ namespace Symbols
 	//---------------------------------------------------------------------------------
 	// Purpose: AutoRefresh Symbols
 	//---------------------------------------------------------------------------------
-	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleLuaFileChangeSym = {
-		Symbol::FromName("_ZN9GarrysMod11AutoRefresh19HandleLuaFileChangeERKSs"),
-	};
-
 	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym = {
-		Symbol::FromName("_ZN9GarrysMod11AutoRefresh16HandleChange_LuaERKSsS2_S2_"),
-	};
-
-	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChangeSym = {
-		Symbol::FromName("_ZN9GarrysMod11AutoRefresh12HandleChangeERSs"),
-	};
-
-	const std::vector<Symbol> GarrysMod_Bootil_Sym = {
 		Symbol::FromName("_ZN9GarrysMod11AutoRefresh16HandleChange_LuaERKSsS2_S2_"),
 	};
 }
