@@ -58,6 +58,10 @@ struct dataFragments_s;
 class CBaseClient;
 class IVP_Cache_Ledge_Point;
 class CVoiceGameMgr;
+class ServerClass;
+struct edict_t;
+struct PackWork_t;
+class CBaseViewModel;
 
 class	CGameTrace;
 typedef	CGameTrace trace_t;
@@ -143,7 +147,7 @@ namespace Symbols
 	typedef void (*SteamGameServer_Shutdown)();
 	extern const std::vector<Symbol> SteamGameServer_ShutdownSym;
 
-	typedef void (*GMOD_LoadBinaryModule)(lua_State* L, const char* pFileName);
+	typedef int (*GMOD_LoadBinaryModule)(lua_State* L, const char* pFileName);
 	extern const std::vector<Symbol> GMOD_LoadBinaryModuleSym;
 
 	//---------------------------------------------------------------------------------
@@ -423,6 +427,25 @@ namespace Symbols
 	extern const std::vector<Symbol> g_PropTypeFnsSym;
 	extern const std::vector<Symbol> g_BSPDataSym;
 
+	typedef void (*SV_EnsureInstanceBaseline)( ServerClass *pServerClass, int iEdict, const void *pData, int nBytes );
+	extern const std::vector<Symbol> SV_EnsureInstanceBaselineSym;
+
+	typedef void (*PackWork_t_Process)(PackWork_t& pWork);
+	extern const std::vector<Symbol> PackWork_t_ProcessSym;
+
+	typedef void (*SV_PackEntity)(int edictIdx, edict_t* edict, ServerClass* pServerClass, CFrameSnapshot *pSnapshot );
+	extern const std::vector<Symbol> SV_PackEntitySym;
+
+	typedef void (*InvalidateSharedEdictChangeInfos)();
+	extern const std::vector<Symbol> InvalidateSharedEdictChangeInfosSym;
+	extern const std::vector<Symbol> PackEntities_NormalSym;
+
+	typedef void (*CGMOD_Player_CreateViewModel)(CBasePlayer* pPlayer, int viewmodelindex);
+	extern const std::vector<Symbol> CGMOD_Player_CreateViewModelSym;
+
+	typedef CBaseViewModel* (*CBasePlayer_GetViewModel)(CBasePlayer* pPlayer, int index, bool bObserverOK);
+	extern const std::vector<Symbol> CBasePlayer_GetViewModelSym;
+
 	//---------------------------------------------------------------------------------
 	// Purpose: steamworks Symbols
 	//---------------------------------------------------------------------------------
@@ -597,29 +620,8 @@ namespace Symbols
 	typedef int (*NET_SendPacket)(INetChannel *chan, int sock, const netadr_t &to, const unsigned char *data, int length, bf_write *pVoicePayload /* = NULL */, bool bUseCompression /*=false*/);
 	extern const std::vector<Symbol> NET_SendPacketSym;
 
-	typedef bool (*CNetChan_CreateFragmentsFromBuffer)(CNetChan* channel, bf_write *buffer, int stream);
-	extern const std::vector<Symbol> CNetChan_CreateFragmentsFromBufferSym;
-
-	typedef bool (*CNetChan_SendSubChannelData)(CNetChan* channel, bf_write &buf);
-	extern const std::vector<Symbol> CNetChan_SendSubChannelDataSym;
-
-	typedef void (*CNetChan_FlowNewPacket)(CNetChan* channel, int flow, int seqnr, int acknr, int nChoked, int nDropped, int nSize);
-	extern const std::vector<Symbol> CNetChan_FlowNewPacketSym;
-
-	typedef void (*CNetChan_FlowUpdate)(CNetChan* channel, int flow, int addbytes);
-	extern const std::vector<Symbol> CNetChan_FlowUpdateSym;
-
 	typedef int (*CNetChan_SendDatagram)(CNetChan* chan, bf_write *datagram);
 	extern const std::vector<Symbol> CNetChan_SendDatagramSym;
-
-	typedef void (*CNetChan_UpdateSubChannels)(CNetChan* channel);
-	extern const std::vector<Symbol> CNetChan_UpdateSubChannelsSym;
-
-	typedef void (*CNetChan_CheckWaitingList)(CNetChan* channel, int nList);
-	extern const std::vector<Symbol> CNetChan_CheckWaitingListSym;
-
-	typedef int (*CNetChan_ProcessPacketHeader)(CNetChan* chan, netpacket_t* packet);
-	extern const std::vector<Symbol> CNetChan_ProcessPacketHeaderSym;
 
 	typedef void (*CNetChan_D2)(CNetChan* chan);
 	extern const std::vector<Symbol> CNetChan_D2Sym;

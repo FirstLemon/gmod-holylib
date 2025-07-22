@@ -1,3 +1,4 @@
+// NOTE: When updating httplib.h, ensure that you revert the changes from https://github.com/yhirose/cpp-httplib/pull/2177/files
 #include "httplib.h"
 #include "LuaInterface.h"
 #include "module.h"
@@ -29,6 +30,7 @@ struct HttpResponse {
 	bool m_bSetRedirect = false;
 	bool m_bSetHeader = false;
 	int m_iRedirectCode = 302;
+	int m_iStatusCode = -1;
 	std::string m_strContent = "";
 	std::string m_strContentType = "text/plain";
 	std::string m_strRedirect = "";
@@ -41,6 +43,9 @@ struct HttpResponse {
 
 		if (m_bSetRedirect)
 			pResponse.set_redirect(m_strRedirect, m_iRedirectCode);
+
+		if (m_iStatusCode >= 100 && m_iStatusCode < 600)
+			pResponse.status = m_iStatusCode;
 
 		if (m_bSetHeader)
 			for (auto& [key, value] : m_pHeaders)
@@ -315,6 +320,14 @@ LUA_FUNCTION_STATIC(HttpResponse_SetRedirect)
 	pData->m_bSetRedirect = true;
 	pData->m_strRedirect = LUA->CheckString(2);
 	pData->m_iRedirectCode = (int)LUA->CheckNumberOpt(3, 302);
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC(HttpResponse_SetStatusCode)
+{
+	HttpResponse* pData = Get_HttpResponse(LUA, 1, true);
+	pData->m_iStatusCode = (int)LUA->CheckNumber(2);
 
 	return 0;
 }
@@ -1021,7 +1034,7 @@ void CHTTPServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, HttpServer_AddPreparedResponse, "AddPreparedResponse");
 	pLua->Pop(1);
 
-	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpRequest, pLua->CreateMetaTable("HttpRequest"));
+	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpResponse, pLua->CreateMetaTable("HttpResponse"));
 		Util::AddFunc(pLua, HttpResponse__tostring, "__tostring");
 		Util::AddFunc(pLua, HttpResponse__index, "__index");
 		Util::AddFunc(pLua, HttpResponse__newindex, "__newindex");
@@ -1031,9 +1044,10 @@ void CHTTPServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, HttpResponse_SetContent, "SetContent");
 		Util::AddFunc(pLua, HttpResponse_SetHeader, "SetHeader");
 		Util::AddFunc(pLua, HttpResponse_SetRedirect, "SetRedirect");
+		Util::AddFunc(pLua, HttpResponse_SetStatusCode, "SetStatusCode");
 	pLua->Pop(1);
 
-	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpResponse, pLua->CreateMetaTable("HttpResponse"));
+	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpRequest, pLua->CreateMetaTable("HttpRequest"));
 		Util::AddFunc(pLua, HttpRequest__tostring, "__tostring");
 		Util::AddFunc(pLua, HttpRequest__index, "__index");
 		Util::AddFunc(pLua, HttpRequest__newindex, "__newindex");

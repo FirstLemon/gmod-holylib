@@ -78,6 +78,7 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 \- [+] Added `gameserver.GetClientByUserID` to the `gameserver` module.  
 \- [+] Added a config system allowing one to set convars without using the command line.  
 \- [+] Added `IPhysicsEnvironment:SetInSimulation` to the `physenv` module.  
+\- [+] Added `HttpResponse:SetStatusCode` to `httpserver` module. (See https://github.com/RaphaelIT7/gmod-holylib/issues/62)  
 \- [#] Added some more safeguards to `IPhysicsEnvironment:Simulate` to prevent one from simulating a environment that is already being simulated.  
 \- [#] Highly optimized `util` module's json code to be noticably faster and use noticably less memory.  
 \- [#] Better support for multiple Lua states  
@@ -96,6 +97,12 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 \- [#] Fixed possible undefined behavor & two buffer overflows in `gameserver` module.  
 \- [#] Updated `VoiceStream` file structure to also save the server tickrate and include a file version.  
 \- \- The `VoiceStream` now properly updates the tickCount for the saved `VoiceData` to scale the tickCount when the server changed tickrate which should ensure the audio remains usable.
+\- [#] Fixed a issue with the `gameserver` moduel causing random `Lost Connection` disconnects (See https://github.com/RaphaelIT7/gmod-holylib/issues/51)  
+\- [#] Extented `networking` module to include some new things.  
+\- \- Added a small optimization for `PackEntities_Normal`  
+\- \- Slightly optimized our own implementation of `CServerGameEnts::CheckTransmit`  
+\- \- Added `holylib_networking_fastpath` which will use a transmit cache for `CServerGameEnts::CheckTransmit` as a noticable optimization.  
+\- \- Added `holylib_networking_maxviewmodels` allowing one to limit view models to `1` for each player instead of each having `3` of which `2` often remain unused.  
 
 > [!WARNING]
 > The current builds are unstable and need **A LOT** of testing.  
@@ -112,6 +119,7 @@ https://github.com/RaphaelIT7/gmod-holylib/compare/Release0.7...main
 \- [#] Changed `VoiceData:GetUncompressedData` to now returns a statusCode/a number on failure instead of possibly returning a garbage string.  
 \- [#] Limited `HttpServer:SetName` to have a length limit of `64` characters.  
 \- [#] Fixed `IGModAudioChannel:IsValid` throwing a error when it's NULL instead of returning false.  
+\- [-] Removed `CBaseClient:Transmit` third argument `fragments`.  
 \- [-] Removed `gameserver.CalculateCPUUsage` and `gameserver.ApproximateProcessMemoryUsage` since they never worked.  
 
 ### QoL updates
@@ -128,10 +136,10 @@ https://github.com/RaphaelIT7/gmod-holylib/compare/Release0.7...main
 \- Add a bind to `CAI_NetworkManager::BuildNetworkGraph` or `StartRebuild`  
 \- Possibly allow on to force workshop download on next level change.  
 \- GO thru everything and use a more consistant codestyle. I created quiet the mess.  
-\- Reduce/Remove the usage of g_Lua since our code should work later with multiple ILuaInterfaces.  
 \- test/become compatible with vphysics-jolt (I'm quite sure that the `physenv` isn't compatible).  
 \- Check out `holylib_filesystem_predictexistance` as it seamingly broke, reportidly works in `0.6`.  
 \- Check if gmod userdata pushed from HolyLib to Lua is invalid in the 0.7 release
+\- `IModule::ServerActivate` is not called when were loaded using `require("holylib")`
 
 # New Documentation
 Currently I'm working on implementing a better wiki that will replace this huge readme later.  
@@ -2001,9 +2009,41 @@ Writes a null terminated string
 
 ## Networking
 This module tries to optimize anything related to networking.  
-Currently, this only has one optimization which was ported from [sigsegv-mvm](https://github.com/rafradek/sigsegv-mvm/blob/910b92456c7578a3eb5dff2a7e7bf4bc906677f7/src/mod/perf/sendprop_optimize.cpp#L35-L144) into here.  
+
+it contains two optimizatiosn which were ported from [sigsegv-mvm](https://github.com/rafradek/sigsegv-mvm/blob/910b92456c7578a3eb5dff2a7e7bf4bc906677f7/src/mod/perf/sendprop_optimize.cpp#L35-L144) into here.  
+Thoes optimiations are for `AllocChangeFrameList` and `SendTable_CullPropsFromProxies`.  
+
+Additionally, there are a few further improvements implemented for:
+\- `PackEntities_Normal`  
+\- `CBaseEntity::GMOD_SetShouldPreventTransmitToPlayer`  
+\- `CBaseEntity::GMOD_ShouldPreventTransmitToPlayer`  
+\- `CServerGameEnts::CheckTransmit`  
 
 Supports: Linux32 | Linux64  
+
+### Convars
+
+#### holylib_networking_fastpath(default `0`)
+If enabled, it will cache the transmit data for players in the same engine area.  
+This can noticably improve performance of `CServerGameEnts::CheckTransmit` especially if players are in the same area.  
+In game, you can see the area you're in using `r_ShowViewerArea 1` which is used for the caching.  
+
+How to test around with it:  
+1. Spawn a bot so that he becomes the first player  
+2. Enable `sv_stressbots 1`  
+3. Enable this convar.  
+4. **Only now** join the server so that you become the second player.  
+The order is important since now, the bot will be the first player and will be calculated normally, while you as the second player will hit the cache.  
+5. Test around and see if maybe anything is broken, like entities not being transmitted or such.  
+
+#### holylib_networking_fasttransmit(default `1`)
+If enabled, it will use our own version of `CServerGameEnts::CheckTransmit` which should be slighly faster.  
+It also slightly improves `PackEntities_Normal` performance.  
+This is **required** to be enabled if you intent on using `holylib_networking_fastpath`  
+
+#### holylib_networking_maxviewmodels(default `3`)
+Determines how many view models a player can have.  
+By default each player has 3 view models, only the first one is really used.  
 
 ## steamworks
 This module adds a few functions related to steam.  
@@ -2148,6 +2188,10 @@ Supports: Linux32 | Linux64 | Windows32
 This module improves `GM:PlayerCanHearPlayersVoice` by calling it only for actively speaking players.  
 The hook is additionally NOT called for all players which would result in `currentPlayers * currentPlayers` calls of the hook.  
 Instead now its called only once for the player that is speaking resulting in `1 * currentPlayers` calls of the hook.  
+
+> [!NOTE]
+> If you have any issues with this optimization, check if `sv_alltalk` is enabled as the lua hook is **not** called when the convar is enabled!  
+> In the default Gmod behavior, it would get called even when `sv_alltalk` was enabled which changed with our optimization.  
 
 ### Functions
 
@@ -3326,6 +3370,10 @@ Redirects one to the given URL and returns the given code.
 #### HttpResponse:SetHeader(string key, string value)
 Sets the given value for the given key in the header.
 
+#### HttpResponse:SetStatusCode(number statusCode)
+Sets the status code of the response.  
+The code is clamped between 100 and 600 internally, you cannot go above or below as else the status code won't be set!  
+
 ## luajit
 This module updates luajit to a newer version.
 
@@ -3809,7 +3857,7 @@ Returns the voice stream used by the voice chat.
 #### CBaseClient:SetTimeout(number seconds)
 Sets the time in seconds before the client is marked as timing out.
 
-#### bool CBaseClient:Transmit(bool onlyReliable = false, number fragments = -1, bool freeSubChannels = false)
+#### bool CBaseClient:Transmit(bool onlyReliable = false, bool freeSubChannels = false)
 Transmit any pending data to the client.  
 Returns `true` on success.
 
