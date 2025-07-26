@@ -85,11 +85,10 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 
 	SourceSDK::FactoryLoader server_loader("server");
 
-	// HandleChange_Lua
 	Detour::Create(
-		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleLuaFileChange",
+		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
-		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
+		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 }
 
