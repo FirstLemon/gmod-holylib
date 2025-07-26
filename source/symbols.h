@@ -693,4 +693,7 @@ namespace Symbols
 	//---------------------------------------------------------------------------------
 	typedef void (*GarrysMod_AutoRefresh_HandleChange_Lua)(const std::string *fileRelPath, const std::string *fileName, const std::string *fileExt);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym;
+
+	typedef void (*GarrysMod_AutoRefresh_HandleChange_VMT)(const std::string *fileRelPath, const std::string *fileName, const std::string *fileExt);
+	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_VMTSym;
 }

@@ -26,6 +26,14 @@ void CAutoRefreshModule::Init(CreateInterfaceFn *appfn, CreateInterfaceFn *gamef
 {
 }
 
+static Detouring::Hook detour_CAutoRefresh_HandleChange_VMT;
+static void hook_CAutoRefresh_HandleChange_VMT(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
+{
+	Msg("[DEBUG] HandleChange_VMT called");
+
+	detour_CAutoRefresh_HandleChange_VMT.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_VMT>()(pfileRelPath, pfileName, pfileExt);
+}
+
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
 {
@@ -42,21 +50,6 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 
 		if (g_Lua->CallFunctionProtected(3, 1, true))
 		{
-			int top = g_Lua->Top();
-			Msg("[DEBUG] Stack has %d values:\n", top);
-			for (int i = 1; i <= top; i++) {
-				int type = g_Lua->GetType(i);
-				Msg("[%d] Type: %s\n", i, g_Lua->GetTypeName(type));
-				if (type == GarrysMod::Lua::Type::BOOL) {
-					Msg("  > BOOL: %s\n", g_Lua->GetBool(i) ? "true" : "false");
-				}
-				else if (type == GarrysMod::Lua::Type::STRING) {
-					Msg("  > STRING: %s\n", g_Lua->GetString(i));
-				}
-				else if (type == GarrysMod::Lua::Type::NUMBER) {
-					Msg("  > NUMBER: %f\n", g_Lua->GetNumber(i));
-				}
-			}
 			bDenyRefresh = g_Lua->GetBool(-1);
 			g_Lua->Pop(1);
 		}
@@ -104,6 +97,12 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
+	);
+
+	Detour::Create(
+		&detour_CAutoRefresh_HandleChange_VMT, "CAutoRefresh_HandleChange_VMT",
+		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_VMTSym,
+		(void *)hook_CAutoRefresh_HandleChange_VMT, m_pID
 	);
 }
 
