@@ -70,9 +70,9 @@ namespace Lua
 		CVProfNode,
 		VProfCounter,
 		LuaInterface,
-		// WavAudioFile,
+		WavAudioFile,
 
-		TOTAL_TYPES = 255,
+		TOTAL_TYPES,
 	};
 
 	class ModuleData {
@@ -92,6 +92,7 @@ namespace Lua
 		Lua::ModuleData* pModuelData[Lua::Internal::pMaxEntries] = { NULL }; // It uses the assigned module IDs
 		LuaMetaEntry pLuaTypes[LuaTypes::TOTAL_TYPES];
 		std::unordered_map<void*, LuaUserData*> pPushedUserData; // Would love to get rid of this
+		CThreadMutex pMutex;
 
 		~StateData()
 		{

@@ -139,10 +139,6 @@ static void hook_luaL_openlibs(lua_State* L)
 
 		lua_pushcfunction(L, markFFITypeAsGmodUserData);
 		lua_setfield(L, -2, "markFFITypeAsGmodUserData");
-
-		lua_pushcfunction(L, luaopen_jit_profile);
-		lua_call(L, 0, 1);
-		lua_setfield(L, -2, "profile");
 	lua_pop(L, 1);
 
 	bOpenLibs = true;
@@ -270,7 +266,7 @@ void CLuaJITModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerIni
 
 	bool bPreviousFFiValue = g_pLuaJITModule.m_bAllowFFI;
 	g_pLuaJITModule.m_bAllowFFI = true;
-	if (!pLua->RunStringEx("HolyLib", "", luaVectorFFI, true, true, true, true))
+	if (!pLua->RunStringEx("HolyLib", "HolyLib", luaVectorFFI, true, true, true, true))
 	{
 		Warning(PROJECT_NAME " - luajit: Failed to load VectorFFI script!\n");
 	}

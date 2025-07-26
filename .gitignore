@@ -6,7 +6,6 @@ Bootil/projects/release_x32_windows/
 Bootil/projects/release_x64_linux/
 Bootil/projects/release_x32_linux/
 **/.vs/
-**/.vscode/
 source/modules/32x/**
 source/modules/64x/**
 source/sourcesdk/tempshit
@@ -18,7 +17,23 @@ ghostinj-dll/projects/**
 ghostinj-dll/build.bat
 ghostinj-dll/ghostinj.dll
 ghostinj-dll/premake5.exe
-
-# generated files
-source/modules/_modules.h
-source/_versioninfo.h
+projects/windows/vs2022/ivp_physics.vcxproj.user
+projects/windows/vs2022/gmsv_holylib.vcxproj
+projects/windows/vs2022/gmsv_holylib.vcxproj.filters
+projects/windows/vs2022/gmsv_holylib.vcxproj.user
+projects/windows/vs2022/havana_constraints.vcxproj
+projects/windows/vs2022/havana_constraints.vcxproj.filters
+projects/windows/vs2022/hk_base.vcxproj
+projects/windows/vs2022/hk_base.vcxproj.filters
+projects/windows/vs2022/hk_base.vcxproj.user
+projects/windows/vs2022/hk_math.vcxproj
+projects/windows/vs2022/hk_math.vcxproj.filters
+projects/windows/vs2022/hk_math.vcxproj.user
+projects/windows/vs2022/holylib.sln
+projects/windows/vs2022/ivp_compactbuilder.vcxproj
+projects/windows/vs2022/ivp_compactbuilder.vcxproj.filters
+projects/windows/vs2022/ivp_compactbuilder.vcxproj.user
+projects/windows/vs2022/ivp_physics.vcxproj
+projects/windows/vs2022/ivp_physics.vcxproj.filters
+projects/windows/vs2022/havana_constraints.vcxproj.user
+premake5.exe

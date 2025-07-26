@@ -2256,9 +2256,8 @@ LUA_FUNCTION_STATIC(physcollide_DestroyCollide)
  * Gmod does this because it can't invalidate the userdata properly which means that calling a function like PhysObj:Wake could be called on a invalid pointer.
  * So they seem to have added this function as a workaround to check if the pointer Lua has is still valid.
  */
-static bool g_bReplacedIVP = false;
-static Detouring::Hook detour_GMod_Util_IsPhysicsObjectValid;
-static bool hook_GMod_Util_IsPhysicsObjectValid(IPhysicsObject* pObject)
+Detouring::Hook detour_GMod_Util_IsPhysicsObjectValid;
+bool hook_GMod_Util_IsPhysicsObjectValid(IPhysicsObject* pObject)
 {
 	if (!pObject)
 		return false;
@@ -2273,7 +2272,7 @@ static bool hook_GMod_Util_IsPhysicsObjectValid(IPhysicsObject* pObject)
 	}*/
 
 	// Should be O(1) now since were using a hash / unordered_map.
-	if (g_bReplacedIVP)
+	if (g_pPhysicsHolyLib)
 	{
 		return g_pPhysicsHolyLib->IsValidObject(pObject);
 	} else {
@@ -2510,6 +2509,7 @@ void CPhysEnvModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 }
 
 static DLL_Handle g_pPhysicsModule = NULL;
+static bool g_bReplacedIVP = false;
 void CPhysEnvModule::InitDetour(bool bPreServer)
 {
 	if (bPreServer)
@@ -2687,11 +2687,14 @@ void CPhysEnvModule::InitDetour(bool bPreServer)
 	}
 
 	SourceSDK::FactoryLoader server_loader("server");
-	Detour::Create(
-		&detour_GMod_Util_IsPhysicsObjectValid, "GMod::Util::IsPhysicsObjectValid",
-		server_loader.GetModule(), Symbols::GMod_Util_IsPhysicsObjectValidSym,
-		(void*)hook_GMod_Util_IsPhysicsObjectValid, m_pID
-	);
+	if (g_bReplacedIVP)
+	{
+		Detour::Create(
+			&detour_GMod_Util_IsPhysicsObjectValid, "GMod::Util::IsPhysicsObjectValid",
+			server_loader.GetModule(), Symbols::GMod_Util_IsPhysicsObjectValidSym,
+			(void*)hook_GMod_Util_IsPhysicsObjectValid, m_pID
+		);
+	}
 
 	Detour::Create(
 		&detour_PhysFrame, "PhysFrame",
@@ -2721,7 +2724,6 @@ void CPhysEnvModule::Shutdown()
 	{
 		DLL_UnloadModule(g_pPhysicsModule);
 		g_pPhysicsModule = NULL;
-		g_bReplacedIVP = false;
 	}
 
 	for (auto it = g_pEnvironmentToLua.begin(); it != g_pEnvironmentToLua.end(); ++it)

@@ -29,7 +29,6 @@ jobs:
       SOURCESDK_MINIMAL_64XBRANCH: "x86-64-patch-3"
       GARRYSMOD_COMMON: "RaphaelIT7/garrysmod_common"
       BUILD_CACHE: "true"
-      UPLOAD_PDB: "true"
 
   build_plugin_linux:
     name: "Build Plugin"
@@ -49,7 +48,7 @@ jobs:
 
   build_testingarea:
     name: "Build 32x (Testing Area - Dev)"
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
     secrets:
       PTERODACTYL_KEY: ${{ secrets.PTERODACTYL_KEY }}
@@ -71,12 +70,12 @@ jobs:
       BUILD_CACHE: "true"
 
   build_testingarea_dev2: # Could make this use the already created artifact but I'm too lazy rn
-    name: "Build 32x (Testing Area - Public)"
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    name: "Build 32x (Testing Area - Dev2)"
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
     secrets:
       PTERODACTYL_KEY: ${{ secrets.PTERODACTYL_KEY }}
-      PTERODACTYL_SERVER: ${{ secrets.PTERODACTYL_SERVER_PUBLIC }}
+      PTERODACTYL_SERVER: "9822c231"
       PTERODACTYL_URL: ${{ secrets.PTERODACTYL_URL }}
     with:
       PROJECT_NAME: "holylib"
@@ -95,11 +94,11 @@ jobs:
 
   build_testingarea_64x:
     name: "Build 64x (Testing Area - 64x)"
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
     secrets:
       PTERODACTYL_KEY: ${{ secrets.PTERODACTYL_KEY }}
-      PTERODACTYL_SERVER: ${{ secrets.PTERODACTYL_SERVER_X64 }}
+      PTERODACTYL_SERVER: "4ef145c3"
       PTERODACTYL_URL: ${{ secrets.PTERODACTYL_URL }}
     with:
       PROJECT_NAME: "holylib"
@@ -362,8 +361,6 @@ jobs:
 
           mv gmod_tests garrysmod/addons
           mv ghostinj.dll ghostinj2.dll
-          mkdir -p garrysmod/lua/bin/gmod_tests/maps
-          mv garrysmod/addons/gluatests/maps garrysmod/addons/gmod_tests/maps
           rm -rf garrysmod/addons/gluatests
 
           tar -czf gmod_tests.tar.gz ghostinj2.dll garrysmod/
@@ -412,8 +409,6 @@ jobs:
 
           mv gmod_tests garrysmod/addons
           mv ghostinj.dll ghostinj2.dll
-          mkdir -p garrysmod/lua/bin/gmod_tests/maps
-          mv garrysmod/addons/gluatests/maps garrysmod/addons/gmod_tests/maps
           rm -rf garrysmod/addons/gluatests
 
           tar -czf gmod_tests.tar.gz ghostinj2.dll garrysmod/
@@ -453,6 +448,7 @@ jobs:
       download-artifact: ${{ matrix.artifact }}
       no-checkout: "true"
       additional-setup: "wget -q https://github.com/RaphaelIT7/gmod-holytest/releases/latest/download/linux32.tar.gz -O gluatest/docker/_gluatest_artifacts/linux32.tar.gz"
+      collection: 3460542547
       map: gm_glua_tests
 
   test_gmod_tests_64bit:
@@ -470,6 +466,7 @@ jobs:
       download-artifact: ${{ matrix.artifact }}
       no-checkout: "true"
       additional-setup: "wget -q https://github.com/RaphaelIT7/gmod-holytest/releases/latest/download/linux64.tar.gz -O gluatest/docker/_gluatest_artifacts/linux64.tar.gz"
+      collection: 3460542547
       map: gm_glua_tests
 
   test_gmod_tests_32bit_with_ivpreplacement:
@@ -490,6 +487,7 @@ jobs:
       download-artifact: ${{ matrix.artifact }}
       no-checkout: "true"
       additional-setup: "wget -q https://github.com/RaphaelIT7/gmod-holytest/releases/latest/download/linux32.tar.gz -O gluatest/docker/_gluatest_artifacts/linux32.tar.gz"
+      collection: 3460542547
       map: gm_glua_tests
 
   test_gmod_tests_64bit_with_ivpreplacement:
@@ -507,6 +505,7 @@ jobs:
       download-artifact: ${{ matrix.artifact }}
       no-checkout: "true"
       additional-setup: "wget -q https://github.com/RaphaelIT7/gmod-holytest/releases/latest/download/linux64.tar.gz -O gluatest/docker/_gluatest_artifacts/linux64.tar.gz"
+      collection: 3460542547
       map: gm_glua_tests
 
   test_32bit_find_crash:
@@ -545,9 +544,8 @@ jobs:
           - httpserver
           - gameserver
           - soundscape
-          - luajit
+          - autorefresh
     with:
       branch: dev
       extra-startup-args: "-usegh -holylib_startdisabled -holylib_enable_${{ matrix.module }} 1"
       download-artifact: "gluatest_32x"
-      no-checkout: "true"

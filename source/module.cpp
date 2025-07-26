@@ -275,6 +275,41 @@ CModuleManager::~CModuleManager()
 	}
 }
 
+void CModuleManager::LoadModules()
+{
+	RegisterModule(pHolyLibModule);
+	RegisterModule(pGameeventLibModule);
+	RegisterModule(pServerPluginLibModule);
+	RegisterModule(pSourceTVLibModule);
+	RegisterModule(pThreadPoolFixModule);
+	RegisterModule(pStringTableModule);
+	RegisterModule(pPrecacheFixModule);
+	RegisterModule(pPVSModule);
+	RegisterModule(pSurfFixModule);
+	RegisterModule(pFileSystemModule);
+	RegisterModule(pUtilModule);
+	RegisterModule(pConCommandModule);
+	RegisterModule(pVProfModule);
+	RegisterModule(pCVarsModule);
+	RegisterModule(pBitBufModule);
+	RegisterModule(pNetworkingModule);
+	RegisterModule(pSteamWorksModule);
+	RegisterModule(pPASModule);
+	RegisterModule(pBassModule);
+	RegisterModule(pSysTimerModule);
+	RegisterModule(pVoiceChatModule);
+	RegisterModule(pPhysEnvModule);
+	RegisterModule(pNetModule);
+	RegisterModule(pEntListModule);
+	RegisterModule(pHttpServerModule);
+	RegisterModule(pLuaJITModule);
+	RegisterModule(pGameServerModule);
+	RegisterModule(pSoundscapeModule);
+	RegisterModule(pLuaThreadsModule);
+	RegisterModule(pNW2DebuggingModule);
+	RegisterModule(pAutoRefreshModule);
+}
+
 int g_pIDs = 0;
 IModuleWrapper* CModuleManager::RegisterModule(IModule* pModule)
 {
@@ -439,16 +474,6 @@ void CModuleManager::OnEntitySpawned(CBaseEntity* pEntity)
 void CModuleManager::OnEntityDeleted(CBaseEntity* pEntity)
 {
 	VCALL_ENABLED_MODULES(OnEntityDeleted(pEntity));
-}
-
-void CModuleManager::OnClientConnect(CBaseClient* pClient)
-{
-	VCALL_ENABLED_MODULES(OnClientConnect(pClient));
-}
-
-void CModuleManager::OnClientDisconnect(CBaseClient* pClient)
-{
-	VCALL_ENABLED_MODULES(OnClientDisconnect(pClient));
 }
 
 void CModuleManager::LevelShutdown()

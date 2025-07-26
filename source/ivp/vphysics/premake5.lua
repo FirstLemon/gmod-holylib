@@ -20,5 +20,9 @@ function IncludeVPhysics()
 		"*.cpp",
 		"*.h",
 	})
+
+	vpaths({
+		["VPhysics"] = "vphysics/*",
+	})
 end
 IncludeVPhysics()

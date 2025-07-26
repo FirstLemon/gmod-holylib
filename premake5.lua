@@ -15,7 +15,7 @@ include("source/ivp/premake5.lua")
 include("source/bootil/premake5.lua")
 
 local file = io.open("workflow_info.txt", "r") -- Added this file to the workflow so it could also be useful for others.
-local run_id = file and file:read("*l") or "1" -- First line = workflow run id
+local run_id = file and file:read("*l") or "1" -- First like = workflow run id
 local run_number = file and file:read("*l") or "1" --- Second line = workflow run number
 local branch = file and file:read("*l") or "main" -- Third line = branch -> "main"
 local additional = file and file:read("*l") or "0" -- Fouth line = Additional data. We set it to 1 for releases.
@@ -48,7 +48,10 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		IncludeIVP()
 		IncludeBootil()
 
-		defines("HOLYLIB_BUILD_RELEASE=" .. additional)
+		-- I don't care about the ID.
+		defines("GITHUB_RUN_NUMBER=\"" .. run_number .. "\"")
+		defines("GITHUB_RUN_BRANCH=\"" .. branch .. "\"")
+		defines("GITHUB_RUN_DATA=" .. additional)
 		defines("SWDS=1")
 		defines("PROJECT_NAME=\"holylib\"")
 		defines("NO_FRAMESNAPSHOTDEF")
@@ -70,6 +73,10 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			[[source/lz4/*.c]],
 			[[source/lz4/*.cpp]],
 		})
+		
+		removefiles({
+			[[source/modules/lagcompensation.cpp]] -- It's not finished yet.
+		})
 
 		includedirs({
 			[[source/sourcesdk/]],
@@ -88,7 +95,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			links({"opus_64.lib"})
 
 			prebuildcommands({
-				"cd ../../../source/_prebuildtools/ && luajit.exe _compilefiles.lua"
+				"cd ../../../source/lua/scripts/ && luajit.exe _compilefiles.lua"
 			})
 
 		filter("system:windows", "platforms:x86")
@@ -104,7 +111,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			links("opus_64")
 
 			prebuildcommands({
-				"cd ../../../source/_prebuildtools/ && chmod +x luajit_64 && ./luajit_64 _compilefiles.lua"
+				"cd ../../../source/lua/scripts/ && chmod +x luajit_64 && ./luajit_64 _compilefiles.lua"
 			})
 
 		filter({"system:linux", "platforms:x86"})
@@ -113,7 +120,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			links("opus_32")
 
 			prebuildcommands({
-				"cd ../../../source/_prebuildtools/ && chmod +x luajit_32 && ./luajit_32 _compilefiles.lua"
+				"cd ../../../source/lua/scripts/ && chmod +x luajit_32 && ./luajit_32 _compilefiles.lua"
 			})
 
 		filter({"platforms:x86_64"})

@@ -1,5 +1,3 @@
-#pragma once
-
 #include <string>
 #include "vaudio/ivaudio.h"
 #include "IGmod_Audio.h"

@@ -11,6 +11,9 @@ function IncludeHKBase()
 		targetdir("%{wks.location}/bin/%{cfg.buildcfg}")
 		objdir("%{wks.location}/obj/%{cfg.buildcfg}")
 
+		-- pchheader("base.h")
+		-- pchsource("base_types.cpp")
+
 		includedirs({
 			"../",
 			"../../havana"
@@ -52,12 +55,16 @@ function IncludeHKBase()
 			runtime("Debug")
 			defines({"DEBUG"})
 			buildoptions({"/RTC1"})
+			pchheader("base.h")
+			pchsource("base_types.cpp")
 
 		filter("configurations:Release")
 			optimize("Speed")
 			runtime("Release")
 			defines({"NDEBUG"})
 			buildoptions({"/Ob1"})
+			pchheader("base.h")
+			pchsource("base_types.cpp")
 
 		filter("system:windows")
 			defines({"_WIN32", "WIN32"})

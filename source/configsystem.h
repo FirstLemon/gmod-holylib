@@ -1,5 +1,3 @@
-#pragma once
-
 #include "public/iconfigsystem.h"
 
 class CConfigSystem : public IConfigSystem
