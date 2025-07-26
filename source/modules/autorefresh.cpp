@@ -35,13 +35,28 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 	}
 
 	bool bDenyRefresh = false;
-	if (Lua::PushHook("HolyLib:GetBeforeRefresh"))
+	if (Lua::PushHook("HolyLib:GetLuaBeforeRefresh"))
 	{
 		g_Lua->PushString(pfileRelPath->c_str());
 		g_Lua->PushString(pfileName->c_str());
 
 		if (g_Lua->CallFunctionProtected(3, 1, true))
 		{
+			int top = g_Lua->Top();
+			Msg("[DEBUG] Stack has %d values:\n", top);
+			for (int i = 1; i <= top; i++) {
+				int type = g_Lua->GetType(i);
+				Msg("[%d] Type: %s\n", i, g_Lua->GetTypeName(type));
+				if (type == GarrysMod::Lua::Type::BOOL) {
+					Msg("  > BOOL: %s\n", g_Lua->GetBool(i) ? "true" : "false");
+				}
+				else if (type == GarrysMod::Lua::Type::STRING) {
+					Msg("  > STRING: %s\n", g_Lua->GetString(i));
+				}
+				else if (type == GarrysMod::Lua::Type::NUMBER) {
+					Msg("  > NUMBER: %f\n", g_Lua->GetNumber(i));
+				}
+			}
 			bDenyRefresh = g_Lua->GetBool(-1);
 			g_Lua->Pop(1);
 		}
@@ -53,7 +68,7 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 
 	detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
 
-	if (Lua::PushHook("HolyLib:GetAfterRefresh"))
+	if (Lua::PushHook("HolyLib:GetLuaAfterRefresh"))
 	{
 		g_Lua->PushString(pfileRelPath->c_str());
 		g_Lua->PushString(pfileName->c_str());
