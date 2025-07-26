@@ -2,44 +2,35 @@
 #include "LuaInterface.h"
 #include "lua.h"
 #include "detours.h"
-// #include "Bootil/File/Changes.h"
 
 #include "tier0/memdbgon.h"
 
 class CAutoRefreshModule : public IModule
 {
 public:
-	virtual void Init(CreateInterfaceFn *appfn, CreateInterfaceFn *gamefn) OVERRIDE;
-	virtual void LuaInit(GarrysMod::Lua::ILuaInterface *pLua, bool bServerInit) OVERRIDE;
-	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface *pLua) OVERRIDE;
+	virtual void Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn) OVERRIDE;
+	virtual void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) OVERRIDE;
+	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
 	virtual void InitDetour(bool bPreServer) OVERRIDE;
 	virtual void Think(bool bSimulating) OVERRIDE;
 	virtual void Shutdown() OVERRIDE;
-	virtual const char *Name() { return "autorefresh"; };
+	virtual const char* Name() { return "autorefresh"; };
 	virtual int Compatibility() { return LINUX32; };
 };
 
 CAutoRefreshModule g_pAutoRefreshModule;
-IModule *pAutoRefreshModule = &g_pAutoRefreshModule;
+IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
 
-void CAutoRefreshModule::Init(CreateInterfaceFn *appfn, CreateInterfaceFn *gamefn)
+void CAutoRefreshModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn)
 {
-}
-
-static Detouring::Hook detour_CAutoRefresh_HandleChange_VMT;
-static void hook_CAutoRefresh_HandleChange_VMT(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
-{
-	Msg("[DEBUG] HandleChange_VMT called");
-
-	detour_CAutoRefresh_HandleChange_VMT.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_VMT>()(pfileRelPath, pfileName, pfileExt);
 }
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, const std::string *pfileName, const std::string *pfileExt)
+static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, const std::string* pfileName, const std::string* pfileExt)
 {
 	if (!g_Lua)
 	{
-		return;
+		return true;
 	}
 
 	bool bDenyRefresh = false;
@@ -50,16 +41,19 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 
 		if (g_Lua->CallFunctionProtected(3, 1, true))
 		{
-			bDenyRefresh = g_Lua->GetBool(-1);
-			g_Lua->Pop(1);
+			if (g_Lua->IsType(-1, GarrysMod::Lua::Type::BOOL))
+			{
+				bDenyRefresh = g_Lua->GetBool(-1);
+			}
 		}
+		g_Lua->Pop(1);
 	}
 
 	if (bDenyRefresh) {
-		return;
+		return true;
 	}
 
-	detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
+	bool original = detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>()(pfileRelPath, pfileName, pfileExt);
 
 	if (Lua::PushHook("HolyLib:GetLuaAfterRefresh"))
 	{
@@ -69,10 +63,10 @@ static void hook_CAutoRefresh_HandleChange_Lua(const std::string *pfileRelPath, 
 		g_Lua->CallFunctionProtected(3, 0, true);
 	}
 
-	return;
+	return original;
 };
 
-void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface *pLua, bool bServerInit)
+void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)
 		return;
@@ -97,12 +91,6 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
-	);
-
-	Detour::Create(
-		&detour_CAutoRefresh_HandleChange_VMT, "CAutoRefresh_HandleChange_VMT",
-		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_VMTSym,
-		(void *)hook_CAutoRefresh_HandleChange_VMT, m_pID
 	);
 }
 
