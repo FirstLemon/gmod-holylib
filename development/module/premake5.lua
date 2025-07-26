@@ -14,12 +14,6 @@ include(gmcommon)
 include("../../source/ivp/premake5.lua")
 include("../../source/bootil/premake5.lua")
 
---local file = io.open("../../workflow_info.txt", "r")
-local run_id = "1"
-local run_number = "1"
-local branch = "main"
-local additional = "0"
-
 CreateWorkspace({name = "holylib", abi_compatible = false})
 	-- Serverside module (gmsv prefix)
 	-- Can define "source_path", where the source files are located
@@ -30,6 +24,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 	CreateProject({serverside = true, manual_files = false, source_path = "../../source"})
 		kind "SharedLib"
 		symbols "On"
+		-- enableunitybuild "On" -- Caused 500+ errors :/
 		
 		-- Remove some or all of these includes if they're not needed
 		IncludeHelpersExtended()
@@ -49,10 +44,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		IncludeIVP()
 		IncludeBootil()
 
-		-- I don't care about the ID.
-		defines("GITHUB_RUN_NUMBER=\"" .. run_number .. "\"")
-		defines("GITHUB_RUN_BRANCH=\"" .. branch .. "\"")
-		defines("GITHUB_RUN_DATA=" .. additional)
+		defines("HOLYLIB_BUILD_RELEASE=0") -- No release builds.
 		defines("SWDS=1")
 		defines("PROJECT_NAME=\"holylib\"")
 		defines("NO_FRAMESNAPSHOTDEF")
@@ -77,10 +69,15 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			[[../../lua/*.h]],
 			[[../../lua/*.hpp]],
 			[[../../README.md]],
+			[[../../.github/workflows/**.yml]],
 		})
 
-		removefiles({
-			[[../../source/modules/lagcompensation.cpp]] -- It's not finished yet.
+		vpaths({
+			["Source files/sourcesdk/"] = gmcommon .. "/**.*",
+			["Lua Headers"] = "../../lua/*.h",
+			["Lua Scrips"] = "../../source/lua/scripts/*.lua",
+			["README"] = "../../README.md",
+			["Workflows"] = "../../.github/workflows/**.yml",
 		})
 
 		includedirs({
@@ -99,7 +96,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			links({"opus_64.lib"})
 
 			prebuildcommands({
-				"cd ../../../../../source/lua/scripts/ && luajit.exe _compilefiles.lua"
+				"cd ../../../../../source/_prebuildtools/ && luajit.exe _compilefiles.lua"
 			})
 
 		filter("system:windows", "platforms:x86")
@@ -114,7 +111,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			links("opus_64")
 
 			prebuildcommands({
-				"cd ../../../../../source/lua/scripts/ && chmod +x luajit_64 && ./luajit_64 _compilefiles.lua"
+				"cd ../../../../../source/_prebuildtools/ && chmod +x luajit_64 && ./luajit_64 _compilefiles.lua"
 			})
 
 		filter({"system:linux", "platforms:x86"})
@@ -123,7 +120,7 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			links("opus_32")
 
 			prebuildcommands({
-				"cd ../../../../../source/lua/scripts/ && chmod +x luajit_32 && ./luajit_32 _compilefiles.lua"
+				"cd ../../../../../source/_prebuildtools/ && chmod +x luajit_32 && ./luajit_32 _compilefiles.lua"
 			})
 
 		filter({"platforms:x86_64"})

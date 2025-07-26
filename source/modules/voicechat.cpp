@@ -28,6 +28,7 @@ public:
 	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
 	virtual void ServerActivate(edict_t* pEdictList, int edictCount, int clientMax);
 	virtual void LevelShutdown() OVERRIDE;
+	virtual void Shutdown() OVERRIDE;
 	virtual void InitDetour(bool bPreServer) OVERRIDE;
 	virtual void LuaThink(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
 	virtual void PreLuaModuleLoaded(lua_State* L, const char* pFileName) OVERRIDE;
@@ -292,7 +293,7 @@ LUA_FUNCTION_STATIC(VoiceData_CreateCopy)
 	return 1;
 }
 
-struct WavAudioFile {
+/*struct WavAudioFile {
 	std::vector<char> data;
 };
 
@@ -321,7 +322,7 @@ Default__gc(WavAudioFile,
 	WavAudioFile* pWavFile = (WavAudioFile*)pStoredData;
 	if (pWavFile)
 		delete pWavFile;
-)
+)*/
 
 static const int VOICESTREAM_VERSION_1 = 1;
 static const int VOICESTREAM_VERSION = 1; // Current version
@@ -416,11 +417,11 @@ struct VoiceStream {
 		return pStream;
 	}
 
-	WavAudioFile* SaveWave(FileHandle_t fh)
+	/*WavAudioFile**/ void SaveWave(FileHandle_t fh)
 	{
 		ISteamUser* pSteamUser = Util::GetSteamUser();
 		if (!pSteamUser)
-			return NULL;
+			return; // NULL;
 
 		const int sampleRate = 44100;
 		const int bytesPerSample = 2; // 16-bit mono
@@ -475,13 +476,19 @@ struct VoiceStream {
 		header.bitsPerSample = bitsPerSample;
 		header.dataSize = dataSize;
 
+		/*
 		WavAudioFile* wav = new WavAudioFile;
 		wav->data.resize(sizeof(WAVHeader) + dataSize);
 		memcpy(wav->data.data(), &header, sizeof(WAVHeader));
 		if (dataSize > 0)
 			memcpy(wav->data.data() + sizeof(WAVHeader), wavePCM.data(), dataSize);
+		*/
 
-		return wav;
+		g_pFullFileSystem->Write(&header, sizeof(WAVHeader), fh);
+		if (dataSize > 0)
+			g_pFullFileSystem->Write(wavePCM.data(), dataSize, fh);
+
+		return; // wav;
 	}
 
 	static double CatmullRom(double y0, double y1, double y2, double y3, double t) {
@@ -972,18 +979,18 @@ static void UpdatePlayerTalkingState(CBasePlayer* pPlayer, bool bIsTalking = fal
 		{
 			if (g_pVoiceChatModule.InDebug() == 2)
 			{
-				Msg("Skipping voice player update since their not talking! (%i, %s, %f, %f)\n", iClient, g_bIsPlayerTalking[iClient] ? "true" : "false", fTime, voicechat_stopdelay.GetFloat());
+				Msg("Skipping voice player update since their not talking! (%i, %f, %f, %f)\n", iClient, fTime, g_fLastPlayerTalked[iClient], voicechat_stopdelay.GetFloat());
 			}
 
 			return;
 		}
 	}
 
-	if ((g_fLastPlayerUpdated[iClient] + voicechat_updateinterval.GetFloat()) > fTime)
+	if ((g_bIsPlayerTalking[iClient] == bIsTalking || !bIsTalking) && (g_fLastPlayerUpdated[iClient] + voicechat_updateinterval.GetFloat()) > fTime)
 	{
 		if (g_pVoiceChatModule.InDebug() == 2)
 		{
-			Msg("Skipping voice player update! (%i, %s, %f, %f, %f)\n", iClient, bIsTalking ? "true" : "false", g_fLastPlayerUpdated[iClient], fTime, voicechat_updateinterval.GetFloat());
+			Msg("Skipping voice player update! (%i, %s, %s, %f, %f, %f)\n", iClient, bIsTalking ? "true" : "false", g_bIsPlayerTalking[iClient] ? "true" : "false", g_fLastPlayerUpdated[iClient], fTime, voicechat_updateinterval.GetFloat());
 		}
 
 		return;
@@ -991,7 +998,7 @@ static void UpdatePlayerTalkingState(CBasePlayer* pPlayer, bool bIsTalking = fal
 
 	if (g_pVoiceChatModule.InDebug() == 2)
 	{
-		Msg("Doing voice player update! (%i, %s, %f, %f, %f)\n", iClient, bIsTalking ? "true" : "false", g_fLastPlayerUpdated[iClient], fTime, voicechat_updateinterval.GetFloat());
+		Msg("Doing voice player update! (%i, %s, %s, %f, %f, %f)\n", iClient, bIsTalking ? "true" : "false", g_bIsPlayerTalking[iClient] ? "true" : "false", g_fLastPlayerUpdated[iClient], fTime, voicechat_updateinterval.GetFloat());
 	}
 
 	CSingleUserRecipientFilter user( pPlayer );
@@ -1019,7 +1026,7 @@ static void UpdatePlayerTalkingState(CBasePlayer* pPlayer, bool bIsTalking = fal
 		{
 			CBaseEntity *pEnt = Util::GetCBaseEntityFromEdict(Util::engineserver->PEntityOfEntIndex(iOtherClient + 1));
 			if(pEnt && pEnt->IsPlayer() && 
-				(bCanHearHimself && iOtherClient == iClient || (bAllTalk || g_pManager->m_pHelper->CanPlayerHearPlayer((CBasePlayer*)pEnt, pPlayer, bProximity ))) )
+				(bCanHearHimself && (iOtherClient == iClient) || (bAllTalk || g_pManager->m_pHelper->CanPlayerHearPlayer((CBasePlayer*)pEnt, pPlayer, bProximity ))) )
 			{
 				gameRulesMask[iOtherClient] = true;
 				ProximityMask[iOtherClient] = bProximity;
@@ -1039,7 +1046,7 @@ static void UpdatePlayerTalkingState(CBasePlayer* pPlayer, bool bIsTalking = fal
 			for(dw=0; dw < VOICE_MAX_PLAYERS_DW; dw++)
 			{
 				WRITE_LONG(gameRulesMask.GetDWord(dw));
-				WRITE_LONG(g_BanMasks[iClient].GetDWord(dw));
+				WRITE_LONG(g_BanMasks[dw].GetDWord(iClient));
 			}
 			WRITE_BYTE( !!(*g_PlayerModEnable)[iClient] );
 		MessageEnd();
@@ -1048,7 +1055,7 @@ static void UpdatePlayerTalkingState(CBasePlayer* pPlayer, bool bIsTalking = fal
 	// Tell the engine.
 	for(int iOtherClient=0; iOtherClient < g_pManager->m_nMaxPlayers; iOtherClient++)
 	{
-		bool bCanHear = gameRulesMask[iOtherClient] && !g_BanMasks[iClient][iOtherClient];
+		bool bCanHear = gameRulesMask[iOtherClient] && !g_BanMasks[iOtherClient][iClient];
 		g_pVoiceServer->SetClientListening( iOtherClient+1, iClient+1, bCanHear );
 
 		if ( bCanHear )
@@ -1058,8 +1065,7 @@ static void UpdatePlayerTalkingState(CBasePlayer* pPlayer, bool bIsTalking = fal
 	}
 
 	g_fLastPlayerUpdated[iClient] = fTime;
-
-	if ((g_fLastPlayerTalked[iClient] + voicechat_stopdelay.GetFloat()) > fTime)
+	if (bIsTalking || (g_fLastPlayerTalked[iClient] + voicechat_stopdelay.GetFloat()) > fTime)
 	{
 		g_bIsPlayerTalking[iClient] = true;
 	} else {
@@ -1068,7 +1074,7 @@ static void UpdatePlayerTalkingState(CBasePlayer* pPlayer, bool bIsTalking = fal
 
 	if (g_pVoiceChatModule.InDebug() == 2)
 	{
-		Msg("Updated voice player! (%i, %s, %f, %f)\n", iClient, bIsTalking ? "true" : "false", fTime, (g_fLastPlayerTalked[iClient] + voicechat_stopdelay.GetFloat()));
+		Msg("Updated voice player! (%i, %s, %s, %f, %f, %f, %f)\n", iClient, bIsTalking ? "true" : "false", g_bIsPlayerTalking[iClient] ? "true" : "false", fTime, g_fLastPlayerTalked[iClient], (g_fLastPlayerTalked[iClient] + voicechat_stopdelay.GetFloat()), voicechat_stopdelay.GetFloat());
 	}
 }
 
@@ -1135,7 +1141,9 @@ static void hook_SV_BroadcastVoiceData(IClient* pClient, int nBytes, char* data,
 	if (g_pVoiceChatModule.InDebug() == 1)
 		Msg("cl: %p\nbytes: %i\ndata: %p\n", pClient, nBytes, data);
 
+#if SYSTEM_LINUX
 	UpdatePlayerTalkingState(Util::GetPlayerByClient((CBaseClient*)pClient), true);
+#endif
 
 	if (!voicechat_hooks.GetBool())
 	{
@@ -1391,7 +1399,7 @@ struct VoiceStreamTask {
 	VoiceStreamTaskType iType = VoiceStreamTask_NONE;
 	VoiceStreamTaskStatus iStatus = VoiceStreamTaskStatus_NONE;
 
-	WavAudioFile* pWavFile = NULL;
+	// WavAudioFile* pWavFile = NULL;
 	VoiceStream* pStream = NULL;
 	int iReference = -1; // A reference to the pStream to stop the GC from kicking in.
 	int iCallback = -1;
@@ -1447,10 +1455,11 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 				bool bIsWave = getFileExtension(task->pFileName) == "wav";
 				if (bIsWave)
 				{
-					task->pWavFile = task->pStream->SaveWave(fh);
+					task->pStream->SaveWave(fh);
+					//task->pWavFile = task->pStream->SaveWave(fh);
 
-					if (task->pWavFile == NULL)
-						task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_FILE;
+					//if (task->pWavFile == NULL)
+					//	task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_FILE;
 				} else {
 					task->pStream->Save(fh);
 				}
@@ -1473,6 +1482,17 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 	{
 		task->iStatus = VoiceStreamTaskStatus_DONE;
 	}
+}
+
+static void AddVoiceJobToPool(VoiceStreamTask* pTask)
+{
+	if (!pVoiceThreadPool)
+	{
+		pVoiceThreadPool = V_CreateThreadPool();
+		Util::StartThreadPool(pVoiceThreadPool, voicechat_threads.GetInt());
+	}
+
+	pVoiceThreadPool->QueueCall(&VoiceStreamJob, pTask);
 }
 
 LUA_FUNCTION_STATIC(voicechat_LoadVoiceStream)
@@ -1498,7 +1518,7 @@ LUA_FUNCTION_STATIC(voicechat_LoadVoiceStream)
 		LUA->Push(4);
 		task->iCallback = Util::ReferenceCreate(LUA, "voicechat.LoadVoiceStream - callback");
 		pData->pVoiceStreamTasks.insert(task);
-		pVoiceThreadPool->QueueCall(&VoiceStreamJob, task);
+		AddVoiceJobToPool(task);
 		return 0;
 	} else {
 		VoiceStreamJob(task);
@@ -1537,15 +1557,15 @@ LUA_FUNCTION_STATIC(voicechat_SaveVoiceStream)
 		LUA->Push(5);
 		task->iCallback = Util::ReferenceCreate(LUA, "voicechat.SaveVoiceStream - callback");
 		pData->pVoiceStreamTasks.insert(task);
-		pVoiceThreadPool->QueueCall(&VoiceStreamJob, task);
+		AddVoiceJobToPool(task);
 		return 0;
 	} else {
 		VoiceStreamJob(task);
 		LUA->PushNumber((int)task->iStatus);
-		if (task->pWavFile)
+		/*if (task->pWavFile)
 		{
 			Push_WavAudioFile(LUA, task->pWavFile);
-		}
+		}*/
 		delete task;
 		return 1;
 	}
@@ -1615,10 +1635,10 @@ void CVoiceChatModule::LuaThink(GarrysMod::Lua::ILuaInterface* pLua)
 		}
 
 		pLua->ReferencePush(pTask->iCallback);
-		if (pTask->pWavFile)
+		/*if (pTask->pWavFile)
 		{
 			Push_WavAudioFile(pLua, pTask->pWavFile);
-		} else {
+		} else*/ {
 			Push_VoiceStream(pLua, pTask->pStream); // Lua GC will take care of deleting.
 		}
 		pLua->PushBool(pTask->iStatus == VoiceStreamTaskStatus_DONE);
@@ -1671,13 +1691,13 @@ void CVoiceChatModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServer
 		Util::AddFunc(pLua, VoiceStream_SetIndex, "SetIndex");
 	pLua->Pop(1);
 
-	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::WavAudioFile, pLua->CreateMetaTable("WavAudioFile"));
+	/*Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::WavAudioFile, pLua->CreateMetaTable("WavAudioFile"));
 		Util::AddFunc(pLua, WavAudioFile__tostring, "__tostring");
 		Util::AddFunc(pLua, WavAudioFile__index, "__index");
 		Util::AddFunc(pLua, WavAudioFile__newindex, "__newindex");
 		Util::AddFunc(pLua, WavAudioFile__gc, "__gc");
 		Util::AddFunc(pLua, WavAudioFile_GetTable, "GetTable");
-	pLua->Pop(1);
+	pLua->Pop(1);*/
 
 	Util::StartTable(pLua);
 		Util::AddFunc(pLua, voicechat_SendEmptyData, "SendEmptyData");
@@ -1698,6 +1718,12 @@ void CVoiceChatModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServer
 void CVoiceChatModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 {
 	Util::NukeTable(pLua, "voicechat");
+}
+
+void CVoiceChatModule::Shutdown()
+{
+	V_DestroyThreadPool(pVoiceThreadPool);
+	pVoiceThreadPool = NULL;
 }
 
 IVoiceServer* g_pVoiceServer = NULL;
@@ -1726,6 +1752,7 @@ void CVoiceChatModule::InitDetour(bool bPreServer)
 		(void*)hook_SV_BroadcastVoiceData, m_pID
 	);
 
+#if SYSTEM_LINUX
 	SourceSDK::FactoryLoader server_loader("server");
 	Detour::Create(
 		&detour_CVoiceGameMgr_Update, "CVoiceGameMgr::Update",
@@ -1747,6 +1774,7 @@ void CVoiceChatModule::InitDetour(bool bPreServer)
 
 	g_bWantModEnable = Detour::ResolveSymbol<CPlayerBitVec>(server_loader, Symbols::g_bWantModEnableSym);
 	Detour::CheckValue("get class", "g_bWantModEnable", g_bWantModEnable != NULL);
+#endif
 }
 
 void CVoiceChatModule::PreLuaModuleLoaded(lua_State* L, const char* pFileName)

@@ -29,6 +29,7 @@ struct HttpResponse {
 	bool m_bSetRedirect = false;
 	bool m_bSetHeader = false;
 	int m_iRedirectCode = 302;
+	int m_iStatusCode = -1;
 	std::string m_strContent = "";
 	std::string m_strContentType = "text/plain";
 	std::string m_strRedirect = "";
@@ -41,6 +42,9 @@ struct HttpResponse {
 
 		if (m_bSetRedirect)
 			pResponse.set_redirect(m_strRedirect, m_iRedirectCode);
+
+		if (m_iStatusCode >= 100 && m_iStatusCode < 600)
+			pResponse.status = m_iStatusCode;
 
 		if (m_bSetHeader)
 			for (auto& [key, value] : m_pHeaders)
@@ -90,6 +94,7 @@ struct PreparedHttpResponse {
 
 struct HttpRequest {
 	~HttpRequest();
+	void MarkHandled();
 
 	bool m_bHandled = false;
 	bool m_bDelete = false; // We only delete from the main thread.
@@ -116,6 +121,8 @@ public:
 	HttpServer(GarrysMod::Lua::ILuaInterface* pLua) {
 		m_pLua = pLua;
 		g_pHttpServers.insert(this);
+
+		SetName("NONAME");
 	}
 
 	~HttpServer()
@@ -220,8 +227,17 @@ public:
 	std::string& GetAddress() { return m_strAddress; };
 	unsigned short GetPort() { return m_iPort; };
 	void SetThreadSleep(unsigned int threadSleep) { m_iThreadSleep = threadSleep; };
-	std::string& GetName() { return m_strName; };
-	void SetName(std::string strName) { m_strName = strName; };
+	const char* GetName() { return m_strName; };
+	void SetName(const char* strName)
+	{
+		if (!strName)
+		{
+			SetName("NONAME");
+			return;
+		}
+
+		V_strncpy(m_strName, strName, sizeof(m_strName));
+	};
 
 	void ClearDisconnectedClient(int userID)
 	{
@@ -247,7 +263,7 @@ private:
 	std::vector<HttpRequest*> m_pRequests;
 	std::vector<int> m_pHandlerReferences; // Contains the Lua references to the handler functions.
 	httplib::Server m_pServer;
-	std::string m_strName = "NONAME";
+	char m_strName[64] = {0};
 
 	// userID - Response pairs.
 	std::unordered_map<int, std::vector<PreparedHttpResponse*>> m_pPreparedResponses;
@@ -266,6 +282,13 @@ HttpRequest::~HttpRequest()
 {
 	Delete_HttpRequest(m_pLua, this);
 	Delete_HttpResponse(m_pLua , &this->m_pResponseData);
+}
+
+void HttpRequest::MarkHandled()
+{
+	m_bHandled = true;
+	Delete_HttpRequest(m_pLua, this);
+	Delete_HttpResponse(m_pLua, &m_pResponseData);
 }
 
 LUA_FUNCTION_STATIC(HttpResponse__tostring)
@@ -317,6 +340,14 @@ LUA_FUNCTION_STATIC(HttpResponse_SetHeader)
 	return 0;
 }
 
+LUA_FUNCTION_STATIC(HttpResponse_SetStatusCode)
+{
+	HttpResponse* pData = Get_HttpResponse(LUA, 1, true);
+	pData->m_iStatusCode = (int)LUA->CheckNumber(2);
+
+	return 0;
+}
+
 LUA_FUNCTION_STATIC(HttpRequest__tostring)
 {
 	HttpRequest* pData = Get_HttpRequest(LUA, 1, false);
@@ -327,6 +358,12 @@ LUA_FUNCTION_STATIC(HttpRequest__tostring)
 	return 1;
 }
 
+Default__gc(HttpRequest, 
+	if (pStoredData)
+	{
+		((HttpRequest*)pStoredData)->MarkHandled();
+	}
+);
 Default__index(HttpRequest);
 Default__newindex(HttpRequest);
 Default__GetTable(HttpRequest);
@@ -368,6 +405,22 @@ LUA_FUNCTION_STATIC(HttpRequest_GetParam)
 	const char* param = LUA->CheckString(2);
 
 	LUA->PushString(pData->m_pRequest.get_param_value(param).c_str());
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(HttpRequest_GetPathParam)
+{
+	HttpRequest* pData = Get_HttpRequest(LUA, 1, false);
+	const char* param = LUA->CheckString(2);
+
+	auto it = pData->m_pRequest.path_params.find(param);
+	if (it != pData->m_pRequest.path_params.end())
+	{
+		LUA->PushString(it->second.c_str());
+		return 1;
+	}
+
+	LUA->PushNil();
 	return 1;
 }
 
@@ -457,6 +510,14 @@ LUA_FUNCTION_STATIC(HttpRequest_GetPlayer)
 	return 1;
 }
 
+LUA_FUNCTION_STATIC(HttpRequest_MarkHandled)
+{
+	HttpRequest* pData = Get_HttpRequest(LUA, 1, false);
+	pData->MarkHandled();
+
+	return 0;
+}
+
 void CallFunc(GarrysMod::Lua::ILuaInterface* pLua, int callbackFunction, HttpRequest* request, HttpResponse* response)
 {
 	Util::ReferencePush(pLua, callbackFunction);
@@ -469,12 +530,15 @@ void CallFunc(GarrysMod::Lua::ILuaInterface* pLua, int callbackFunction, HttpReq
 
 	if (pLua->CallFunctionProtected(2, 1, true))
 	{
-		request->m_bHandled = !pLua->GetBool(-1);
-		pLua->Pop(1);
-	}
+		if (!pLua->GetBool(-1))
+		{
+			request->MarkHandled();
+		}
 
-	Delete_HttpRequest(pLua, request);
-	Delete_HttpResponse(pLua, response); // Destroys the Lua reference after we used it
+		pLua->Pop(1);
+	} else {
+		request->MarkHandled(); // Lua error? Nah mark it as handled.
+	}
 }
 
 void HttpServer::Start(const char* address, unsigned short port)
@@ -541,6 +605,9 @@ httplib::Server::Handler HttpServer::CreateHandler(const char* path, int func, b
 		int userID = -1;
 		for (auto& pClient : Util::GetClients())
 		{
+			// NOTE: Currently we assume pClient is always valid, and this is true as long as our httpServer doesn't persist across map changes
+			// This is because the engine by default reuses CBaseClient's but they are potentially nuked when the server shuts down
+			// so on map changes if a HttpServer would run, it would have possible bugs.
 			if (!pClient->IsConnected())
 				continue;
 
@@ -548,6 +615,8 @@ httplib::Server::Handler HttpServer::CreateHandler(const char* path, int func, b
 			if (!pChannel)
 				continue; // Probably a fake client.
 
+			// ToDo: Could this possibly end up as a race condition?
+			// What if pClient disconnects right here and their INetChannel is nuked?
 			const netadr_s& addr = pChannel->GetRemoteAddress();
 			std::string address = addr.ToString();
 			size_t port_pos = address.find(":");
@@ -642,8 +711,12 @@ LUA_FUNCTION_STATIC(HttpServer__tostring)
 		return 1;
 	}
 
-	char szBuf[64] = {};
-	V_snprintf(szBuf, sizeof(szBuf),"HttpServer [%s:%s - %s]", pServer->GetAddress().c_str(), std::to_string(pServer->GetPort()).c_str(), pServer->GetName().c_str()); 
+	char szBuf[96] = {};
+	V_snprintf(szBuf, sizeof(szBuf), "HttpServer [%s:%s - %s]", 
+		pServer->GetAddress().c_str(),
+		std::to_string(pServer->GetPort()).c_str(),
+		pServer->GetName()
+	); 
 	LUA->PushString(szBuf);
 	return 1;
 }
@@ -757,7 +830,7 @@ LUA_FUNCTION_STATIC(HttpServer_SetReadTimeout)
 LUA_FUNCTION_STATIC(HttpServer_SetWriteTimeout)
 {
 	HttpServer* pServer = Get_HttpServer(LUA, 1, true);
-	pServer->GetServer().set_write_timeout((time_t)LUA->CheckNumber(1), (time_t)LUA->CheckNumber(2));
+	pServer->GetServer().set_write_timeout((time_t)LUA->CheckNumber(2), (time_t)LUA->CheckNumber(3));
 
 	return 0;
 }
@@ -849,7 +922,7 @@ LUA_FUNCTION_STATIC(HttpServer_GetName)
 {
 	HttpServer* pServer = Get_HttpServer(LUA, 1, true);
 
-	LUA->PushString(pServer->GetName().c_str());
+	LUA->PushString(pServer->GetName());
 	return 1;
 }
 
@@ -1001,7 +1074,7 @@ void CHTTPServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, HttpServer_AddPreparedResponse, "AddPreparedResponse");
 	pLua->Pop(1);
 
-	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpRequest, pLua->CreateMetaTable("HttpRequest"));
+	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpResponse, pLua->CreateMetaTable("HttpResponse"));
 		Util::AddFunc(pLua, HttpResponse__tostring, "__tostring");
 		Util::AddFunc(pLua, HttpResponse__index, "__index");
 		Util::AddFunc(pLua, HttpResponse__newindex, "__newindex");
@@ -1011,9 +1084,11 @@ void CHTTPServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, HttpResponse_SetContent, "SetContent");
 		Util::AddFunc(pLua, HttpResponse_SetHeader, "SetHeader");
 		Util::AddFunc(pLua, HttpResponse_SetRedirect, "SetRedirect");
+		Util::AddFunc(pLua, HttpResponse_SetStatusCode, "SetStatusCode");
 	pLua->Pop(1);
 
-	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpResponse, pLua->CreateMetaTable("HttpResponse"));
+	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::HttpRequest, pLua->CreateMetaTable("HttpRequest"));
+		Util::AddFunc(pLua, HttpRequest__gc, "__gc");
 		Util::AddFunc(pLua, HttpRequest__tostring, "__tostring");
 		Util::AddFunc(pLua, HttpRequest__index, "__index");
 		Util::AddFunc(pLua, HttpRequest__newindex, "__newindex");
@@ -1024,6 +1099,7 @@ void CHTTPServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, HttpRequest_HasParam, "HasParam");
 		Util::AddFunc(pLua, HttpRequest_GetHeader, "GetHeader");
 		Util::AddFunc(pLua, HttpRequest_GetParam, "GetParam");
+		Util::AddFunc(pLua, HttpRequest_GetPathParam, "GetPathParam");
 		Util::AddFunc(pLua, HttpRequest_GetBody, "GetBody");
 		Util::AddFunc(pLua, HttpRequest_GetRemoteAddr, "GetRemoteAddr");
 		Util::AddFunc(pLua, HttpRequest_GetRemotePort, "GetRemotePort");
@@ -1032,6 +1108,7 @@ void CHTTPServerModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServe
 		Util::AddFunc(pLua, HttpRequest_GetMethod, "GetMethod");
 		Util::AddFunc(pLua, HttpRequest_GetAuthorizationCount, "GetAuthorizationCount");
 		Util::AddFunc(pLua, HttpRequest_GetContentLength, "GetContentLength");
+		Util::AddFunc(pLua, HttpRequest_MarkHandled, "MarkHandled");
 
 		Util::AddFunc(pLua, HttpRequest_GetClient, "GetClient");
 		Util::AddFunc(pLua, HttpRequest_GetPlayer, "GetPlayer");

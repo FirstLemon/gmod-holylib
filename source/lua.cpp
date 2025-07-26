@@ -57,6 +57,8 @@ void Lua::Init(GarrysMod::Lua::ILuaInterface* LUA)
 	}
 
 	g_Lua = LUA;
+	LUA->PushBool(true);
+	LUA->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB");
 	Lua::CreateLuaData(g_Lua, true);
 	g_pModuleManager.LuaInit(g_Lua, false);
 	SetupUnHolyVTableForThisShit(g_Lua);
@@ -105,13 +107,19 @@ void Lua::Shutdown()
 			continue;
 
 		if (Util::holylib_debug_mainutil.GetBool())
-			Msg(PROJECT_NAME ": This should NEVER happen! Discarding of old userdata %p (Type: %i - %i)\n", ref, ref->GetType(), Lua::GetLuaData(g_Lua)->FindMetaTable(ref->GetType()));
+		{
+			int iType = ref->GetType();
+			Msg(PROJECT_NAME ": This should NEVER happen! Discarding of old userdata %p (Type: %i - %i)\n", ref, iType, (iType > 0) && Lua::GetLuaData(g_Lua)->FindMetaTable(iType) || 0);
+		}
 
 		delete ref;
 	}
 	g_pRemoveLuaUserData = true;
 	g_pLuaUserData.clear();
 #endif
+
+	g_Lua->PushNil();
+	g_Lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB");
 }
 
 void Lua::FinalShutdown()
@@ -162,14 +170,15 @@ static void hook_CLuaInterface_Shutdown(GarrysMod::Lua::ILuaInterface* LUA)
 }
 
 static Detouring::Hook detour_GMOD_LoadBinaryModule;
-static void hook_GMOD_LoadBinaryModule(lua_State* L, const char* pFileName)
+static int hook_GMOD_LoadBinaryModule(lua_State* L, const char* pFileName)
 {
 	g_pModuleManager.PreLuaModuleLoaded(L, pFileName);
 
-	detour_GMOD_LoadBinaryModule.GetTrampoline<Symbols::GMOD_LoadBinaryModule>()(L, pFileName); 
-	// Garbage collection will kick in so our remaining objects could call theirs __gc function so g_Lua still needs to be valid.
+	bool retCode = detour_GMOD_LoadBinaryModule.GetTrampoline<Symbols::GMOD_LoadBinaryModule>()(L, pFileName); 
 
 	g_pModuleManager.PostLuaModuleLoaded(L, pFileName);
+
+	return retCode;
 }
 
 void Lua::AddDetour() // Our Lua Loader.

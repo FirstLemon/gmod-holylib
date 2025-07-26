@@ -131,6 +131,13 @@ namespace Symbols
 		NULL_SIGNATURE, // ToDo
 	};
 
+	const std::vector<Symbol> CHostState_State_ChangeLevelMPSym = {
+		Symbol::FromName("_Z23HostState_ChangeLevelMPPKcS0_"),
+		NULL_SIGNATURE,
+		NULL_SIGNATURE,
+		NULL_SIGNATURE,
+	};
+
 	//---------------------------------------------------------------------------------
 	// Purpose: gameevent Symbols
 	//---------------------------------------------------------------------------------
@@ -554,6 +561,48 @@ namespace Symbols
 		Symbol::FromName("g_BSPData"),
 	};
 
+	const std::vector<Symbol> PackWork_t_ProcessSym = {
+		Symbol::FromName("_ZN10PackWork_t7ProcessERS_"),
+	};
+
+	const std::vector<Symbol> SV_PackEntitySym = {
+		NULL_SIGNATURE,
+		NULL_SIGNATURE,
+		Symbol::FromSignature("\x55\x8B\xEC\xB8\x58\xC4\x00\x00"), // 55 8B EC B8 58 C4 00 00
+	};
+
+	const std::vector<Symbol> InvalidateSharedEdictChangeInfosSym = {
+		Symbol::FromName("_Z32InvalidateSharedEdictChangeInfosv"),
+		NULL_SIGNATURE,
+		Symbol::FromSignature("\x66*****\xB9\xFF\xFF\x00\x00\x66\x3B\xC1**\x57\x33\xFF"), // 66 ?? ?? ?? ?? ?? B9 FF FF 00 00 66 3B C1 ?? ?? 57 33 FF
+	};
+
+	const std::vector<Symbol> PackEntities_NormalSym = {
+		Symbol::FromName("_Z19PackEntities_NormaliPP11CGameClientP14CFrameSnapshot"),
+		NULL_SIGNATURE,
+		Symbol::FromSignature("\x55\x8B\xEC\xB8\x2C\x80\x01\x00"), // 55 8B EC B8 2C 80 01 00
+	};
+
+	const std::vector<Symbol> CGMOD_Player_CreateViewModelSym = {
+		Symbol::FromName("_ZN12CGMOD_Player15CreateViewModelEi"),
+	};
+
+	const std::vector<Symbol> CBasePlayer_GetViewModelSym = {
+		Symbol::FromName("_ZN11CBasePlayer12GetViewModelEib"),
+	};
+
+	const std::vector<Symbol> Player__SetHandsSym = {
+		Symbol::FromName("_Z16Player__SetHandsP13ILuaInterface"),
+	};
+
+	const std::vector<Symbol> CBaseCombatCharacter_SetTransmitSym = {
+		Symbol::FromName("_ZN20CBaseCombatCharacter11SetTransmitEP18CCheckTransmitInfob"),
+	};
+
+	const std::vector<Symbol> CBaseAnimating_SetTransmitSym = {
+		Symbol::FromName("_ZN14CBaseAnimating11SetTransmitEP18CCheckTransmitInfob"),
+	};
+
 	//---------------------------------------------------------------------------------
 	// Purpose: steamworks Symbols
 	//---------------------------------------------------------------------------------
@@ -811,6 +860,10 @@ namespace Symbols
 		Symbol::FromName("_ZN11CBaseServer14FillServerInfoER14SVC_ServerInfo"),
 	};
 
+	const std::vector<Symbol> CHLTVServer_FillServerInfoSym = {
+		Symbol::FromName("_ZN11CHLTVServer14FillServerInfoER14SVC_ServerInfo"),
+	};
+
 	const std::vector<Symbol> CBaseClient_SetSignonStateSym = {
 		Symbol::FromName("_ZN11CBaseClient14SetSignonStateEii"),
 	};
@@ -847,36 +900,8 @@ namespace Symbols
 		Symbol::FromName("_Z14NET_SendPacketP11INetChanneliRK8netadr_sPKhiP8bf_writeb"),
 	};
 
-	const std::vector<Symbol> CNetChan_CreateFragmentsFromBufferSym = {
-		Symbol::FromName("_ZN8CNetChan25CreateFragmentsFromBufferEP8bf_writei"),
-	};
-
-	const std::vector<Symbol> CNetChan_SendSubChannelDataSym = {
-		Symbol::FromName("_ZN8CNetChan18SendSubChannelDataER8bf_write"),
-	};
-
-	const std::vector<Symbol> CNetChan_FlowNewPacketSym = {
-		Symbol::FromName("_ZN8CNetChan13FlowNewPacketEiiiiii"),
-	};
-
-	const std::vector<Symbol> CNetChan_FlowUpdateSym = {
-		Symbol::FromName("_ZN8CNetChan10FlowUpdateEii"),
-	};
-
 	const std::vector<Symbol> CNetChan_SendDatagramSym = {
 		Symbol::FromName("_ZN8CNetChan12SendDatagramEP8bf_write"),
-	};
-
-	const std::vector<Symbol> CNetChan_UpdateSubChannelsSym = {
-		Symbol::FromName("_ZN8CNetChan17UpdateSubChannelsEv"),
-	};
-
-	const std::vector<Symbol> CNetChan_CheckWaitingListSym = {
-		Symbol::FromName("_ZN8CNetChan16CheckWaitingListEi"),
-	};
-
-	const std::vector<Symbol> CNetChan_ProcessPacketHeaderSym = {
-		Symbol::FromName("_ZN8CNetChan19ProcessPacketHeaderEP11netpacket_s"),
 	};
 
 	const std::vector<Symbol> CNetChan_D2Sym = {
