@@ -63,43 +63,89 @@ void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 		}
 		if ( !materials )
 		{
-			g_pMaterialSystem = materials = ( IMaterialSystem * )pFactoryList[i]( MATERIAL_SYSTEM_INTERFACE_VERSION, NULL );
+			if (pFactoryList[i])
+			{
+				if (!g_pFullFileSystem)
+				{
+					auto iface = pFactoryList[i](FILESYSTEM_INTERFACE_VERSION, NULL);
+					if (iface)
+					{
+						g_pFullFileSystem = (IFileSystem *)iface;
+					}
+				}
+			}
 		}
-		if ( !g_pInputSystem )
+		if (!g_pInputSystem && pFactoryList[i])
 		{
-			g_pInputSystem = ( IInputSystem * )pFactoryList[i]( INPUTSYSTEM_INTERFACE_VERSION, NULL );
+			void *iface = pFactoryList[i](INPUTSYSTEM_INTERFACE_VERSION, NULL);
+			if (iface)
+			{
+				g_pInputSystem = (IInputSystem *)iface;
+			}
 		}
-		if ( !g_pNetworkSystem )
+		if (!g_pNetworkSystem && pFactoryList[i])
 		{
-			g_pNetworkSystem = ( INetworkSystem * )pFactoryList[i]( NETWORKSYSTEM_INTERFACE_VERSION, NULL );
+			void *iface = pFactoryList[i](NETWORKSYSTEM_INTERFACE_VERSION, NULL);
+			if (iface)
+			{
+				g_pNetworkSystem = (INetworkSystem *)iface;
+			}
 		}
-		if ( !g_pMaterialSystemHardwareConfig )
+		if ( !g_pMaterialSystemHardwareConfig && pFactoryList[i])
 		{
-			g_pMaterialSystemHardwareConfig = ( IMaterialSystemHardwareConfig * )pFactoryList[i]( MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION, NULL );
+			void *iface = pFactoryList[i](MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION, NULL);
+			if (iface)
+			{
+				g_pMaterialSystemHardwareConfig = (IMaterialSystemHardwareConfig *)iface;
+			}
 		}
-		if ( !g_pMaterialSystemDebugTextureInfo )
+		if (!g_pMaterialSystemDebugTextureInfo && pFactoryList[i])
 		{
-			g_pMaterialSystemDebugTextureInfo = (IDebugTextureInfo*)pFactoryList[i]( DEBUG_TEXTURE_INFO_VERSION, 0 );
+			void *iface = pFactoryList[i](DEBUG_TEXTURE_INFO_VERSION, 0);
+			if (iface)
+			{
+				g_pMaterialSystemDebugTextureInfo = (IDebugTextureInfo *)iface;
+			}
 		}
-		if ( !g_VBAllocTracker )
+		if (!g_VBAllocTracker && pFactoryList[i])
 		{
-			g_VBAllocTracker = (IVBAllocTracker*)pFactoryList[i]( VB_ALLOC_TRACKER_INTERFACE_VERSION, 0 );
+			void *iface = pFactoryList[i](VB_ALLOC_TRACKER_INTERFACE_VERSION, 0);
+			if (iface)
+			{
+				g_VBAllocTracker = (IVBAllocTracker*)iface;
+			}
 		}
-		if ( !colorcorrection )
+		if (!colorcorrection && pFactoryList[i])
 		{
-			colorcorrection = ( IColorCorrectionSystem * )pFactoryList[i]( COLORCORRECTION_INTERFACE_VERSION, NULL );
+			void *iface = pFactoryList[i](COLORCORRECTION_INTERFACE_VERSION, NULL);
+			if (iface)
+			{
+				colorcorrection = (IColorCorrectionSystem*)iface;
+			}
 		}
-		if ( !p4 )
+		if (!p4 && pFactoryList[i])
 		{
-			p4 = ( IP4 * )pFactoryList[i]( P4_INTERFACE_VERSION, NULL );
+			void *iface = pFactoryList[i](P4_INTERFACE_VERSION, NULL);
+			if (iface)
+			{
+				p4 = (IP4*)iface;
+			}
 		}
-		if ( !mdllib )
+		if (!mdllib && pFactoryList[i])
 		{
-			mdllib = ( IMdlLib * )pFactoryList[i]( MDLLIB_INTERFACE_VERSION, NULL );
+			void *iface = pFactoryList[i](MDLLIB_INTERFACE_VERSION, NULL);
+			if (iface)
+			{
+				mdllib = (IMdlLib *)iface;
+			}
 		}
-		if ( !g_pQueuedLoader )
+		if (!g_pQueuedLoader && pFactoryList[i])
 		{
-			g_pQueuedLoader = (IQueuedLoader *)pFactoryList[i]( QUEUEDLOADER_INTERFACE_VERSION, NULL );
+			void *iface = pFactoryList[i](QUEUEDLOADER_INTERFACE_VERSION, NULL);
+			if (iface)
+			{
+				g_pQueuedLoader = (IQueuedLoader *)iface;
+			}
 		}
 	}
 }
