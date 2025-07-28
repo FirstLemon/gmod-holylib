@@ -411,7 +411,7 @@ namespace Symbols
 	};
 
 	const std::vector<Symbol> CScriptedEntity_StartFunctionSym = { // int version - SENT:AcceptInput
-		Symbol::FromName("_ZN15CScriptedEntity13StartFunctionEi"), 
+		Symbol::FromName("_ZN15CScriptedEntity13StartFunctionEi"),
 		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x56\x41\x89\xF6\x41\x55\x41\x54\x49\x89\xFC\x53\xE8****"), // 55 48 89 E5 41 56 41 89 F6 41 55 41 54 49 89 FC 53 E8 ?? ?? ?? ??
 		Symbol::FromSignature("\x55\x8B\xEC\x56\x8B\xF1\xFF\x15****\x84\xC0**\x80\x7E\x04\x00**\x8B\x4E\x0C\x8B\x01\xFF\x90\x84\x03\x00\x00\x8B\xC8\x8B\x10\xFF\x92\x84\x00\x00\x00\x8B\x0D****\x6A\x00"), //  55 8B EC 56 8B F1 FF 15 ?? ?? ?? ?? 84 C0 ?? ?? 80 7E 04 00 ?? ?? 8B 4E 0C 8B 01 FF 90 84 03 00 00 8B C8 8B 10 FF 92 84 00 00 00 8B 0D ?? ?? ?? ?? 6A 00
 	};
@@ -453,43 +453,43 @@ namespace Symbols
 	const std::vector<Symbol> Client_CLuaGamemode_CallWithArgsSym = {
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
-		Symbol::FromSignature(""), 
+		Symbol::FromSignature(""),
 	};
 
 	const std::vector<Symbol> Client_CLuaGamemode_CallSym = {
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
-		Symbol::FromSignature(""), 
+		Symbol::FromSignature(""),
 	};
 
 	const std::vector<Symbol> Client_CScriptedEntity_StartFunctionStrSym = { // const char* version - GetSoundInterests
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
-		Symbol::FromSignature(""), 
+		Symbol::FromSignature(""),
 	};
 
 	const std::vector<Symbol> Client_CScriptedEntity_StartFunctionSym = { // int version - SENT:AcceptInput
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
-		Symbol::FromSignature(""), 
+		Symbol::FromSignature(""),
 	};
 
 	const std::vector<Symbol> Client_CScriptedEntity_CallSym = { // SENT:AcceptInput
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
-		Symbol::FromSignature(""), 
+		Symbol::FromSignature(""),
 	};
 
 	const std::vector<Symbol> Client_CScriptedEntity_CallFunctionStrSym = { // const char* version - SetupDataTables
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
-		Symbol::FromSignature(""), 
+		Symbol::FromSignature(""),
 	};
 
 	const std::vector<Symbol> Client_CScriptedEntity_CallFunctionSym = { // int version. - Found no good identifyer to find it. Guessed it.
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
-		Symbol::FromSignature(""), 
+		Symbol::FromSignature(""),
 	};
 #endif
 
@@ -650,7 +650,7 @@ namespace Symbols
 		Symbol::FromName("_ZN13CSteam3Server24CheckForDuplicateSteamIDEPK11CBaseClient"),
 		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x57\x41\x56\x41\x55\x41\x54\x53\x48\x83\xEC\x68\x48\x89\x75\x80"), // 55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC 68 48 89 75 80
 	};
-		
+
 	//---------------------------------------------------------------------------------
 	// Purpose: pas Symbols
 	//---------------------------------------------------------------------------------
@@ -948,6 +948,6 @@ namespace Symbols
 	//---------------------------------------------------------------------------------
 	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym = {
 		Symbol::FromName("_ZN9GarrysMod11AutoRefresh16HandleChange_LuaERKSsS2_S2_"),
-		// Symbol::FromSignature("\x48\x89\xE5\x41\x57\x41\x56\x49\x89\xD6\x41\x55\x49\x89\xFD\x48\x89\xD7\x41\x54"),
+		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x57\x41\x56\x49\x89\xD6\x41\x55\x49\x89\xFD\x48\x89\xD7\x41\x54"),
 	};
 }
