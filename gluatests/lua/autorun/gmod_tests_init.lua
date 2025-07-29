@@ -1,23 +1,5 @@
 include( "gmod_tests/sh_init.lua" )
 
-local testFilePath = "garrysmod/lua/autorefresh-testfile.lua"
-local f = io.open(testFilePath, "r")
-
-if f then
-    f:close()
-    print("[BlaBla] TestFile already existed: " .. testFilePath)
-else
-    -- Neue Datei schreiben
-    f = io.open(testFilePath, "w")
-    if f then
-        f:write([[print("[Sigma] Initial loaded")]])
-        f:close()
-        print("[BlaBla] File created: " .. testFilePath)
-    else
-        print("[BlaBla] File niet created")
-    end
-end
-
 hook.Add("HolyLib:OnMapChange", "HookOnMapChangeTest", function(levelName, levelLandmark)
 	local currentMap = game.GetMap()
 
