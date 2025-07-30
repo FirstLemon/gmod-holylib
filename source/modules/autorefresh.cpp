@@ -38,7 +38,6 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 {
 	using HandleChange_Lua_Function = bool(*)(const std::string*, const std::string*, const std::string*);
 	auto trampoline = detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<HandleChange_Lua_Function>();
-
 	if (!g_Lua || !pfileRelPath || !pfileName || !pfileExt)
 	{
 		return trampoline(pfileRelPath, pfileName, pfileExt);
@@ -57,9 +56,10 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		}
 	}
 
-	if (!(blockedLuaFilesMap.empty()) && !bDenyRefresh)
+	if (!blockedLuaFilesMap.empty() && !bDenyRefresh)
 	{
-		if (auto fileSearch = blockedLuaFilesMap.find(pfileName->c_str()); fileSearch != blockedLuaFilesMap.end()) {
+		if (auto fileSearch = blockedLuaFilesMap.find(pfileName->c_str()); fileSearch != blockedLuaFilesMap.end())
+		{
 			bDenyRefresh = fileSearch->second;
 		}
 	}
