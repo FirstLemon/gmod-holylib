@@ -44,15 +44,8 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
 
-	bool bDenyRefresh = false; 
-	if (!(blockedLuaFilesMap.empty()))
-	{
-		if (auto fileSearch = blockedLuaFilesMap.find(pfileName->c_str()); fileSearch != blockedLuaFilesMap.end()) {
-			bDenyRefresh = fileSearch->second;
-		}
-	}
-
-	if (!bDenyRefresh && Lua::PushHook("HolyLib:PreLuaAutoRefresh"))
+	bool bDenyRefresh = false;
+	if (Lua::PushHook("HolyLib:PreLuaAutoRefresh"))
 	{
 		g_Lua->PushString(pfileRelPath->c_str());
 		g_Lua->PushString(pfileName->c_str());
@@ -61,6 +54,13 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		{
 			bDenyRefresh = g_Lua->GetBool(-1);
 			g_Lua->Pop(1);
+		}
+	}
+
+	if (!(blockedLuaFilesMap.empty()) && !bDenyRefresh)
+	{
+		if (auto fileSearch = blockedLuaFilesMap.find(pfileName->c_str()); fileSearch != blockedLuaFilesMap.end()) {
+			bDenyRefresh = fileSearch->second;
 		}
 	}
 
