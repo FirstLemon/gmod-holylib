@@ -26,10 +26,11 @@ LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
 	LUA->CheckType(2, GarrysMod::Lua::Type::Bool);
 
-	const char *rawFilePath = LUA->GetString(1);
+	const char* inputFilePath = LUA->GetString(1);
 	bool blockStatus = LUA->GetBool(2);
-	char normalizedPath[256];
-	V_FixupPathName(normalizedPath, sizeof(normalizedPath), rawFilePath);
+	char normalizedPath[260];
+	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputFilePath);
+	Msg("HERE MORON: %s\n", normalizedPath);
 	blockedLuaFilesMap.insert_or_assign(std::string(normalizedPath), blockStatus);
 
 	return 0;
@@ -59,7 +60,8 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 
 	if (!blockedLuaFilesMap.empty() && !bDenyRefresh)
 	{
-		if (auto fileSearch = blockedLuaFilesMap.find(*pfileName); fileSearch != blockedLuaFilesMap.end())
+		std::string fullpath = pfileRelPath->c_str() + '/' + *pfileName->c_str() + '.' + *pfileExt->c_str();
+		if (auto fileSearch = blockedLuaFilesMap.find(fullpath); fileSearch != blockedLuaFilesMap.end())
 		{
 			Msg("Normalized FilePath: %s\n", fileSearch->first.c_str());
 			bDenyRefresh = fileSearch->second;
