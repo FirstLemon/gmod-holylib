@@ -61,7 +61,7 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	{
 		if (auto fileSearch = blockedLuaFilesMap.find(*pfileName); fileSearch != blockedLuaFilesMap.end())
 		{
-			Msg("Normalized FilePath: %s\n", fileSearch->first);
+			Msg("Normalized FilePath: %s\n", fileSearch->first.c_str());
 			bDenyRefresh = fileSearch->second;
 		}
 	}
