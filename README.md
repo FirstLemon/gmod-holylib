@@ -4441,7 +4441,15 @@ The Autorefresh module currently provides functionalities regarding the in-built
 Supports: Linux32 | LINUX64
 
 ### Functions
-None
+#### autorefresh.DenyLuaAutoRefresh(string filePath, bool shouldDeny)
+Prevents certain Lua files from being AutoRefreshed. Accepts a string of the relative file path and a bool indicating whether to block or allow the autorefresh.
+- `true` - denies the refresh
+- `false` - allows the refresh
+```lua
+local pathToFile = "lua/test-dir/test.lua"
+autorefresh.DenyLuaAutorefresh(pathToFile, true)
+```
+
 
 ### Hooks
 #### bool HolyLib:PreLuaAutoRefresh(string filePath, string fileName)
