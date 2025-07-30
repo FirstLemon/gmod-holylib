@@ -42,6 +42,13 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	auto trampoline = detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>();
 	if (!g_Lua || !pfileRelPath || !pfileName || !pfileExt)
 	{
+		Msg("Invalid pointer\n");
+		return trampoline(pfileRelPath, pfileName, pfileExt);
+	}
+
+	if (*pfileExt != "lua")
+	{
+		Msg("Not a lua file: %s\n", pfileExt->c_str());
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
 
@@ -60,8 +67,17 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 
 	if (!blockedLuaFilesMap.empty() && !bDenyRefresh)
 	{
-		std::string fullpath = pfileRelPath->c_str() + '/' + *pfileName->c_str() + '.' + *pfileExt->c_str();
-		if (auto fileSearch = blockedLuaFilesMap.find(fullpath); fileSearch != blockedLuaFilesMap.end())
+		std::string fullPath;
+		if (!pfileRelPath->empty())
+		{
+			fullPath = *pfileRelPath + "/" + *pfileName + ".lua";
+		}
+		else
+		{
+			fullPath = *pfileName + ".lua";
+		}
+
+		if (auto fileSearch = blockedLuaFilesMap.find(fullPath); fileSearch != blockedLuaFilesMap.end())
 		{
 			Msg("Normalized FilePath: %s\n", fileSearch->first.c_str());
 			bDenyRefresh = fileSearch->second;
