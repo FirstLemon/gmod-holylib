@@ -39,6 +39,12 @@ LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, const std::string* pfileName, const std::string* pfileExt)
 {
+	Msg("Length: %zu\n", pfileExt->length());
+	Msg("Value: %s\n", pfileExt->c_str());
+	Msg("first 3: %s\n", pfileExt->substr(0, 3).c_str());
+	Msg("XS: %s\n", pfileExt->data());
+	Msg("XYS: %zu\n", pfileExt->size());
+
 	auto trampoline = detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>();
 	if (!g_Lua || !pfileRelPath || !pfileName || !pfileExt)
 	{
@@ -46,9 +52,9 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
 
-	if (*pfileExt != "lua")
+	if (pfileExt->substr(1, 3).data() != "lua")
 	{
-		Msg("Not a lua file: %s\n", pfileExt->c_str());
+		Msg("Not a lua file: %s and %zu\n", pfileExt->substr(1, 3).data(), pfileExt->length());
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
 
