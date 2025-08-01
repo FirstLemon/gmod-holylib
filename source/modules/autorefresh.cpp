@@ -64,26 +64,18 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		}
 	}
 
-	// fix this
 	if (!blockedLuaFilesMap.empty() && !bDenyRefresh)
 	{
-		std::string fullPath;
-		if (!pfileRelPath->empty())
-		{
-			fullPath = pfileRelPath->c_str() + '/' + pfileName->c_str() + ".lua";
-		}
-		else
-		{
-			fullPath = *pfileName + ".lua";
-		}
-
+		char fullPath[260];
+		V_ComposeFileName(pfileRelPath->c_str(), pfileName->c_str(), fullPath, sizeof(fullPath));
+		V_SetExtension(fullPath, "lua", sizeof(fullPath));
+		Msg("fullPath: %s\n", fullPath);
 		if (auto fileSearch = blockedLuaFilesMap.find(fullPath); fileSearch != blockedLuaFilesMap.end())
 		{
 			Msg("Normalized FilePath: %s\n", fileSearch->first.c_str());
 			bDenyRefresh = fileSearch->second;
 		}
 	}
-
 	if (bDenyRefresh)
 	{
 		return true;
