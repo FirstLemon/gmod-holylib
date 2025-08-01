@@ -39,30 +39,17 @@ LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
 static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, const std::string* pfileName, const std::string* pfileExt)
 {
-	Msg("pfileExt as string: %s\n", pfileExt->c_str());
-	Msg("pfileExt length: %zu\n", pfileExt->size());
-
-	Msg("pfileExt ptr: %p\n", (void *)pfileExt);
-
-	if (pfileExt) {
-		const char *cExt = reinterpret_cast<const char *>(pfileExt);
-		Msg("pfileExt as char*: %s\n", cExt);
-	}
-
 	auto trampoline = detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>();
 	if (!g_Lua || !pfileRelPath || !pfileName || !pfileExt)
 	{
-		Msg("Invalid pointer\n");
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
 
-	/*
-	if (strcmp(pfileExt, "lua") != 0)
+	// this works
+	if (std::string(pfileExt->substr(0, 3)) != "lua")
 	{
-		Msg("Not a lua file\n");
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
-	*/
 
 	bool bDenyRefresh = false;
 	if (Lua::PushHook("HolyLib:PreLuaAutoRefresh"))
@@ -77,12 +64,13 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		}
 	}
 
+	// fix this
 	if (!blockedLuaFilesMap.empty() && !bDenyRefresh)
 	{
 		std::string fullPath;
 		if (!pfileRelPath->empty())
 		{
-			fullPath = *pfileRelPath + "/" + *pfileName + ".lua";
+			fullPath = pfileRelPath->c_str() + '/' + pfileName->c_str() + ".lua";
 		}
 		else
 		{
