@@ -691,6 +691,6 @@ namespace Symbols
 	//---------------------------------------------------------------------------------
 	// Purpose: AutoRefresh Symbols
 	//---------------------------------------------------------------------------------
-	typedef bool (*GarrysMod_AutoRefresh_HandleChange_Lua)(const std::string* fileRelPath, const std::string* fileName, const std::string* fileExt);
+	typedef bool (*GarrysMod_AutoRefresh_HandleChange_Lua)(const char* fileRelPath, const char* fileName, const char* fileExt);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym;
 }

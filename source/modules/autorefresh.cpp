@@ -37,18 +37,8 @@ LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 }
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange_Lua;
-static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, const std::string* pfileName, const std::string* pfileExt)
+static bool hook_CAutoRefresh_HandleChange_Lua(const char* pfileRelPath, const char* pfileName, const char* pfileExt)
 {
-	Msg("pfileExt as string: %s\n", pfileExt->c_str());
-	Msg("pfileExt length: %zu\n", pfileExt->size());
-
-	Msg("pfileExt ptr: %p\n", (void *)pfileExt);
-
-	if (pfileExt) {
-		const char *cExt = reinterpret_cast<const char *>(pfileExt);
-		Msg("pfileExt as char*: %s\n", cExt);
-	}
-
 	auto trampoline = detour_CAutoRefresh_HandleChange_Lua.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange_Lua>();
 	if (!g_Lua || !pfileRelPath || !pfileName || !pfileExt)
 	{
@@ -56,19 +46,17 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
 
-	/*
-	if (strcmp(pfileExt, "lua") != 0)
+	if (pfileExt && strcmp(pfileExt, "lua") == 0)
 	{
-		Msg("Not a lua file\n");
+		Msg("Lua file detected!\n");
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
-	*/
 
 	bool bDenyRefresh = false;
 	if (Lua::PushHook("HolyLib:PreLuaAutoRefresh"))
 	{
-		g_Lua->PushString(pfileRelPath->c_str());
-		g_Lua->PushString(pfileName->c_str());
+		g_Lua->PushString(pfileRelPath);
+		g_Lua->PushString(pfileName);
 
 		if (g_Lua->CallFunctionProtected(3, 1, true))
 		{
@@ -80,9 +68,10 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	if (!blockedLuaFilesMap.empty() && !bDenyRefresh)
 	{
 		std::string fullPath;
-		if (!pfileRelPath->empty())
+		if (!pfileRelPath == NULL || pfileRelPath[0] == '\0')
 		{
-			fullPath = *pfileRelPath + "/" + *pfileName + ".lua";
+			Msg("This funny was triggered :)\n");
+			// fullPath = *pfileRelPath + "/" + *pfileName + ".lua";
 		}
 		else
 		{
@@ -105,8 +94,8 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 
 	if (Lua::PushHook("HolyLib:PostLuaAutoRefresh"))
 	{
-		g_Lua->PushString(pfileRelPath->c_str());
-		g_Lua->PushString(pfileName->c_str());
+		g_Lua->PushString(pfileRelPath);
+		g_Lua->PushString(pfileName);
 
 		g_Lua->CallFunctionProtected(3, 0, true);
 	}
