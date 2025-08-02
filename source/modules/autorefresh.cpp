@@ -97,6 +97,8 @@ static bool hook_CAutoRefresh_HandleChange(const std::string *pfullPath)
 	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfullPath);
 }
 
+// experimental sheesh based on random stuff I found online :cry:
+static bool (*OriginalHandleChange)(const std::string &fullPath) = nullptr;
 LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 {
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
@@ -106,7 +108,15 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputFilePath);
 	std::string fullPath(normalizedPath);
 
-	return 0;
+	if (!OriginalHandleChange)
+	{
+		LUA->PushBool(false);
+		return 1;
+	}
+
+	OriginalHandleChange(fullPath);
+	LUA->PushBool(true);
+	return 1;
 }
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
@@ -142,4 +152,5 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym,
 		(void *)hook_CAutoRefresh_HandleChange, m_pID
 	);
+	// OriginalHandleChange = detour_CAutoRefresh_HandleChange.GetTrampoline<decltype(OriginalHandleChange)>();
 }
