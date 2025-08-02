@@ -30,7 +30,6 @@ LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 	bool blockStatus = LUA->GetBool(2);
 	char normalizedPath[260];
 	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputFilePath);
-	Msg("HERE MORON: %s\n", normalizedPath);
 	blockedLuaFilesMap.insert_or_assign(std::string(normalizedPath), blockStatus);
 
 	return 0;
@@ -45,7 +44,6 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
 
-	// this works
 	if (std::string(pfileExt->substr(0, 3)) != "lua")
 	{
 		return trampoline(pfileRelPath, pfileName, pfileExt);
@@ -69,13 +67,12 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 		char fullPath[260];
 		V_ComposeFileName(pfileRelPath->c_str(), pfileName->c_str(), fullPath, sizeof(fullPath));
 		V_SetExtension(fullPath, "lua", sizeof(fullPath));
-		Msg("fullPath: %s\n", fullPath);
 		if (auto fileSearch = blockedLuaFilesMap.find(fullPath); fileSearch != blockedLuaFilesMap.end())
 		{
-			Msg("Normalized FilePath: %s\n", fileSearch->first.c_str());
 			bDenyRefresh = fileSearch->second;
 		}
 	}
+
 	if (bDenyRefresh)
 	{
 		return true;
