@@ -9,7 +9,9 @@
 #include "module.h"
 #include "plugin.h"
 #include "vprof.h"
+#include "server.h"
 #include "holylua.h"
+#include "versioninfo.h"
 
 struct edict_t;
 #include "playerinfomanager.h"
@@ -205,7 +207,6 @@ void CServerPlugin::UnPause(void)
 //---------------------------------------------------------------------------------
 // Purpose: the name of this plugin, returned in "plugin_print" command
 //---------------------------------------------------------------------------------
-extern const char* HolyLib_GetPluginDescription();
 const char* CServerPlugin::GetPluginDescription(void)
 {
 	return HolyLib_GetPluginDescription();
@@ -255,7 +256,6 @@ void CServerPlugin::ServerActivate(edict_t *pEdictList, int edictCount, int clie
 
 	Lua::ServerInit();
 	g_pModuleManager.ServerActivate(pEdictList, edictCount, clientMax);
-	Util::CheckVersion();
 }
 
 //---------------------------------------------------------------------------------
@@ -371,10 +371,18 @@ GMOD_MODULE_OPEN()
 	else
 		g_pModuleManager.SetModuleRealm(Module_Realm::MENU);
 
-	Util::CheckVersion();
 	g_pModuleManager.MarkAsBinaryModule();
 	Lua::SetManualShutdown();
 	g_HolyLibServerPlugin.Load(NULL, NULL); // Yes. I don't like it but I can't get thoes fancy interfaces.
+
+	if (Util::engineserver && Util::server)
+	{
+		edict_t* pEdict = Util::engineserver->PEntityOfEntIndex(0);
+		if (Util::GetCBaseEntityFromEdict(pEdict))
+		{
+			g_pModuleManager.ServerActivate(pEdict, Util::engineserver->GetEntityCount(), Util::server->GetMaxClients());
+		}
+	}
 
 	return 0;
 }

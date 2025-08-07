@@ -104,11 +104,13 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 			links("opus_64")
 
 			-- Very specific order required by it.
+			links("tbb")
 			links("embree4")
 			links("embree_sse42")
 			links("embree_avx")
 			links("embree_avx2")
 			links("embree_avx512")
+			links("embree_sys")
 
 			prebuildcommands({
 				"cd ../../../source/_prebuildtools/ && chmod +x luajit_64 && ./luajit_64 _compilefiles.lua"
@@ -129,10 +131,4 @@ CreateWorkspace({name = "holylib", abi_compatible = false})
 		filter("system:linux")
 			disablewarnings({"unused-variable"})
 			targetextension(".so")
-			links -- this fixes the undefined reference to `dlopen' errors.
-				{
-					"dl",
-					"tier0",
-					"pthread",
-					"bass",
-				}
+			links({"dl", "tier0", "pthread", "bass"}) -- this fixes the undefined reference to `dlopen' errors.
