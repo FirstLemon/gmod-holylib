@@ -449,13 +449,13 @@ extern bool g_pRemoveLuaUserData;
 extern std::unordered_set<LuaUserData*> g_pLuaUserData; // A set containing all LuaUserData that actually hold a reference.
 #endif
 struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
-	inline void Init(GarrysMod::Lua::ILuaInterface* LUA, int type)
+	inline void Init(GarrysMod::Lua::ILuaInterface* LUA, int type, void* pData)
 	{
 		// Since Lua creates our userdata, we need to set all the fields ourself!
 #if HOLYLIB_UTIL_BASEUSERDATA
 		pBaseData = NULL;
 #else
-		m_pData = NULL;
+		m_pData = pData;
 #endif
 		m_pAdditionalData = 0; // For anything to use since this is padded anyways.
 		m_iReference = -1;
@@ -466,12 +466,8 @@ struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
 #if HOLYLIB_UTIL_DEBUG_LUAUSERDATA
 		g_pLuaUserData.insert(this);
 #if HOLYLIB_UTIL_DEBUG_LUAUSERDATA == 2
-		Msg("holylib - util: LuaUserdata got created %p\n", this);
-#endif
-#endif
-
-#if HOLYLIB_UTIL_DEBUG_LUAUSERDATA == 2
 		Msg("holylib - util: LuaUserdata got initialized %p - %p - %i\n", this, LUA, type);
+#endif
 #endif
 	}
 
@@ -572,7 +568,7 @@ struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
 		return true;
 	}
 
-	inline bool Release(GarrysMod::Lua::ILuaInterface* pLua)
+	inline bool Release(GarrysMod::Lua::ILuaInterface* pLua, bool bDirectDelete = true)
 	{
 #if HOLYLIB_UTIL_DEBUG_LUAUSERDATA == 2
 		Msg("holylib - util: LuaUserdata got created released %p\n", this);
@@ -630,6 +626,11 @@ struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
 		Msg("holylib - util: LuaUserdata got deleted %p\n", this);
 #endif
 
+		if (bDirectDelete)
+		{
+			delete this;
+		}
+
 		return true;
 #endif
 	}
@@ -670,7 +671,7 @@ private:
 #define Get_LuaClass( className, strName ) \
 static std::string invalidType_##className = MakeString("Tried to use something that wasn't a ", strName, "!"); \
 static std::string triedNull_##className = MakeString("Tried to use a NULL ", strName, "!"); \
-LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
+inline LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
 { \
 	unsigned char luaType = Lua::GetLuaData(LUA)->GetMetaTable(TO_LUA_TYPE(className)); \
 	if (!LUA->IsType(iStackPos, luaType)) \
@@ -735,7 +736,7 @@ className* Get_##className(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bo
 #define SpecialGet_LuaClass( className, className2, strName ) \
 static std::string invalidType_##className = MakeString("Tried to use something that wasn't a ", strName, "!"); \
 static std::string triedNull_##className = MakeString("Tried to use a NULL ", strName, "!"); \
-LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
+inline LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
 { \
 	Lua::StateData* LUADATA = Lua::GetLuaData(LUA); \
 	unsigned char luaType = LUADATA->GetMetaTable(TO_LUA_TYPE(className)); \
@@ -789,9 +790,8 @@ LuaUserData* Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var
 	} \
 \
 	LuaUserData* userData = (LuaUserData*)LUA->NewUserdata(sizeof(LuaUserData)); \
-	userData->SetData(var); \
 	unsigned char iMeta = Lua::GetLuaData(LUA)->GetMetaTable(TO_LUA_TYPE(className)); \
-	userData->Init(LUA, iMeta); \
+	userData->Init(LUA, iMeta, var); \
 	if (LUA->PushMetaTable(iMeta)) LUA->SetMetaTable(-2); \
 	return userData; \
 }
@@ -818,10 +818,9 @@ void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 		Util::ReferencePush(LUA, it->second->GetReference()); \
 	} else { \
 		LuaUserData* userData = (LuaUserData*)LUA->NewUserdata(sizeof(LuaUserData)); \
-		userData->SetData(var); \
 		unsigned char iMeta = Lua::GetLuaData(LUA)->GetMetaTable(TO_LUA_TYPE(className)); \
 		if (LUA->PushMetaTable(iMeta)) LUA->SetMetaTable(-2); \
-		userData->Init(LUA, iMeta); \
+		userData->Init(LUA, iMeta, var); \
 		userData->CreateReference(LUA); \
 		pushedUserData[var] = userData; \
 	} \
@@ -908,16 +907,17 @@ LUA_FUNCTION_STATIC(className ## __newindex) \
 #define Default__gc(className, func) \
 LUA_FUNCTION_STATIC(className ## __gc) \
 { \
-	LuaUserData* pData = Get_##className##_Data(LUA, 1, false); \
-	if (pData) \
+	LuaUserData* __pData = Get_##className##_Data(LUA, 1, false); \
+	if (__pData) /*Don't let any idiot(that's me) use it, so we named it __pData*/ \
 	{ \
 		LUA->SetUserType(1, NULL); \
-		unsigned char pAdditionalData = pData->GetAdditionalData(); \
-		void* pStoredData = pData->GetData(); \
-		if (pData->Release(LUA)) \
+		unsigned char pAdditionalData = __pData->GetAdditionalData(); \
+		void* pStoredData = __pData->GetData(); \
+		bool bRelease = __pData->Release(LUA, false); \
+		if (bRelease) \
 		{ \
-			pData = NULL; /*Don't let any idiot(that's me) use it*/ \
 			func \
+			delete __pData; \
 		} \
 	} \
  \
