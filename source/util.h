@@ -296,7 +296,7 @@ namespace Util
 #if HOLYLIB_BUILD_RELEASE
 #define HOLYLIB_UTIL_DEBUG_LUAUSERDATA 0
 #else
-#define HOLYLIB_UTIL_DEBUG_LUAUSERDATA 1 // 1 = leak checks, 2 = debug prints
+#define HOLYLIB_UTIL_DEBUG_LUAUSERDATA 0 // 1 = leak checks, 2 = debug prints
 #endif
 #define HOLYLIB_UTIL_DEBUG_BASEUSERDATA 0
 
@@ -445,7 +445,6 @@ private:
 
 #if HOLYLIB_UTIL_DEBUG_LUAUSERDATA
 struct LuaUserData;
-extern bool g_pRemoveLuaUserData;
 extern std::unordered_set<LuaUserData*> g_pLuaUserData; // A set containing all LuaUserData that actually hold a reference.
 #endif
 struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
@@ -568,10 +567,10 @@ struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
 		return true;
 	}
 
-	inline bool Release(GarrysMod::Lua::ILuaInterface* pLua, bool bDirectDelete = true)
+	inline bool Release(GarrysMod::Lua::ILuaInterface* pLua)
 	{
 #if HOLYLIB_UTIL_DEBUG_LUAUSERDATA == 2
-		Msg("holylib - util: LuaUserdata got created released %p\n", this);
+		Msg("holylib - util: LuaUserdata got released %p\n", this);
 #endif
 
 #if HOLYLIB_UTIL_BASEUSERDATA
@@ -590,9 +589,10 @@ struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
 		{
 			if (pLua)
 			{
-				Util::ReferencePush(pLua, m_iReference);
-				pLua->SetUserType(-1, NULL);
-				pLua->Pop(1);
+				// We don't call SetUserType since we no longer use the ILuaBase::UserData! So it would set our own m_pData field to NULL!
+				// Util::ReferencePush(pLua, m_iReference);
+				// pLua->SetUserType(-1, NULL);
+				// pLua->Pop(1);
 				Util::ReferenceFree(pLua, m_iReference, "LuaUserData::~LuaUserData(UserData)");
 			}
 
@@ -608,10 +608,7 @@ struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
 		}
 
 #if HOLYLIB_UTIL_DEBUG_LUAUSERDATA
-		if (g_pRemoveLuaUserData)
-		{
-			g_pLuaUserData.erase(this);
-		}
+		g_pLuaUserData.erase(this);
 #endif
 
 #if HOLYLIB_UTIL_BASEUSERDATA
@@ -622,14 +619,7 @@ struct LuaUserData { // No constructor/deconstructor since its managed by Lua!
 		}
 #endif
 
-#if HOLYLIB_UTIL_DEBUG_LUAUSERDATA == 2
-		Msg("holylib - util: LuaUserdata got deleted %p\n", this);
-#endif
-
-		if (bDirectDelete)
-		{
-			delete this;
-		}
+		m_pData = NULL;
 
 		return true;
 #endif
@@ -907,17 +897,15 @@ LUA_FUNCTION_STATIC(className ## __newindex) \
 #define Default__gc(className, func) \
 LUA_FUNCTION_STATIC(className ## __gc) \
 { \
-	LuaUserData* __pData = Get_##className##_Data(LUA, 1, false); \
-	if (__pData) /*Don't let any idiot(that's me) use it, so we named it __pData*/ \
+	LuaUserData* pData = Get_##className##_Data(LUA, 1, false); \
+	if (pData) \
 	{ \
-		LUA->SetUserType(1, NULL); \
-		unsigned char pAdditionalData = __pData->GetAdditionalData(); \
-		void* pStoredData = __pData->GetData(); \
-		bool bRelease = __pData->Release(LUA, false); \
-		if (bRelease) \
+		unsigned char pAdditionalData = pData->GetAdditionalData(); \
+		void* pStoredData = pData->GetData(); \
+		if (pData->Release(LUA)) \
 		{ \
+			pData = NULL; /*Don't let any idiot(that's me) use it*/ \
 			func \
-			delete __pData; \
 		} \
 	} \
  \
