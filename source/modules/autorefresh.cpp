@@ -20,7 +20,7 @@ public:
 CAutoRefreshModule g_pAutoRefreshModule;
 IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
 
-static Symbols::GarrysMod_AutoRefresh_HandleChange func_HandleChange;
+static Symbols::GarrysMod_AutoRefresh_HandleChange_Lua func_HandleChange;
 
 static std::unordered_map<std::string, bool> blockedLuaFilesMap = {};
 LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
@@ -45,6 +45,9 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	{
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
+	Msg("Path: %s\n", pfileRelPath->c_str());
+	Msg("Name: %s\n", pfileName->c_str());
+	Msg("Ext: %s\n", pfileExt->c_str());
 
 	if (std::string(pfileExt->substr(0, 3)) != "lua")
 	{
@@ -104,16 +107,21 @@ static bool hook_CAutoRefresh_HandleChange(const std::string *pFullPath)
 
 LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 {
+	char normalizedPathBuffer[MAX_PATH];
+	char fileNameBuffer[MAX_PATH];
+	char filePathBuffer[MAX_PATH];
+
 	Msg("Command executed\n");
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
 
-	const char *inputFilePath = LUA->GetString(1);
-	char normalizedPath[260];
-	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputFilePath);
-	const std::string fullPath(normalizedPath);
-	const std::string* pFullPath = &fullPath;
+	const char* inputFilePath = LUA->GetString(1);
+	// clean the path
+	V_FixupPathName(normalizedPathBuffer, sizeof(normalizedPathBuffer), inputFilePath);
+	// get filename
+	V_FileBase(normalizedPathBuffer, fileNameBuffer, sizeof(normalizedPathBuffer));
+	// get filePath
+	V_ExtractFilePath(normalizedPathBuffer, filePathBuffer, sizeof(normalizedPathBuffer));
 
-	Msg("FullPath: %s\n", fullPath.c_str());
 	if (!func_HandleChange)
 	{
 		Msg("Something didn't work you crackhead\n");
@@ -121,7 +129,13 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 		return 1;
 	}
 
-	func_HandleChange(pFullPath);
+	std::string relPath(filePathBuffer);
+	Msg("relPath: %s\n", relPath.c_str());
+	std::string fileName(fileNameBuffer);
+	Msg("fileName: %s\n", fileNameBuffer);
+	std::string fileExt("lua");
+
+	func_HandleChange(&relPath, &fileName, &fileExt);
 	LUA->PushBool(true);
 	return 1;
 }
@@ -162,5 +176,5 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	);
 	*/
 
-	func_HandleChange = (Symbols::GarrysMod_AutoRefresh_HandleChange)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym);
+	func_HandleChange = (Symbols::GarrysMod_AutoRefresh_HandleChange_Lua)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym);
 }
