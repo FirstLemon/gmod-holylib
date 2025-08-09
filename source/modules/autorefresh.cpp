@@ -117,13 +117,13 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 	if (!func_HandleChange)
 	{
 		Msg("Something didn't work you crackhead\n");
-		LUA->PushBool(false);
-		return 1;
+		// LUA->PushBool(false);
+		return 0;
 	}
 
 	func_HandleChange(pFullPath);
-	LUA->PushBool(true);
-	return 1;
+	// LUA->PushBool(true);
+	return 0;
 }
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
