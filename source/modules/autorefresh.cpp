@@ -20,6 +20,8 @@ public:
 CAutoRefreshModule g_pAutoRefreshModule;
 IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
 
+static Symbols::GarrysMod_AutoRefresh_HandleChange func_HandleChange;
+
 static std::unordered_map<std::string, bool> blockedLuaFilesMap = {};
 LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 {
@@ -91,30 +93,35 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	return originalResult;
 };
 
+/*
 static Detouring::Hook detour_CAutoRefresh_HandleChange;
-static bool hook_CAutoRefresh_HandleChange(const std::string *pfullPath)
+static bool hook_CAutoRefresh_HandleChange(const std::string *pFullPath)
 {
-	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pfullPath);
+	Msg("HandleChange executed\n");
+	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pFullPath);
 }
+*/
 
-// experimental sheesh based on random stuff I found online :cry:
-static bool (*OriginalHandleChange)(const std::string &fullPath) = nullptr;
 LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 {
+	Msg("Command executed\n");
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
 
 	const char *inputFilePath = LUA->GetString(1);
 	char normalizedPath[260];
 	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputFilePath);
-	std::string fullPath(normalizedPath);
+	const std::string fullPath(normalizedPath);
+	const std::string* pFullPath = &fullPath;
 
-	if (!OriginalHandleChange)
+	Msg("FullPath: %s\n", fullPath.c_str());
+	if (!func_HandleChange)
 	{
+		Msg("Something didn't work you crackhead\n");
 		LUA->PushBool(false);
 		return 1;
 	}
 
-	OriginalHandleChange(fullPath);
+	func_HandleChange(pFullPath);
 	LUA->PushBool(true);
 	return 1;
 }
@@ -147,10 +154,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 
+	/*
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange, "CAutoRefresh_HandleChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym,
 		(void *)hook_CAutoRefresh_HandleChange, m_pID
 	);
-	// OriginalHandleChange = detour_CAutoRefresh_HandleChange.GetTrampoline<decltype(OriginalHandleChange)>();
+	*/
+
+	func_HandleChange = (Symbols::GarrysMod_AutoRefresh_HandleChange)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym);
 }
