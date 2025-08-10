@@ -20,7 +20,7 @@ public:
 CAutoRefreshModule g_pAutoRefreshModule;
 IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
 
-static Symbols::GarrysMod_AutoRefresh_HandleChange func_HandleChange;
+static Symbols::GarrysMod_AutoRefresh_HandleChange_Lua func_HandleChange;
 
 static std::unordered_map<std::string, bool> blockedLuaFilesMap = {};
 LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
@@ -113,6 +113,12 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 	char normalizedPathBuffer[MAX_PATH];
 	V_FixupPathName(normalizedPathBuffer, sizeof(normalizedPathBuffer), inputFilePath);
 
+	// This stuff is only used for calling HandleChange_Lua, don't forget to make it PERISH if not needed
+	char fileNameBuffer[MAX_PATH];
+	V_FileBase(normalizedPathBuffer, fileNameBuffer, sizeof(fileNameBuffer));
+	char filePathBuffer[MAX_PATH];
+	V_ExtractFilePath(normalizedPathBuffer, filePathBuffer, sizeof(filePathBuffer));
+
 	if (!func_HandleChange)
 	{
 		Msg("Something didn't work you crackhead :crazywoozy: :3\n");
@@ -122,7 +128,16 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 
 	static std::string fullPath;
 	fullPath.assign(normalizedPathBuffer);
-	func_HandleChange(&fullPath);
+
+	// Janky thigh high level stuff, remove later 
+	static std::string filePath;
+	filePath.assign(filePathBuffer);
+	static std::string fileName;
+	fileName.assign(fileNameBuffer);
+	static std::string fileExt;
+	fileExt.assign("lua");
+
+	func_HandleChange(&filePath, &fileName, &fileExt);
 	LUA->PushBool(true);
 	return 1;
 }
@@ -161,5 +176,5 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void *)hook_CAutoRefresh_HandleChange, m_pID
 	);
 
-	func_HandleChange = (Symbols::GarrysMod_AutoRefresh_HandleChange)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym);
+	func_HandleChange = (Symbols::GarrysMod_AutoRefresh_HandleChange_Lua)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym);
 }
