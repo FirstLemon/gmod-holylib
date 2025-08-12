@@ -134,6 +134,9 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 	static std::string fileName;
 	fileName.assign(fileNameBuffer);
 	static std::string fileExt;
+
+	// I'm pretty sure something does not work like I want it to work, obviously
+	// I will let hell rain down in the near future I swear :>
 	fileExt.assign(Bootil::String::File::GetFileExtension(normalizedPathBuffer));
 
 	func_HandleChange(&filePath, &fileName, &fileExt);
