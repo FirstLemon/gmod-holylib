@@ -30,7 +30,7 @@ LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 
 	const char* inputFilePath = LUA->GetString(1);
 	bool blockStatus = LUA->GetBool(2);
-	char normalizedPath[260];
+	char normalizedPath[MAX_PATH];
 	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputFilePath);
 	blockedLuaFilesMap.insert_or_assign(std::string(normalizedPath), blockStatus);
 
@@ -105,7 +105,6 @@ static bool hook_CAutoRefresh_HandleChange(const std::string *pFullPath)
 
 LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 {
-
 	Msg("Command executed\n");
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
 
@@ -129,7 +128,7 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 	static std::string fullPath;
 	fullPath.assign(normalizedPathBuffer);
 
-	// Janky thigh high level stuff, remove later 
+	// Janky thigh high level stuff, remove later, just for testing :cry:
 	static std::string filePath;
 	filePath.assign(filePathBuffer);
 	static std::string fileName;
