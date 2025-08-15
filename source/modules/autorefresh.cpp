@@ -139,7 +139,9 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 	// I will let hell rain down in the near future I swear :>
 	fileExt.assign(Bootil::String::File::GetFileExtension(normalizedPathBuffer));
 
-	func_HandleChange(&filePath, &fileName, &fileExt);
+	bool test = func_HandleChange(&filePath, &fileName, &fileExt);
+	Msg("Here: %s\n", (test == true ? "true" : "false"));
+
 	LUA->PushBool(true);
 	return 1;
 }
