@@ -103,6 +103,10 @@ static bool hook_CAutoRefresh_HandleChange(const std::string *pFullPath)
 	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pFullPath);
 }
 
+extern "C" bool __cdecl HandleChange_Lua(const std::string &relPath,
+	const std::string &fileName,
+	const std::string &fileExt);
+
 LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 {
 	Msg("Command executed\n");
@@ -111,36 +115,33 @@ LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 	const char* inputFilePath = LUA->GetString(1);
 	char normalizedPathBuffer[MAX_PATH];
 	V_FixupPathName(normalizedPathBuffer, sizeof(normalizedPathBuffer), inputFilePath);
-
-	// This stuff is only used for calling HandleChange_Lua, don't forget to make it PERISH if not needed
 	char fileNameBuffer[MAX_PATH];
 	V_FileBase(normalizedPathBuffer, fileNameBuffer, sizeof(fileNameBuffer));
 	char filePathBuffer[MAX_PATH];
 	V_ExtractFilePath(normalizedPathBuffer, filePathBuffer, sizeof(filePathBuffer));
 
-	if (!func_HandleChange)
-	{
-		Msg("Something didn't work you crackhead :crazywoozy: :3\n");
-		LUA->PushBool(false);
-		return 1;
+	bool result;
+
+	__asm {
+		lea eax, "lua"
+		push eax
+		lea eax, fileNameBuffer
+		push eax
+		lea eax, filePathBuffer
+		push eax
+
+		call HandleChange_Lua 
+		add esp, 0Ch         
+
+		mov result, al        
 	}
 
-	static std::string fullPath;
-	fullPath.assign(normalizedPathBuffer);
-
-	// Janky thigh high level stuff, remove later, just for testing :cry:
-	static std::string filePath;
-	filePath.assign(filePathBuffer);
-	static std::string fileName;
-	fileName.assign(fileNameBuffer);
-	static std::string fileExt;
-
-	// I'm pretty sure something does not work like I want it to work, obviously
-	// I will let hell rain down in the near future I swear :>
-	fileExt.assign(Bootil::String::File::GetFileExtension(normalizedPathBuffer));
-
-	bool test = func_HandleChange(&filePath, &fileName, &fileExt);
-	Msg("Here: %s\n", (test == true ? "true" : "false"));
+	if (result) {
+		printf("Lua AutoRefresh handled!\n");
+	}
+	else {
+		printf("Lua AutoRefresh ignored.\n");
+	}
 
 	LUA->PushBool(true);
 	return 1;
