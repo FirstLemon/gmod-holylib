@@ -20,7 +20,7 @@ public:
 CAutoRefreshModule g_pAutoRefreshModule;
 IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
 
-static Symbols::GarrysMod_AutoRefresh_HandleChange_Lua func_HandleChange;
+static Symbols::GarrysMod_AutoRefresh_HandleChange func_HandleChange;
 
 static std::unordered_map<std::string, bool> blockedLuaFilesMap = {};
 LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
@@ -97,51 +97,24 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 };
 
 static Detouring::Hook detour_CAutoRefresh_HandleChange;
-static bool hook_CAutoRefresh_HandleChange(const std::string *pFullPath)
+static bool hook_CAutoRefresh_HandleChange(const Bootil::BString *pFullPath)
 {
 	Msg("HandleChange executed\n");
 	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pFullPath);
 }
 
-extern "C" bool __cdecl HandleChange_Lua(const std::string &relPath,
-	const std::string &fileName,
-	const std::string &fileExt);
-
 LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
 {
-	Msg("Command executed\n");
+	Msg("Function executed\n");
 	LUA->CheckType(1, GarrysMod::Lua::Type::String);
 
 	const char* inputFilePath = LUA->GetString(1);
 	char normalizedPathBuffer[MAX_PATH];
 	V_FixupPathName(normalizedPathBuffer, sizeof(normalizedPathBuffer), inputFilePath);
-	char fileNameBuffer[MAX_PATH];
-	V_FileBase(normalizedPathBuffer, fileNameBuffer, sizeof(fileNameBuffer));
-	char filePathBuffer[MAX_PATH];
-	V_ExtractFilePath(normalizedPathBuffer, filePathBuffer, sizeof(filePathBuffer));
-
-	bool result;
-
-	__asm {
-		lea eax, "lua"
-		push eax
-		lea eax, fileNameBuffer
-		push eax
-		lea eax, filePathBuffer
-		push eax
-
-		call HandleChange_Lua 
-		add esp, 0Ch         
-
-		mov result, al        
-	}
-
-	if (result) {
-		printf("Lua AutoRefresh handled!\n");
-	}
-	else {
-		printf("Lua AutoRefresh ignored.\n");
-	}
+	
+	auto test = Bootil::BString(normalizedPathBuffer);
+	bool result = func_HandleChange(&test);
+	Msg("Bruh: %s\n", (result == true ? "true" : "false"));
 
 	LUA->PushBool(true);
 	return 1;
@@ -178,7 +151,7 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange, "CAutoRefresh_HandleChange",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym,
-		(void *)hook_CAutoRefresh_HandleChange, m_pID
+		(void*)hook_CAutoRefresh_HandleChange, m_pID
 	);
 
 	func_HandleChange = (Symbols::GarrysMod_AutoRefresh_HandleChange_Lua)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym);
