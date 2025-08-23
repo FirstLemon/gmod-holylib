@@ -20,8 +20,6 @@ public:
 CAutoRefreshModule g_pAutoRefreshModule;
 IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
 
-static Symbols::GarrysMod_AutoRefresh_HandleChange func_HandleChange;
-
 static std::unordered_map<std::string, bool> blockedLuaFilesMap = {};
 LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 {
@@ -93,6 +91,9 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	return originalResult;
 };
 
+// Adding functionality for adding / remove files to be tracked by autorefresh
+
+
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)
@@ -117,6 +118,6 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
-		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
+		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 }

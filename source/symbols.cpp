@@ -952,11 +952,4 @@ namespace Symbols
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
 	};
-
-	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChangeSym = {
-		Symbol::FromName("_ZN9GarrysMod11AutoRefresh12HandleChangeERSs"),
-		Symbol::FromSignature("\x55\x89\xE5\x57\x56\x53******\x8B\x75\x08\x89\x1C\x24\x89\x74\x24\x04"), // 55 89 E5 57 56 53 ?? ?? ?? ?? ?? ?? 8B 75 08 89 1C 24 89 74 24 04
-		NULL_SIGNATURE,
-		NULL_SIGNATURE,
-	};
 }
