@@ -45,9 +45,6 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	{
 		return trampoline(pfileRelPath, pfileName, pfileExt);
 	}
-	Msg("Path: %s\n", pfileRelPath->c_str());
-	Msg("Name: %s\n", pfileName->c_str());
-	Msg("Ext: %s\n", pfileExt->c_str());
 
 	if (std::string(pfileExt->substr(0, 3)) != "lua")
 	{
@@ -96,30 +93,6 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	return originalResult;
 };
 
-static Detouring::Hook detour_CAutoRefresh_HandleChange;
-static bool hook_CAutoRefresh_HandleChange(const Bootil::BString *pFullPath)
-{
-	Msg("HandleChange executed\n");
-	return detour_CAutoRefresh_HandleChange.GetTrampoline<Symbols::GarrysMod_AutoRefresh_HandleChange>()(pFullPath);
-}
-
-LUA_FUNCTION_STATIC(ForceLuaAutoRefresh)
-{
-	Msg("Function executed\n");
-	LUA->CheckType(1, GarrysMod::Lua::Type::String);
-
-	const char* inputFilePath = LUA->GetString(1);
-	char normalizedPathBuffer[MAX_PATH];
-	V_FixupPathName(normalizedPathBuffer, sizeof(normalizedPathBuffer), inputFilePath);
-	
-	auto test = Bootil::BString(normalizedPathBuffer);
-	bool result = func_HandleChange(&test);
-	Msg("Bruh: %s\n", (result == true ? "true" : "false"));
-
-	LUA->PushBool(true);
-	return 1;
-}
-
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)
@@ -127,7 +100,6 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 
 	Util::StartTable(pLua);
 		Util::AddFunc(pLua, DenyLuaAutoRefresh, "DenyLuaAutoRefresh");
-		Util::AddFunc(pLua, ForceLuaAutoRefresh, "ForceLuaAutoRefresh");
 	Util::FinishTable(pLua, "autorefresh");
 }
 
@@ -145,14 +117,6 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	Detour::Create(
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
-		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
+		(void *)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
-
-	Detour::Create(
-		&detour_CAutoRefresh_HandleChange, "CAutoRefresh_HandleChange",
-		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChangeSym,
-		(void*)hook_CAutoRefresh_HandleChange, m_pID
-	);
-
-	func_HandleChange = (Symbols::GarrysMod_AutoRefresh_HandleChange_Lua)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym);
 }
