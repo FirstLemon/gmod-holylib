@@ -952,4 +952,10 @@ namespace Symbols
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
 	};
+	const std::vector<Symbol> GarrysMod_ChangeMonitor_GetChangeSym = {
+		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor9GetChangeEv"),
+		NULL_SIGNATURE,
+		NULL_SIGNATURE,
+		NULL_SIGNATURE,
+	};
 }

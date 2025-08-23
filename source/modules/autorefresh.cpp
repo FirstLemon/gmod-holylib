@@ -89,10 +89,16 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	}
 
 	return originalResult;
-};
+}
 
 // Adding functionality for adding / remove files to be tracked by autorefresh
+// I'm clearly stupid because neither the ChangeMonitor nor AutoRefresh work that way ...
+// Either my Brain is damaged ... ( Usually the case ) or Raphael made me go in circles for weeks. :cry:
+static Detouring::Hook detour_CChangeMonitor_GetChange;
+static std::string hook_CChangeMonitor_GetChange()
+{
 
+}
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
@@ -119,5 +125,11 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		&detour_CAutoRefresh_HandleChange_Lua, "CAutoRefresh_HandleChange_Lua",
 		server_loader.GetModule(), Symbols::GarrysMod_AutoRefresh_HandleChange_LuaSym,
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
+	);
+
+	Detour::Create(
+		&detour_CChangeMonitor_GetChange, "CChangeMonitor_GetChange",
+		server_loader.GetModule(), Symbols::GarrysMod_ChangeMonitor_GetChangeSym,
+		(void*)hook_CChangeMonitor_GetChange, m_pID
 	);
 }
