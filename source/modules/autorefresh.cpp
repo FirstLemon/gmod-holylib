@@ -93,6 +93,7 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	return originalResult;
 }
 
+/*
 static Detouring::Hook detour_CChangeMonitor_WatchFolder;
 static bool hook_CChangeMonitor_WatchFolder(const std::string &strFolder, bool bWatchSubtree)
 {
@@ -100,6 +101,7 @@ static bool hook_CChangeMonitor_WatchFolder(const std::string &strFolder, bool b
 	Msg("WatchSubTree: %s\n", (bWatchSubtree ? "true" : "false"));
 	return detour_CChangeMonitor_WatchFolder.GetTrampoline<Symbols::GarrysMod_ChangeMonitor_WatchFolder>();
 }
+*/
 
 LUA_FUNCTION_STATIC(CM_WatchFolder)
 {
@@ -110,6 +112,7 @@ LUA_FUNCTION_STATIC(CM_WatchFolder)
 	const char* inputDirPath = LUA->GetString(1);
 	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputDirPath);
 	bool result = func_CM_WatchFolder(std::string(inputDirPath), true);
+
 
 	return 0;
 }
@@ -142,11 +145,13 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		(void*)hook_CAutoRefresh_HandleChange_Lua, m_pID
 	);
 
+	/*
 	Detour::Create(
 		&detour_CChangeMonitor_WatchFolder, "CChangeMonitor_WatchFolder",
 		server_loader.GetModule(), Symbols::GarrysMod_ChangeMonitor_WatchFolderSym,
 		(void*)hook_CChangeMonitor_WatchFolder, m_pID
 	);
+	*/
 
 	func_CM_WatchFolder = (Symbols::GarrysMod_ChangeMonitor_WatchFolder)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_ChangeMonitor_WatchFolderSym);
 }
