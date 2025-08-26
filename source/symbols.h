@@ -694,6 +694,6 @@ namespace Symbols
 	typedef bool (*GarrysMod_AutoRefresh_HandleChange_Lua)(const std::string* fileRelPath, const std::string* fileName, const std::string* fileExt);
 	extern const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym;
 
-	typedef bool (*GarrysMod_ChangeMonitor_GetChange)();
-	extern const std::vector<Symbol> GarrysMod_ChangeMonitor_GetChangeSym;
+	typedef bool (*GarrysMod_ChangeMonitor_WatchFolder)(const std::string &strFolder, bool bWatchSubtree);
+	extern const std::vector<Symbol> GarrysMod_ChangeMonitor_WatchFolderSym;
 }

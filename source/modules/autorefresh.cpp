@@ -91,13 +91,12 @@ static bool hook_CAutoRefresh_HandleChange_Lua(const std::string* pfileRelPath, 
 	return originalResult;
 }
 
-// Adding functionality for adding / remove files to be tracked by autorefresh
-// I'm clearly stupid because neither the ChangeMonitor nor AutoRefresh work that way ...
-// Either my Brain is damaged ... ( Usually the case ) or Raphael made me go in circles for weeks. :cry:
-static Detouring::Hook detour_CChangeMonitor_GetChange;
-static std::string hook_CChangeMonitor_GetChange()
+static Detouring::Hook detour_CChangeMonitor_WatchFolder;
+static bool hook_CChangeMonitor_WatchFolder(const std::string &strFolder, bool bWatchSubtree)
 {
-
+	Msg("WatchedFolder: %s\n", strFolder.c_str());
+	Msg("WatchSubTree: %s\n", (bWatchSubtree ? "true" : "false"));
+	return detour_CChangeMonitor_WatchFolder.GetTrampoline<Symbols::GarrysMod_ChangeMonitor_WatchFolder>();
 }
 
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
@@ -128,8 +127,8 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 	);
 
 	Detour::Create(
-		&detour_CChangeMonitor_GetChange, "CChangeMonitor_GetChange",
-		server_loader.GetModule(), Symbols::GarrysMod_ChangeMonitor_GetChangeSym,
-		(void*)hook_CChangeMonitor_GetChange, m_pID
+		&detour_CChangeMonitor_WatchFolder, "CChangeMonitor_WatchFolder",
+		server_loader.GetModule(), Symbols::GarrysMod_ChangeMonitor_WatchFolderSym,
+		(void*)hook_CChangeMonitor_WatchFolder, m_pID
 	);
 }
