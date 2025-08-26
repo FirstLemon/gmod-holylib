@@ -952,8 +952,16 @@ namespace Symbols
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
 	};
+
 	const std::vector<Symbol> GarrysMod_ChangeMonitor_WatchFolderSym = {
 		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor11WatchFolderERKSsbPSt6vectorISsSaISsEE"),
+		NULL_SIGNATURE,
+		NULL_SIGNATURE,
+		NULL_SIGNATURE,
+	};
+
+	const std::vector<Symbol> GarrysMod_ChangeMonitor_NoteFileChangedSym = {
+		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor15NoteFileChangedERKSs"),
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,
 		NULL_SIGNATURE,

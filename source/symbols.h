@@ -696,4 +696,7 @@ namespace Symbols
 
 	typedef bool (*GarrysMod_ChangeMonitor_WatchFolder)(const std::string &strFolder, bool bWatchSubtree);
 	extern const std::vector<Symbol> GarrysMod_ChangeMonitor_WatchFolderSym;
+
+	typedef void (*GarrysMod_ChangeMonitor_NoteFileChanged)(const std::string &strChanged);
+	extern const std::vector<Symbol> GarrysMod_ChangeMonitor_NoteFileChangedSym;
 }
