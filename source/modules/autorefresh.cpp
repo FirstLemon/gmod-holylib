@@ -20,6 +20,8 @@ public:
 CAutoRefreshModule g_pAutoRefreshModule;
 IModule* pAutoRefreshModule = &g_pAutoRefreshModule;
 
+static Symbols::GarrysMod_ChangeMonitor_WatchFolder func_CM_WatchFolder;
+
 static std::unordered_map<std::string, bool> blockedLuaFilesMap = {};
 LUA_FUNCTION_STATIC(DenyLuaAutoRefresh)
 {
@@ -99,6 +101,19 @@ static bool hook_CChangeMonitor_WatchFolder(const std::string &strFolder, bool b
 	return detour_CChangeMonitor_WatchFolder.GetTrampoline<Symbols::GarrysMod_ChangeMonitor_WatchFolder>();
 }
 
+LUA_FUNCTION_STATIC(CM_WatchFolder)
+{
+	LUA->CheckType(1, GarrysMod::Lua::Type::String);
+	Msg("WatchFolder executed!\n");
+
+	char normalizedPath[MAX_PATH];
+	const char* inputDirPath = LUA->GetString(1);
+	V_FixupPathName(normalizedPath, sizeof(normalizedPath), inputDirPath);
+	bool result = func_CM_WatchFolder(std::string(inputDirPath), true);
+
+	return 0;
+}
+
 void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 {
 	if (bServerInit)
@@ -106,6 +121,7 @@ void CAutoRefreshModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServ
 
 	Util::StartTable(pLua);
 		Util::AddFunc(pLua, DenyLuaAutoRefresh, "DenyLuaAutoRefresh");
+		Util::AddFunc(pLua, CM_WatchFolder, "CM_WatchFolder");
 	Util::FinishTable(pLua, "autorefresh");
 }
 
@@ -131,4 +147,6 @@ void CAutoRefreshModule::InitDetour(bool bPreServer)
 		server_loader.GetModule(), Symbols::GarrysMod_ChangeMonitor_WatchFolderSym,
 		(void*)hook_CChangeMonitor_WatchFolder, m_pID
 	);
+
+	func_CM_WatchFolder = (Symbols::GarrysMod_ChangeMonitor_WatchFolder)Detour::GetFunction(server_loader.GetModule(), Symbols::GarrysMod_ChangeMonitor_WatchFolderSym);
 }
