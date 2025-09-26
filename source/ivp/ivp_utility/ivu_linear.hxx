@@ -40,9 +40,16 @@ public:
     inline void set(const IVP_DOUBLE p[3]);
 #endif
 
-	inline void byte_swap() {   ivp_byte_swap4( (uint&) k[0] );
-								ivp_byte_swap4( (uint&) k[1] ); 
-								ivp_byte_swap4( (uint&) k[2] ); }
+    inline void byte_swap()
+    {
+        for (int i = 0; i < 3; ++i) {
+            uint tmp;
+            static_assert(sizeof(uint) == sizeof(k[i]), "float/uint size mismatch");
+            std::memcpy(&tmp, &k[i], sizeof(tmp));
+            ivp_byte_swap4(tmp);
+            std::memcpy(&k[i], &tmp, sizeof(tmp));
+        }
+    }
 };
 
 class IVP_U_Float_Point {
