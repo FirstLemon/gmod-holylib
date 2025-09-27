@@ -44,7 +44,7 @@ public:
     {
         for (int i = 0; i < 3; ++i) {
             uint tmp;
-            static_assert(sizeof(uint) == sizeof(k[i]), "float/uint size mismatch");
+            static_assert(sizeof(uint) == sizeof(k[i]), "float/uint size mismatch ");
             std::memcpy(&tmp, &k[i], sizeof(tmp));
             ivp_byte_swap4(tmp);
             std::memcpy(&k[i], &tmp, sizeof(tmp));
