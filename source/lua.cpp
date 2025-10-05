@@ -7,19 +7,21 @@
 #include "detours.h"
 #include "module.h"
 #include "CLuaInterface.h"
+#include "versioninfo.h"
+#include "detouring/customclassproxy.hpp"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 bool Lua::PushHook(const char* hook, GarrysMod::Lua::ILuaInterface* pLua)
 {
-	if ( !pLua)
+	if (!pLua)
 	{
 		Warning(PROJECT_NAME ": Lua::PushHook was called while pLua was NULL! (%s)\n", hook);
 		return false;
 	}
 
-	if (!ThreadInMainThread())
+	if (!ThreadInMainThread() && pLua == g_Lua)
 	{
 		Warning(PROJECT_NAME ": Lua::PushHook was called ouside of the main thread! (%s)\n", hook);
 		return false;
@@ -57,8 +59,21 @@ void Lua::Init(GarrysMod::Lua::ILuaInterface* LUA)
 	}
 
 	g_Lua = LUA;
+
+	// Setup HolyLib Vars
 	LUA->PushBool(true);
 	LUA->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB");
+
+	LUA->PushString(HolyLib_GetRunNumber());
+	LUA->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB_RUN_NUMBER");
+
+	LUA->PushString(HolyLib_GetBranch());
+	LUA->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB_BRANCH");
+
+	LUA->PushString(HolyLib_GetVersion());
+	LUA->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB_VERSION");
+
+	// Lua Interface setup to prepare them for modules.
 	Lua::CreateLuaData(g_Lua, true);
 	g_pModuleManager.LuaInit(g_Lua, false);
 	SetupUnHolyVTableForThisShit(g_Lua);
@@ -96,25 +111,6 @@ void Lua::ServerInit()
 void Lua::Shutdown()
 {
 	g_pModuleManager.LuaShutdown(g_Lua);
-
-#if HOLYLIB_UTIL_DEBUG_LUAUSERDATA
-	for (auto& ref : g_pLuaUserData)
-	{
-		// If it doesn't hold a reference of itself, the gc will take care of it & call __gc in the lua_close call.
-		// This check only focuses on LuaUserData that holds a reference to itself as thoes are never freed by the GC even when lua_close is called.
-		if (ref->GetReference() == -1)
-			continue;
-
-		if (Util::holylib_debug_mainutil.GetBool())
-		{
-			int iType = ref->GetType();
-			Msg(PROJECT_NAME ": This should NEVER happen! Discarding of old userdata %p (Type: %i - %i)\n", ref, iType, (iType > 0) && Lua::GetLuaData(g_Lua)->FindMetaTable(iType) || 0);
-		}
-
-		ref->Release(g_Lua);
-	}
-	g_pLuaUserData.clear();
-#endif
 
 	g_Lua->PushNil();
 	g_Lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB");
@@ -246,16 +242,200 @@ void Lua::DestroyInterface(GarrysMod::Lua::ILuaInterface* LUA)
 	Lua::CloseLuaInterface(LUA);
 }
 
-/*
- * Where do we store our StateData?
- * In the ILuaInterface itself.
- * We abuse the GetPathID var as it's a char[32] but it'll never actually fully use it.
- * Why? Because I didn't want to use yet another unordered_map for this, also this should be faster.
- */
-Lua::StateData* Lua::GetLuaData(GarrysMod::Lua::ILuaInterface* LUA)
+// From LuaJIT, though we can strip it out later
+// ToDo: Find out how to untangle these internal dependencies, we / our core system should not depend on modules.
+extern RawLua::CDataBridge* GetCDataBridgeFromInterface(GarrysMod::Lua::ILuaInterface* pLua);
+LuaUserData* Lua::GetHolyLibUserData(GarrysMod::Lua::ILuaInterface * LUA, int nStackPos)
 {
-	return *reinterpret_cast<Lua::StateData**>((char*)LUA->GetPathID() + 24);
+	lua_State* L = LUA->GetState();
+	TValue* val = RawLua::index2adr(L, nStackPos);
+	if (!val)
+		return nullptr;
+
+	if (!tvisudata(val))
+	{
+		if (tviscdata(val))
+		{
+			RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(LUA);
+			if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+				return (LuaUserData*)lj_obj_ptr(G(L), val);
+		}
+
+		return nullptr;
+	}
+
+	GCudata* luaData = udataV(val); // Very "safe" I know :3
+	if (luaData->udtype >= GarrysMod::Lua::Type::UserData)
+	{
+		return static_cast<LuaUserData*>(static_cast<void*>(luaData));
+	}
+
+	return nullptr;
 }
+
+// We need to do some hooking for these since our userdata is "special"
+class CLuaInterfaceProxy : public Detouring::ClassProxy<GarrysMod::Lua::ILuaInterface, CLuaInterfaceProxy> {
+public:
+	CLuaInterfaceProxy(GarrysMod::Lua::ILuaInterface* pLua) {
+		if (Detour::CheckValue("initialize", "CLuaInterfaceProxy", Initialize(pLua)))
+		{
+			Detour::CheckValue("CLuaInterface::SetUserType", Hook(&GarrysMod::Lua::ILuaInterface::SetUserType, &CLuaInterfaceProxy::SetUserType));
+			Detour::CheckValue("CLuaInterface::GetUserdata", Hook(&GarrysMod::Lua::ILuaInterface::GetUserdata, &CLuaInterfaceProxy::GetUserdata));
+			Detour::CheckValue("CLuaInterface::GetType", Hook(&GarrysMod::Lua::ILuaInterface::GetType, &CLuaInterfaceProxy::GetType));
+			Detour::CheckValue("CLuaInterface::IsType", Hook(&GarrysMod::Lua::ILuaInterface::IsType, &CLuaInterfaceProxy::IsType));
+		}
+	}
+
+	void DeInit()
+	{
+		UnHook(&GarrysMod::Lua::ILuaInterface::SetUserType);
+		UnHook(&GarrysMod::Lua::ILuaInterface::GetUserdata);
+		UnHook(&GarrysMod::Lua::ILuaInterface::GetType);
+		UnHook(&GarrysMod::Lua::ILuaInterface::IsType);
+	}
+
+	int GetUserDataType(int iStackPos)
+	{
+		lua_State* L = This()->GetState();
+		TValue* val = RawLua::index2adr(L, iStackPos);
+		if (!val)
+			return -1;
+
+		if (!tvisudata(val))
+		{
+			if (tviscdata(val))
+			{
+				RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(This());
+				if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+				{
+					auto uData = (GarrysMod::Lua::ILuaBase::UserData*)lj_obj_ptr(G(L), val);
+					if (uData)
+					{
+						return uData->type;
+					}
+				}
+			}
+
+			return -1;
+		}
+
+		GCudata* luaData = udataV(val); // Very "safe" I know :3
+		if (luaData->udtype >= GarrysMod::Lua::Type::UserData)
+		{
+			return luaData->udtype;
+		}
+		
+		GarrysMod::Lua::ILuaBase::UserData* uData = (GarrysMod::Lua::ILuaBase::UserData*)uddata(luaData);
+		if (!uData)
+			return -1;
+
+		return uData->type;
+	}
+
+	virtual void* GetUserdata(int iStackPos)
+	{
+		lua_State* L = This()->GetState();
+		TValue* val = RawLua::index2adr(L, iStackPos);
+		if (!val)
+			return nullptr;
+
+		if (!tvisudata(val))
+		{
+			if (tviscdata(val))
+			{
+				RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(This());
+				if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+					return (void*)lj_obj_ptr(G(L), val);
+			}
+
+			return nullptr;
+		}
+
+		LuaUserData* luaData = (LuaUserData*)udataV(val); // Very "safe" I know :3
+		if (luaData->udtype >= GarrysMod::Lua::Type::UserData)
+		{
+			return nullptr; // We do NOT support this as we do NOT match the ILuaBase::UserData! (Adding that one byte would fk up alignment)
+		}
+		
+		void* uData = uddata(luaData);
+		if (!uData)
+			return nullptr;
+
+		return uData;
+	}
+
+	virtual void SetUserType(int iStackPos, void* data)
+	{
+		lua_State* L = This()->GetState();
+		TValue* val = RawLua::index2adr(L, iStackPos);
+		if (!val)
+			return;
+
+		if (!tvisudata(val))
+		{
+			if (tviscdata(val))
+			{
+				RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(This());
+				if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+				{
+					GarrysMod::Lua::ILuaBase::UserData* uData = (GarrysMod::Lua::ILuaBase::UserData*)lj_obj_ptr(G(L), val);
+					if (uData)
+					{
+						uData->data = data;
+					}
+				}
+			}
+
+			return;
+		}
+
+		LuaUserData* luaData = (LuaUserData*)udataV(val); // Very "safe" I know :3
+		if (luaData->udtype >= GarrysMod::Lua::Type::UserData)
+		{
+			luaData->SetData(data); // Yes, we support this just for sake of my future stupidity when I try to use this on our stuff.
+			return;
+		}
+		
+		GarrysMod::Lua::ILuaBase::UserData* uData = (GarrysMod::Lua::ILuaBase::UserData*)uddata(luaData);
+		if (!uData)
+			return;
+
+		uData->data = data;
+	}
+
+	/*
+		Removes vprof.
+		Why? Because in this case, lua_type is too fast and vprof creates a huge slowdown.
+	*/
+	virtual int GetType(int iStackPos)
+	{
+		int type = Util::func_lua_type(This()->GetState(), iStackPos);
+
+		if (type == GarrysMod::Lua::Type::UserData)
+		{
+			type = GetUserDataType(iStackPos);
+		}
+
+		return type == -1 ? GarrysMod::Lua::Type::Nil : type;
+	}
+
+	// Fixed with the next update - https://github.com/Facepunch/garrysmod-issues/issues/6418
+	virtual bool IsType(int iStackPos, int iType)
+	{
+		int actualType = Util::func_lua_type(This()->GetState(), iStackPos);
+
+		if (actualType == iType)
+			return true;
+
+		if (actualType == GarrysMod::Lua::Type::UserData && iType > GarrysMod::Lua::Type::UserData)
+		{
+			actualType = GetUserDataType(iStackPos);
+			return iType == actualType;
+		}
+
+		return false;
+	}
+};
 
 static std::unordered_set<Lua::StateData*> g_pLuaStates;
 void Lua::CreateLuaData(GarrysMod::Lua::ILuaInterface* LUA, bool bNullOut)
@@ -276,6 +456,12 @@ void Lua::CreateLuaData(GarrysMod::Lua::ILuaInterface* LUA, bool bNullOut)
 	char* pathID = (char*)LUA->GetPathID();
 	Lua::StateData* data = new Lua::StateData;
 	data->pLua = LUA;
+	data->pProxy = new CLuaInterfaceProxy(LUA);
+	
+	CLuaInterface* pLua = (CLuaInterface*)LUA;
+	LUA->ReferencePush(pLua->m_nLuaErrorReporter);
+	data->SetErrorFunc();
+
 	*reinterpret_cast<Lua::StateData**>(pathID + 24) = data;
 	g_pLuaStates.insert(data);
 	Msg("holylib - Created thread data %p (%s)\n", data, pathID);
@@ -306,3 +492,22 @@ static void LuaCheck(const CCommand& args)
 	Msg("holylib - Found data %p\n", Lua::GetLuaData(g_Lua));
 }
 static ConCommand luacheck("holylib_luacheck", LuaCheck, "Temp", 0);
+
+Lua::StateData::~StateData()
+{
+	for (int i = 0; i < Lua::Internal::pMaxEntries; ++i)
+	{
+		Lua::ModuleData* pData = pModuelData[i];
+		if (pData == NULL)
+			continue;
+
+		delete pData;
+		pModuelData[i] = NULL;
+	}
+
+	if (pProxy)
+	{
+		pProxy->DeInit();
+		delete pProxy;
+	}
+}

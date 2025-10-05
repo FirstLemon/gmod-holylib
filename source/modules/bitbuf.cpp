@@ -25,7 +25,8 @@ Get_LuaClass(bf_read, "bf_read")
 LuaUserData* Push_bf_read(GarrysMod::Lua::ILuaInterface* LUA, bf_read* tbl, bool bDeleteUs)
 {
 	LuaUserData* pUserData = Push_bf_read(LUA, tbl);
-	pUserData->SetAdditionalData(bDeleteUs);
+	if (pUserData && bDeleteUs)
+		pUserData->SetFlagExplicitDelete();
 
 	return pUserData;
 }
@@ -36,7 +37,8 @@ Get_LuaClass(bf_write, "bf_write")
 LuaUserData* Push_bf_write(GarrysMod::Lua::ILuaInterface* LUA, bf_write* tbl, bool bDeleteUs)
 {
 	LuaUserData* pUserData = Push_bf_write(LUA, tbl);
-	pUserData->SetAdditionalData(bDeleteUs);
+	if (pUserData && bDeleteUs)
+		pUserData->SetFlagExplicitDelete();
 
 	return pUserData;
 }
@@ -61,9 +63,9 @@ Default__newindex(bf_read);
 Default__GetTable(bf_read);
 Default__gc(bf_read, 
 	bf_read* bf = (bf_read*)pStoredData;
-	if (bf && pAdditionalData)
+	if (bf && bFlagExplicitDelete)
 	{
-		delete[] bf->GetBasePointer();
+		free((char*)bf->GetBasePointer());
 		delete bf;
 	}
 )
@@ -400,14 +402,26 @@ LUA_FUNCTION_STATIC(bf_read_ReadString)
 {
 	bf_read* bf = Get_bf_read(LUA, 1, true);
 
-	int iSize = 1 << 16;
-	char* pStr = new char[iSize]; // 1 << 16 is 64kb which is the max net message size.
-	if (bf->ReadString(pStr, iSize))
-		LUA->PushString(pStr);
+	constexpr int iSize = 1 << 16; // 1 << 16 is 64kb which is the max net message size.
+	static thread_local std::unique_ptr<char, void(*)(void*)> pTempBuffer(
+		nullptr,
+		free
+	);
+
+	char* pBuffer = pTempBuffer.get();
+	if (!pBuffer) // We try to malloc on each call so that if we only once had an oom and memory got freed we will be back to function
+	{
+		pTempBuffer.reset((char*)malloc(iSize));
+		if (!pTempBuffer)
+			LUA->ThrowError("Failed to allocate temporary buffer!");
+
+		pBuffer = pTempBuffer.get();
+	}
+
+	if (bf->ReadString(pBuffer, iSize))
+		LUA->PushString(pBuffer);
 	else
 		LUA->PushNil();
-
-	delete[] pStr;
 
 	return 1;
 }
@@ -515,9 +529,9 @@ Default__newindex(bf_write);
 Default__GetTable(bf_write);
 Default__gc(bf_write, 
 	bf_write* bf = (bf_write*)pStoredData;
-	if (bf && pAdditionalData)
+	if (bf && bFlagExplicitDelete)
 	{
-		delete[] bf->GetBasePointer();
+		free((char*)bf->GetBasePointer());
 		delete bf;
 	}
 )
@@ -606,7 +620,7 @@ LUA_FUNCTION_STATIC(bf_write_SetDebugName)
 {
 	bf_write* pBF = Get_bf_write(LUA, 1, true);
 
-	pBF->SetDebugName(LUA->CheckString(2)); // BUG: Do we need to keep a reference?
+	pBF->SetDebugName(LUA->CheckString(2)); // BUG: Do we need to keep a reference? Note: Yes we do. (ToDo)
 	return 0;
 }
 
@@ -667,8 +681,8 @@ LUA_FUNCTION_STATIC(bf_write_WriteBytes)
 {
 	bf_write* pBF = Get_bf_write(LUA, 1, true);
 
-	const char* pData = LUA->CheckString(2);
-	int iLength = LUA->ObjLen(2);
+	size_t iLength;
+	const char* pData = Util::CheckLString(LUA, 2, &iLength);
 	pBF->WriteBytes(pData, iLength);
 	return 0;
 }
@@ -880,11 +894,13 @@ LUA_FUNCTION_STATIC(bitbuf_CopyReadBuffer)
 	int iSize = pBf->GetNumBytesRead() + pBf->GetNumBytesLeft();
 	int iNewSize = CLAMP_BF(iSize);
 
-	unsigned char* pData = new unsigned char[iNewSize];
-	memcpy(pData, pBf->GetBasePointer(), iSize);
+	unsigned char* cData = (unsigned char*)malloc(iNewSize);
+	if (!cData)
+		LUA->ThrowError("Failed to allocate data for buffer!");
 
-	bf_read* pNewBf = new bf_read;
-	pNewBf->StartReading(pData, iNewSize);
+	memcpy(cData, pBf->GetBasePointer(), iSize);
+
+	bf_read* pNewBf = new bf_read(cData, iNewSize);
 
 	Push_bf_read(LUA, pNewBf, true);
 
@@ -893,43 +909,125 @@ LUA_FUNCTION_STATIC(bitbuf_CopyReadBuffer)
 
 LUA_FUNCTION_STATIC(bitbuf_CreateReadBuffer)
 {
-	const char* pData = LUA->CheckString(1);
-	int iLength = LUA->ObjLen(1);
+	size_t iLength;
+	const char* pData = Util::CheckLString(LUA, 1, &iLength);
+
 	int iNewLength = CLAMP_BF(iLength);
 
-	unsigned char* cData = new unsigned char[iNewLength];
+	unsigned char* cData = (unsigned char*)malloc(iNewLength);
+	if (!cData)
+		LUA->ThrowError("Failed to allocate data for buffer!");
+
 	memcpy(cData, pData, iLength);
 
-	bf_read* pNewBf = new bf_read;
-	pNewBf->StartReading(cData, iNewLength);
+	bf_read* pNewBf = new bf_read(cData, iNewLength);
 
 	Push_bf_read(LUA, pNewBf, true);
 
 	return 1;
 }
 
+LUA_FUNCTION_STATIC(bitbuf_CreateStackReadBuffer)
+{
+	size_t iLength;
+	const char* pData = Util::CheckLString(LUA, 1, &iLength);
+	int iNewLength = CLAMP_BF(iLength);
+	bool bSimpleCall = LUA->GetBool(3);
+
+	// Our stackalloc will be gone after this function finished, so you'll have to provide a callback we can call inside of here.
+	LUA->CheckType(2, GarrysMod::Lua::Type::Function);
+
+	if (!holylib_canstackalloc(iNewLength))
+		LUA->ThrowError("Cannot stackalloc at this size!");
+
+	bf_read pNewBf(pData, iLength);
+
+	LUA->Push(2); // Push the function
+
+	// Pushes it onto the stack, since we never use the Push_ HolyLib function.
+	// this will be untracked by the GC BUT you'll have to pop it off the stack BEFORE we leave the scope!
+	LuaUserData pStackLuaData;
+	pStackLuaData.Init(LUA, Lua::GetLuaData(LUA)->GetMetaEntry(Lua::bf_read), &pNewBf, true, true);
+	pStackLuaData.Push(LUA);
+
+	if (bSimpleCall)
+		Lua::GetLuaData(LUA)->FastPCall(1, 0, true);
+	else
+		LUA->CallFunctionProtected(1, 0, true);
+	pStackLuaData.Release(LUA);
+
+	return 0;
+}
+
 LUA_FUNCTION_STATIC(bitbuf_CreateWriteBuffer)
 {
-	bf_write* pNewBf = new bf_write;
+	bf_write* pNewBf = nullptr;
 	if (LUA->IsType(1, GarrysMod::Lua::Type::Number))
 	{
-		int iSize = CLAMP_BF((int)LUA->CheckNumber(1));
-		unsigned char* cData = new unsigned char[iSize];
-
-		pNewBf->StartWriting(cData, iSize);
+		int iSize = CLAMP_BF((int)LUA->GetNumber(1));
+		unsigned char* cData = (unsigned char*)malloc(iSize);
+		if (!cData)
+			LUA->ThrowError("Failed to allocate data for buffer!");
+		
+		pNewBf = new bf_write(cData, iSize);
 	} else {
-		const char* pData = LUA->CheckString(1);
-		int iLength = LUA->ObjLen(1);
+		size_t iLength;
+		const char* pData = Util::CheckLString(LUA, 1, &iLength);
 		int iNewLength = CLAMP_BF(iLength);
 
-		unsigned char* cData = new unsigned char[iNewLength];
+		unsigned char* cData = (unsigned char*)malloc(iNewLength);
+		if (!cData)
+			LUA->ThrowError("Failed to allocate data for buffer!");
+
 		memcpy(cData, pData, iLength);
 
-		pNewBf->StartWriting(cData, iNewLength);
+		pNewBf = new bf_write(cData, iNewLength);
 	}
 	Push_bf_write(LUA, pNewBf, true);
 
 	return 1;
+}
+
+LUA_FUNCTION_STATIC(bitbuf_CreateStackWriteBuffer)
+{
+	// Our stackalloc will be gone after this function finished, so you'll have to provide a callback we can call inside of here.
+	LUA->CheckType(2, GarrysMod::Lua::Type::Function);
+
+	unsigned char* cData = nullptr;
+	int nSize = 0;
+	if (LUA->IsType(1, GarrysMod::Lua::Type::Number))
+	{
+		nSize = CLAMP_BF((int)LUA->GetNumber(1));
+		if (!holylib_canstackalloc(nSize))
+			LUA->ThrowError("Cannot stackalloc at this size!");
+
+		cData = (unsigned char*)_alloca(nSize);
+	} else {
+		size_t iLength;
+		const char* pData = Util::CheckLString(LUA, 1, &iLength);
+		nSize = CLAMP_BF(iLength);
+
+		if (!holylib_canstackalloc(nSize))
+			LUA->ThrowError("Cannot stackalloc at this size!");
+
+		cData = (unsigned char*)_alloca(nSize);
+		memcpy(cData, pData, iLength);
+	}
+
+	bf_write pNewBf(cData, nSize);
+
+	LUA->Push(2);
+	
+	// Pushes it onto the stack, since we never use the Push_ HolyLib function.
+	// this will be untracked by the GC BUT you'll have to pop it off the stack BEFORE we leave the scope!
+	LuaUserData pStackLuaData;
+	pStackLuaData.Init(LUA, Lua::GetLuaData(LUA)->GetMetaEntry(Lua::bf_read), &pNewBf, true, true);
+	pStackLuaData.Push(LUA);
+
+	LUA->CallFunctionProtected(1, 0, true);
+	pStackLuaData.Release(LUA);
+
+	return 0;
 }
 
 void CBitBufModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
@@ -1043,7 +1141,9 @@ void CBitBufModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerIni
 	Util::StartTable(pLua);
 		Util::AddFunc(pLua, bitbuf_CopyReadBuffer, "CopyReadBuffer");
 		Util::AddFunc(pLua, bitbuf_CreateReadBuffer, "CreateReadBuffer");
+		Util::AddFunc(pLua, bitbuf_CreateStackReadBuffer, "CreateStackReadBuffer");
 		Util::AddFunc(pLua, bitbuf_CreateWriteBuffer, "CreateWriteBuffer");
+		Util::AddFunc(pLua, bitbuf_CreateStackWriteBuffer, "CreateStackWriteBuffer");
 	Util::FinishTable(pLua, "bitbuf");
 }
 

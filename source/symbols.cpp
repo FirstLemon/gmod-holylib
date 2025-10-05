@@ -45,19 +45,27 @@ namespace Symbols
 		Symbol::FromName("_ZN18CCollisionProperty24MarkPartitionHandleDirtyEv"),
 	};
 
-	const std::vector<Symbol> lua_rawsetiSym = {
-		Symbol::FromName("lua_rawseti"),
-		Symbol::FromName("lua_rawseti"),
-		Symbol::FromName("lua_rawseti"),
-		Symbol::FromName("lua_rawseti"),
-	};
+	const Symbol lua_rawsetiSym = Symbol::FromName("lua_rawseti");
 
-	const std::vector<Symbol> lua_rawgetiSym = {
-		Symbol::FromName("lua_rawgeti"),
-		Symbol::FromName("lua_rawgeti"),
-		Symbol::FromName("lua_rawgeti"),
-		Symbol::FromName("lua_rawgeti"),
-	};
+	const Symbol lua_rawgetiSym = Symbol::FromName("lua_rawgeti");
+
+	const Symbol lj_tab_newSym = Symbol::FromName("lj_tab_new");
+
+	const Symbol lj_gc_barrierfSym = Symbol::FromName("lj_gc_barrierf");
+
+	const Symbol lua_setfenvSym = Symbol::FromName("lua_setfenv");
+
+	const Symbol lua_touserdataSym = Symbol::FromName("lua_touserdata");
+
+	const Symbol lua_typeSym = Symbol::FromName("lua_type");
+
+	const Symbol luaL_checklstringSym = Symbol::FromName("luaL_checklstring");
+
+	const Symbol lua_pcallSym = Symbol::FromName("lua_pcall");
+
+	const Symbol lua_insertSym = Symbol::FromName("lua_insert");
+
+	const Symbol lua_tobooleanSym = Symbol::FromName("lua_toboolean");
 
 	const std::vector<Symbol> CGetSym = { // 64x ToDo
 		Symbol::FromName("get"),
@@ -72,23 +80,22 @@ namespace Symbols
 		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x54\x53\x48\x89\xF3\x48\x83\xEC\x20\x48\x85\xF6"), // 55 48 89 E5 41 54 53 48 89 F3 48 83 EC 20 48 85 F6
 	};
 
-	const std::vector<Symbol> SteamGameServer_ShutdownSym = { // Same symbol for all versions.
-		Symbol::FromName("SteamGameServer_Shutdown"),
-		Symbol::FromName("SteamGameServer_Shutdown"),
-		Symbol::FromName("SteamGameServer_Shutdown"),
-		Symbol::FromName("SteamGameServer_Shutdown"),
-	};
+	const Symbol SteamGameServer_ShutdownSym = Symbol::FromName("SteamGameServer_Shutdown"); // Same symbol for all versions.
 
-	const std::vector<Symbol> GMOD_LoadBinaryModuleSym = { // Same symbol for all versions.
-		Symbol::FromName("GMOD_LoadBinaryModule"),
-		Symbol::FromName("GMOD_LoadBinaryModule"),
-		Symbol::FromName("GMOD_LoadBinaryModule"),
-		Symbol::FromName("GMOD_LoadBinaryModule"),
-	};
+	const Symbol GMOD_LoadBinaryModuleSym = Symbol::FromName("GMOD_LoadBinaryModule"); // Same symbol for all versions.
 
 	const std::vector<Symbol> CM_VisSym = { // CM_Vis:
 		Symbol::FromName("_Z6CM_VisPhiii"),
 		Symbol::FromSignature("\x55\x83\xF9\x02\x48\x89\xE5\x41\x54\x53\x48\x89\xFB\x89\xD7\x89\xCA"), // 55 83 F9 02 48 89 E5 41 54 53 48 89 FB 89 D7 89 CA
+	};
+
+	const std::vector<Symbol> CBaseEntity_GetLuaEntitySym = {
+		Symbol::FromName("_ZN11CBaseEntity12GetLuaEntityEv"),
+	};
+
+	const std::vector<Symbol> CGameEventManager_CreateEventSym = {
+		Symbol::FromName("_ZN17CGameEventManager11CreateEventEPKcb"),
+		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x55\x41\x54\x53\x48\x89\xF3\x48\x83\xEC\x08\x48\x85\xF6**\x80\x3E\x00"), // 55 48 89 E5 41 55 41 54 53 48 89 F3 48 83 EC 08 48 85 F6 ?? ?? 80 3E 00
 	};
 
 	//---------------------------------------------------------------------------------
@@ -142,11 +149,6 @@ namespace Symbols
 
 	const std::vector<Symbol> CGameEventManager_AddListenerSym = { // Fk this. No 64x
 		Symbol::FromName("_ZN17CGameEventManager11AddListenerEPvP20CGameEventDescriptori"),
-	};
-
-	const std::vector<Symbol> CGameEventManager_CreateEventSym = {
-		Symbol::FromName("_ZN17CGameEventManager11CreateEventEPKcb"),
-		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x55\x41\x54\x53\x48\x89\xF3\x48\x83\xEC\x08\x48\x85\xF6**\x80\x3E\x00"), // 55 48 89 E5 41 55 41 54 53 48 89 F3 48 83 EC 08 48 85 F6 ?? ?? 80 3E 00
 	};
 
 	//---------------------------------------------------------------------------------
@@ -548,6 +550,10 @@ namespace Symbols
 		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x57\x41\x56\x41\x55\x41\x54\x49\x89\xFC\x53\x48\x89\xFB\x48\x81\xEC\x20\x01\x00\x00"), // 55 48 89 E5 41 57 41 56 41 55 41 54 49 89 FC 53 48 89 FB 48 81 EC 20 01 00 00
 	};
 
+	const std::vector<Symbol> GetCurrentSkyCameraSym = {
+		Symbol::FromName("_Z19GetCurrentSkyCamerav"),
+	};
+
 	//---------------------------------------------------------------------------------
 	// Purpose: steamworks Symbols
 	//---------------------------------------------------------------------------------
@@ -724,6 +730,10 @@ namespace Symbols
 		Symbol::FromName("_ZN19CPhysicsEnvironmentC2Ev"),
 	};
 
+	const std::vector<Symbol> IVP_Mindist_Manager_recheck_ov_elementSym = {
+		Symbol::FromName("_ZN19IVP_Mindist_Manager18recheck_ov_elementEP15IVP_Real_Object"),
+	};
+
 	const std::vector<Symbol> IVP_Mindist_Minimize_Solver_p_minimize_PPSym = {
 		Symbol::FromName("_ZN27IVP_Mindist_Minimize_Solver13p_minimize_PPEPK16IVP_Compact_EdgeS2_P21IVP_Cache_Ledge_PointS4_"),
 	};
@@ -881,5 +891,33 @@ namespace Symbols
 
 	const std::vector<Symbol> s_NetChannelsSym = {
 		Symbol::FromName("_ZL13s_NetChannels"),
+	};
+  
+	const std::vector<Symbol> NET_SetTimeSym = {
+		Symbol::FromName("_Z11NET_SetTimed"),
+	};
+
+	//---------------------------------------------------------------------------------
+	// Purpose: AutoRefresh Symbols
+	//---------------------------------------------------------------------------------
+	const std::vector<Symbol> GarrysMod_AutoRefresh_HandleChange_LuaSym = {
+		Symbol::FromName("_ZN9GarrysMod11AutoRefresh16HandleChange_LuaERKSsS2_S2_"),
+		Symbol::FromSignature("\x55\x48\x89\xE5\x41\x57\x41\x56\x49\x89\xD6\x41\x55\x49\x89\xFD\x48\x89\xD7\x41\x54"),
+	};
+
+	const std::vector<Symbol> GarrysMod_AutoRefresh_InitSym = {
+		Symbol::FromName("_ZN9GarrysMod11AutoRefresh4InitEv"),
+	};
+
+	const std::vector<Symbol> GarrysMod_AutoRefresh_CycleSym = {
+		Symbol::FromName("_ZN9GarrysMod11AutoRefresh5CycleEv"),
+	};
+
+	const std::vector<Symbol> Bootil_File_ChangeMonitor_CheckForChangesSym = {
+		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor10HasChangesEv"),
+	};
+
+	const std::vector<Symbol> Bootil_File_ChangeMonitor_HasChangedSym = {
+		Symbol::FromName("_ZN6Bootil4File13ChangeMonitor10HasChangesEv"),
 	};
 }
