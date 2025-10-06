@@ -2,6 +2,9 @@
 
 #include <ivp_physics.hxx>
 #include <cstdlib>
+#include <cstdint>
+#include <cstring>
+#include <type_traits>
 
 #if !defined(__MWERKS__) || !defined(__POWERPC__)
 #ifdef OSX
@@ -39,6 +42,7 @@ void ivp_memory_check(void *a) {
 #endif
 }
 
+/*
 void ivp_byte_swap4(uint& fourbytes)
 {
 #ifdef _WIN32
@@ -60,6 +64,25 @@ void ivp_byte_swap4(uint& fourbytes)
 
 	fourbytes = out.v;
 #endif
+}
+*/
+
+template <typename T>
+inline void ivp_byte_swap4(T &value)
+{
+	std::uint32_t temp;
+	std::memcpy(&temp, &value, sizeof(temp));
+
+#ifdef _WIN32
+	temp = _byteswap_ulong(temp);
+#else
+	temp = ((temp & 0x000000FFU) << 24) |
+		((temp & 0x0000FF00U) << 8) |
+		((temp & 0x00FF0000U) >> 8) |
+		((temp & 0xFF000000U) >> 24);
+#endif
+
+	std::memcpy(&value, &temp, sizeof(temp));
 }
 
 void ivp_byte_swap2(ushort& twobytes)
