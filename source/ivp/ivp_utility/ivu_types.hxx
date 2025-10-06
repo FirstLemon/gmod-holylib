@@ -251,7 +251,9 @@ enum IVP_RETURN_TYPE {
 	void  IVP_CDECL ivp_free_aligned(void *data);
 
 	//void  IVP_CDECL ivp_byte_double(double& eightbytes);
-	void  IVP_CDECL ivp_byte_swap4(uint& fourbytes);
+	template <typename T>
+	void  IVP_CDECL inline ivp_byte_swap4(T &value);
+	void  IVP_CDECL inline ivp_byte_swap4(uint& fourbytes);
 	void  IVP_CDECL ivp_byte_swap2(ushort& twobytes);
 
 #ifdef GEKKO

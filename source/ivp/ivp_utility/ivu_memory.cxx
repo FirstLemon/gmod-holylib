@@ -4,7 +4,6 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
-#include <type_traits>
 
 #if !defined(__MWERKS__) || !defined(__POWERPC__)
 #ifdef OSX
@@ -83,6 +82,10 @@ inline void ivp_byte_swap4(T &value)
 #endif
 
 	std::memcpy(&value, &temp, sizeof(temp));
+}
+
+inline void ivp_byte_swap4(uint &fourbytes) {
+	ivp_byte_swap4<uint>(fourbytes);
 }
 
 void ivp_byte_swap2(ushort& twobytes)
