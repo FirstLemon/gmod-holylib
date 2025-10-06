@@ -139,11 +139,20 @@ public:
     IVP_U_Float_Point(const IVP_U_Point *p);
 #endif
 
-	inline void byte_swap() {   ivp_byte_swap4( (uint&) k[0] );
-								ivp_byte_swap4( (uint&) k[1] ); 
-								ivp_byte_swap4( (uint&) k[2] ); 
-						#ifdef IVP_VECTOR_UNIT_FLOAT
-								ivp_byte_swap4( (uint&) hesse_val ); 
+	inline void byte_swap() {   for (int i = 0; i < 3; ++i) {
+                                uint temp;
+                                std::memcpy(&temp, &k[i], sizeof(uint));
+                                ivp_byte_swap4(temp);
+                                std::memcpy(&k[i], &temp, sizeof(uint));
+                            }
+						
+                        #ifdef IVP_VECTOR_UNIT_FLOAT
+                            {
+                                uint temp;
+                                std::memcpy(&temp, &hesse_val, sizeof(uint));
+                                ivp_byte_swap4(temp);
+                                std::memcpy(&hesse_val, &temp, sizeof(uint));
+                            };
 						#endif
 							}
 
