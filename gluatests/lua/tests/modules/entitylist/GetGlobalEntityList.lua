@@ -21,6 +21,10 @@ return {
             func = function()
                 local entities = GetGlobalEntityList()
                 expect( entities ).to.beA( "table" )
+
+                for _, ent in ipairs(entities) do -- Ensure nothing Invalid was pushed
+                	expect( ent ).to.beValid()
+                end
             end
         },
         {
