@@ -64,7 +64,6 @@ void ivp_byte_swap4(uint& fourbytes)
 #endif
 }
 
-/*
 void ivp_byte_swap4(uint &fourbytes)
 {
 	uint buffer;
@@ -79,6 +78,7 @@ void ivp_byte_swap4(uint &fourbytes)
 	std::memcpy(&fourbytes, &buffer, sizeof(buffer));
 }
 
+/*
 inline void ivp_byte_swap4(uint &fourbytes) {
 	ivp_byte_swap4<uint>(fourbytes);
 }
