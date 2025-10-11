@@ -389,7 +389,7 @@ public:
     IVP_RETURN_TYPE calc_intersect_with(const IVP_U_Straight *straight,		// calc the intersection between a straight and the plane
 					IVP_U_Point *point_out) const; 
 
-	// void byte_swap() { ivp_byte_swap4( (uint&) hesse_val ); IVP_U_Point::byte_swap(); }
+	/*void byte_swap() { ivp_byte_swap4((uint &)hesse_val); IVP_U_Point::byte_swap(); }*/
 
     void byte_swap() {
         uint temp;
