@@ -72,6 +72,7 @@ jobs:
       PTERODACTYL_RESTART_SLEEPTIME: "0"
       PTERODACTYL_RESTART: "true"
       BUILD_CACHE: "true"
+      NO_SAVE_CACHE: "true" # Cache will only be updated by main compiles in build_plugin_linux job
 
   build_testingarea_dev2: # Could make this use the already created artifact but I'm too lazy rn
     name: "Build 32x (Testing Area - Public)"
@@ -95,6 +96,7 @@ jobs:
       PTERODACTYL_RESTART_SLEEPTIME: "0"
       PTERODACTYL_RESTART: "true"
       BUILD_CACHE: "true"
+      NO_SAVE_CACHE: "true" # Cache will only be updated by main compiles in build_plugin_linux job
 
   build_testingarea_64x:
     name: "Build 64x (Testing Area - 64x)"
@@ -119,6 +121,7 @@ jobs:
       PTERODACTYL_RESTART_SLEEPTIME: "0"
       PTERODACTYL_RESTART: "true"
       BUILD_CACHE: "true"
+      NO_SAVE_CACHE: "true" # Cache will only be updated by main compiles in build_plugin_linux job
 
   build_ghostinj:
     name: "Build GhostInj"
@@ -136,6 +139,65 @@ jobs:
       SOURCESDK_MINIMAL_64XBRANCH: "x86-64-patch-3"
       GARRYSMOD_COMMON: "RaphaelIT7/garrysmod_common"
       BUILD_CACHE: "true"
+
+  build_stripped_module:
+    # This saves us useless compiles when it would already fail
+    # + This way we always use the newest cache reducing compile time.
+    # Update: NEVERMIND, this turned out to slow down the entire build process simply because we hit the runner limit
+    #         And less stuff could run in parallel.
+    # Doing this paralle to the main builds gives us at minimim 1min time with ~34 runners available to run parallel
+    # needs: build_plugin_linux
+    name: "Build Stripped modules"
+    uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - autorefresh
+          - holylib
+          - gameevent
+          - serverplugin
+          - sourcetv
+          - stringtable
+          - precachefix
+          - pvs
+          - surffix
+          - filesystem
+          - util
+          - concommand
+          - vprof
+          - cvars
+          - bitbuf
+          - networking
+          - steamworks
+          - pas
+          - bass
+          - systimer
+          - voicechat
+          - physenv
+          - net
+          - entitylist
+          - httpserver
+          - gameserver
+          - soundscape
+          - luajit
+          - holylua
+    with:
+      PROJECT_NAME: "holylib"
+      BUILD_64x: "true"
+      REALM: "sv"
+      LINUX_FILEEXTENTION: "so"
+      BUILD_WINDOWS: "false"
+      ARTIFACT_EXPIRE: "7"
+      UPLOAD: "none"
+      BUILD_CACHE: "true"
+      NO_SAVE_CACHE: "true"
+      SOURCESDK_MINIMAL: "RaphaelIT7/sourcesdk-minimal"
+      SOURCESDK_MINIMAL_BRANCH: "patch-7"
+      SOURCESDK_MINIMAL_64XBRANCH: "x86-64-patch-3"
+      GARRYSMOD_COMMON: "RaphaelIT7/garrysmod_common"
+      ADDITIONAL_LINUX_32_SETUP: 'rm -rf source/ivp && cd source/modules/ && ls | grep -xvF ${{ matrix.module }}.cpp | xargs rm -f -- && cd ../../'
+      ADDITIONAL_LINUX_64_SETUP: 'rm -rf source/ivp && cd source/modules/ && ls | grep -xvF ${{ matrix.module }}.cpp | xargs rm -f -- && cd ../../'
 
   setup_artifacts: # Having this as a matrix won't hurt concurrency since both 32x & 64x finish around the same time
     name: "Setup ${{ matrix.arch }} Artifact"
@@ -373,7 +435,7 @@ jobs:
         run: |
           cd source/_prebuildtools
           chmod +x luajit_64
-          ./luajit_64 _workflow_summary.lua "${{github.repository}}" "${{env.LOKI_PUBLIC}}" "${{secrets.LOKI_HOST}}" "${{secrets.LOKI_APIKEY}}" "${{github.run_number}}"
+          ./luajit_64 _workflow_summary.lua "${{github.repository}}" "${{env.LOKI_PUBLIC}}" "${{secrets.LOKI_HOST}}" "${{secrets.LOKI_APIKEY}}" "${{github.run_number}}" "0" "${{github.event_name}}"
 
           echo "$(cat generated_summary.md)" > $GITHUB_STEP_SUMMARY
 
@@ -559,12 +621,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: 
+        module:
+          - autorefresh
           - holylib
           - gameevent
           - serverplugin
           - sourcetv
-          - threadpoolfix
           - stringtable
           - precachefix
           - pvs
@@ -599,7 +661,7 @@ jobs:
   # -------
 
   build_exampledll_linux:
-    name: "Build Plugin"
+    name: "Build ExampleDLL"
     uses: RaphaelIT7/gmod-common-module-base/.github/workflows/compile.yml@workflow
     with:
       PROJECT_PATH: "example-module-dll/"

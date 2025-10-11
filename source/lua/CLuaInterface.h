@@ -7,6 +7,7 @@
 #include "GarrysMod/Lua/LuaObject.h"
 #include <list>
 #include "tier1/utlstack.h"
+#include <atomic>
 
 #define GMOD
 
@@ -26,6 +27,8 @@ extern void GMOD_UnloadBinaryModules(lua_State* L);
 class CLuaInterface : public GarrysMod::Lua::ILuaInterface
 {
 public:
+	~CLuaInterface();
+
 	virtual int Top(void);
 	virtual void Push(int iStackPos);
 	virtual void Pop(int iAmt = 1);
@@ -200,6 +203,7 @@ public: // We keep gmod's structure in case any modules depend on it.
 	GarrysMod::Lua::ILuaObject* m_pMetaTables[255] = {nullptr}; // Their index is based off their type. means m_MetaTables[Type::Entity] returns the Entity metatable.
 private: // NOT GMOD stuff
 	CThreadFastMutex m_pThreadedCallsMutex;
+	std::atomic<bool> m_bShutDownThreadedCalls = false;
 
 public:
 	void RunThreadedCalls();

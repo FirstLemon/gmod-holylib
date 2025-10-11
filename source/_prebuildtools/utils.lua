@@ -1,13 +1,13 @@
 local BinaryFormat = package.cpath:match("%p[\\|/]?%p(%a+)")
-if BinaryFormat == "dll" then
+if BinaryFormat == "dll" or (os.host and os.host() == "windows") then
 	function os.name()
 		return "Windows"
 	end
-elseif BinaryFormat == "so" then
+elseif BinaryFormat == "so" or (os.host and os.host() == "linux") then
 	function os.name()
 		return "Linux"
 	end
-elseif BinaryFormat == "dylib" then
+elseif BinaryFormat == "dylib" or (os.host and os.host() == "macosx") then
 	function os.name()
 		return "MacOS"
 	end
@@ -107,6 +107,40 @@ function string.Replace(str, rep, new)
     end
 
     return new_str
+end
+
+function string.EndsWith(str, ending)
+	return string.sub(str, -1) == ending
+end
+
+local function getKeys(tbl)
+	local keys, i = {}, 0
+	for k in pairs(tbl) do
+		i = i + 1
+		keys[i] = k
+	end
+
+	return keys
+end
+
+function SortedPairs(pTable, Desc) -- Again from Gmod <3
+	local keys = getKeys(pTable)
+
+	if Desc then
+		table.sort(keys, function(a, b)
+			return a > b
+		end)
+	else
+		table.sort(keys, function(a, b)
+			return a < b
+		end)
+	end
+
+	local i, key = 1, nil
+	return function()
+		key, i = keys[i], i + 1
+		return key, pTable[key]
+	end
 end
 
 local created_dirs = {}

@@ -235,6 +235,7 @@ namespace Util
 	extern CBaseEntity* Get_Entity(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError);
 	extern void Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt);
 	extern CBaseEntity* GetCBaseEntityFromEdict(edict_t* edict);
+	extern CBaseEntity* GetCBaseEntityFromIndex(int nEntIndex);
 
 	extern void AddDetour(); // We load Gmod's functions in there.
 	extern void RemoveDetour();
@@ -291,6 +292,23 @@ namespace Util
 	extern void BlockGameEvent(const char* pName);
 	extern void UnblockGameEvent(const char* pName);
 
+	// Offset / Networking related stuff
+	
+	// tries to find a SendProp with the given name
+	// and if found it will return the offset stored in the sendprop.
+	// Returns -1 on failure
+	extern int FindOffsetForNetworkVar(const char* pDTName, const char* pVarName);
+
+	// Returns a pointer to the given offset for the base, do the casting yourself.
+	inline void* GoToNetworkVarOffset(void* pBase, int nOffset)
+	{
+		if (nOffset == -1)
+			return nullptr;
+
+		// NOTE: Normally I'd use *(void**) to dereference it but apparently it's only a thing needed for vars that store a pointer / only m_GMOD_DataTable
+		return (void*)((char*)pBase + nOffset);
+	}
+
 	// More Lua stuff for UserData (NEVER NULL)
 	extern Symbols::lua_setfenv func_lua_setfenv;
 	extern Symbols::lua_touserdata func_lua_touserdata;
@@ -303,6 +321,7 @@ namespace Util
 	// These can be NULL. Why? Because on 64x all the names are mangled making shit far more difficult...
 	extern Symbols::lj_tab_new func_lj_tab_new;
 	extern Symbols::lj_gc_barrierf func_lj_gc_barrierf;
+	extern Symbols::lj_tab_get func_lj_tab_get;
 
 	extern IVEngineServer* engineserver;
 	extern IServerGameClients* servergameclients;
@@ -315,6 +334,63 @@ namespace Util
 	extern IGameEventManager2* gameeventmanager;
 	extern IGet* get;
 }
+
+// Helper class to get a pointer to our DTVar
+class DTVarByOffset
+{
+public:
+	DTVarByOffset(const char* pDTName, const char* pVarName)
+	{
+		m_pDTName = pDTName;
+		m_pVarName = pVarName;
+	}
+
+	DTVarByOffset(const char* pDTName, const char* pVarName, int nArraySize)
+	{
+		m_pDTName = pDTName;
+		m_pVarName = pVarName;
+	}
+
+	inline void Init()
+	{
+		if (m_nOffset != -1)
+			return;
+
+		m_nOffset = Util::FindOffsetForNetworkVar(m_pDTName, m_pVarName);
+		if (m_nOffset == -1)
+			Error(PROJECT_NAME ": Failed to find DTVar offset of var \"%s\" in DataTable \"%s\"!\n", m_pDTName, m_pVarName);
+	}
+
+	FORCEINLINE void* GetPointer(void* pBase)
+	{
+		if (m_nOffset == -1)
+			Init();
+
+		return Util::GoToNetworkVarOffset(pBase, m_nOffset);
+	}
+
+	// For DTVars that store a pointer like m_GMOD_DataTable
+	FORCEINLINE void* GetPointerDereferenced(void* pBase)
+	{
+		if (m_nOffset == -1)
+			Init();
+
+		return *(void**)Util::GoToNetworkVarOffset(pBase, m_nOffset);
+	}
+
+	FORCEINLINE void* GetPointerArray(void* pBase, int nArraySlot)
+	{
+		if (m_nOffset == -1)
+			Init();
+
+		return Util::GoToNetworkVarOffset(pBase, m_nOffset + (m_nArraySize * nArraySlot));
+	}
+
+	int m_nOffset = -1;
+	int m_nArraySize = 0;
+	const char* m_pDTName = nullptr;
+	const char* m_pVarName = nullptr;
+};
 
 #if SYSTEM_LINUX // Linux got a bigger default stack.
 constexpr size_t _MAX_ALLOCA_SIZE = 64 * 1024;

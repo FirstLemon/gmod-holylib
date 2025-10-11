@@ -156,6 +156,9 @@ namespace Symbols
 	typedef void (*lj_gc_barrierf)(global_State *g, void *o, void *v);
 	extern const Symbol lj_gc_barrierfSym;
 
+	typedef void* (*lj_tab_get)(lua_State *L, void *t, void *key);
+	extern const Symbol lj_tab_getSym;
+
 	typedef int (*lua_setfenv)(lua_State *L, int idx);
 	extern const Symbol lua_setfenvSym;
 
@@ -467,12 +470,6 @@ namespace Symbols
 
 	typedef void (*CGMOD_Player_CreateViewModel)(CBasePlayer* pPlayer, int viewmodelindex);
 	extern const std::vector<Symbol> CGMOD_Player_CreateViewModelSym;
-
-	typedef CBaseViewModel* (*CBasePlayer_GetViewModel)(CBasePlayer* pPlayer, int index, bool bObserverOK);
-	extern const std::vector<Symbol> CBasePlayer_GetViewModelSym;
-
-	typedef int (*Player__SetHands)(GarrysMod::Lua::ILuaInterface* pLua);
-	extern const std::vector<Symbol> Player__SetHandsSym;
 
 	typedef void (*CBaseCombatCharacter_SetTransmit)(CBaseCombatCharacter* pCharacter, CCheckTransmitInfo *pInfo, bool bAlways);
 	extern const std::vector<Symbol> CBaseCombatCharacter_SetTransmitSym;

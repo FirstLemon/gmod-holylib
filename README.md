@@ -27,6 +27,11 @@ If you already had a `ghostinj.dll`, you can rename it to `ghostinj2.dll` and it
 2. Put the `holylib.vdf` into the `garrysmod/addons/` directory.<br>
 3. Put the `gmsv_holylib_linux.so` into the `garrysmod/lua/bin/` directory.<br>
 
+## Custom Builds (Linux Only)
+You can fork this repository and use the `Build Custom Version` to create a custom HolyLib version which only contains specific functions.<br>
+I heard from some that they don't want a huge DLL of which they only use a few functions of,<br>
+so by making a custom build anyone can include just the stuff they actually want and need, nothing else.<br>
+
 ## How to update (Newer GhostInj)
 
 > [!NOTE]
@@ -88,6 +93,7 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 \- [+] Added `bitbuf.CreateStackReadBuffer` & `bitbuf.CreateStackWriteBuffer` to `bitbuf` module.<br>
 \- [+] Added a fallback method for HolyLib's internal `Util::PushEntity` function in case a Gmod update breaks our offsets which previously lead to undefined behavior<br>
 \- [+] Added a `ILuaThreadedCall` to call all modules Think function when HolyLib is loaded as a binary module/loaded using `require("holylib")`<br>
+\- [+] Added a new DLL system if anything wants to be loaded with HolyLib. (See: [example-module-dll](https://github.com/RaphaelIT7/gmod-holylib/tree/f937ba454b4d86edfc72df9cb3f8a689d7de2571/example-module-dll))<br>
 \- [#] Added some more safeguards to `IPhysicsEnvironment:Simulate` to prevent one from simulating a environment that is already being simulated.<br>
 \- [#] Highly optimized `util` module's json code to be noticably faster and use noticably less memory.<br>
 \- [#] Better support for multiple Lua states<br>
@@ -127,6 +133,16 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 \- [#] Tried to improve out of memory handling of `bitbuf.Create[Read/Write]Buffer` and `bf_read:ReadString()` functions<br>
 \- [#] Fixed a regression with `util.FancyTableToJSON` crashing with the `0.8-pre` build when it falsely tried to become sequential while being already non-sequential. (Reported by @Noahbg)<br>
 \- [#] Fixed absolute search cache causing files from any search path to be returned / destroying seperation between search paths (See https://github.com/RaphaelIT7/gmod-holylib/issues/83)<br>
+\- [#] Fixed HolyLua being unable to register any metatable causing crashes when trying to use them.<br>
+\- [#] Fixed some small memory leaks in HolyLibs CLuaInterface class<br>
+\- [#] Fixed `steamworks.ForceAuthenticate` being silently broken<br>
+\- [#] Fully seperated HolyLib's core from all modules allowing anyone to remove modules they don't want.<br>
+\- [#] Removed all dependencies modules had on each other allowing each module to compile without requiring another one.<br>
+\- [#] Fixed some issues in `luathreads` module that caused either crashes or simply were bugs<br>
+\- [#] Fixed lua error handler used by any `CLuaInterface` created by HolyLib failing (`error in error handler`)<br>
+\- [#] Moved `HolyLua` from HolyLib's core into a module to seperate it and allow anyone to remove it<br>
+\- [#] Fixed some memory leaks from our own `CLuaInterface` since on shutdown they never cleared up on removal/shutdown<br>
+\- [#] Added a speedup for pushing networked entities to Lua (On 64x pushing entities became 2.6x faster)<br>
 \- [-] Removed some unused code of former fixes that were implemented into Gmod<br>
 
 You can see all changes/commits here:<br>

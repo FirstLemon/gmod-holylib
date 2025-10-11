@@ -13,25 +13,52 @@ namespace GarrysMod::Lua
 	class ILuaShared;
 }
 
+// Enables support for cdata to be used as userdata
+// See the RawLua::CDataBridge to know how it works
+#define LUA_CDATA_SUPPORT 1
 namespace RawLua {
 	struct CDataBridge
 	{
+		// Registers the given cdata type to be treated as the given metaID
 		void RegisterType(unsigned char pMetaID, uint16_t cTypeID)
 		{
 			pRegisteredTypes.Set(cTypeID);
-			pMetaIDToCType[pMetaID] = cTypeID;
+			pMetaIDToCType[pMetaID] = cTypeID; // Though currently unused.
 		}
 
+		// Registers the ctype that represents HolyLib userdata.
 		void RegisterHolyLibUserData(int nTypeID)
 		{
 			nHolyLibUserDataTypeID = nTypeID;
 			pRegisteredTypes.Set(nTypeID); // Mark this too as else HolyLib's userdata would be seen as cdata and it'll shit everything
 		}
 
+		// If a cdata type was never registered, then it will never be allowed to act as userdata
+		FORCEINLINE bool IsRegistered(TValue* val)
+		{
+			return pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid);
+		}
+
+		int GetHolyLibUserDataGCFuncRef()
+		{
+			return nHolyLibUserDataGCFuncReference;
+		}
+
+		void SetHolyLibUserDataGCFuncRef(int nRef)
+		{
+			nHolyLibUserDataGCFuncReference = nRef;
+		}
+
+		TValue* GetHolyLibUserData()
+		{
+			return &nHolyLibUserDataGC;
+		}
+
+	private:
 		CBitVec<USHRT_MAX> pRegisteredTypes;
 		std::unordered_map<unsigned char, uint16_t> pMetaIDToCType = {};
 		uint32_t nHolyLibUserDataTypeID = 0; // cData TypeID of the HOLYLIB_UserData struct.
-		TValue* nHolyLibUserDataGC = nullptr;
+		TValue nHolyLibUserDataGC;
 		int nHolyLibUserDataGCFuncReference = -1;
 	};
 
@@ -82,6 +109,7 @@ namespace Lua
 	// Each new metatable has this entry.
 	struct LuaMetaEntry {
 		unsigned char iType = UCHAR_MAX;
+		unsigned char iLuaType = UCHAR_MAX;
 		GCRef metatable; // Direct reference allowing for faster setting.
 
 		LuaMetaEntry()
@@ -94,7 +122,7 @@ namespace Lua
 		All lua types that exist.
 		Use LUA_className as formatting.
 	*/
-	enum LuaTypes {
+	enum LuaTypes : unsigned char {
 		IGModAudioChannel,
 		bf_read,
 		bf_write,
@@ -124,7 +152,8 @@ namespace Lua
 		LuaInterface,
 		// WavAudioFile,
 
-		TOTAL_TYPES = 255,
+		_HOLYLIB_CORE_TEST = UCHAR_MAX-1,
+		TOTAL_TYPES = UCHAR_MAX,
 	};
 
 	class ModuleData {
@@ -141,16 +170,24 @@ namespace Lua
 	struct StateData
 	{
 		void* pOtherData[4]; // If any other plugin wants to use this, they can.
-		Lua::ModuleData* pModuelData[Lua::Internal::pMaxEntries] = { NULL }; // It uses the assigned module IDs
+		// ID 0 is used by HolyLib core!!!
+		// It uses the assigned module IDs
+		Lua::ModuleData* pModuelData[Lua::Internal::pMaxEntries] = { NULL };
 		LuaMetaEntry pLuaTypes[LuaTypes::TOTAL_TYPES];
 		std::unordered_map<void*, LuaUserData*> pPushedUserData; // Would love to get rid of this
 		GarrysMod::Lua::ILuaInterface* pLua = NULL;
 		CLuaInterfaceProxy* pProxy;
 		GCRef nErrorFunc;
+#if LUA_CDATA_SUPPORT
+		RawLua::CDataBridge pBridge;
+#endif
 
 		StateData()
 		{
 			setgcrefnull(nErrorFunc);
+
+			for (int i=0; i<LuaTypes::TOTAL_TYPES; ++i)
+				pLuaTypes[i].iLuaType = i;
 		}
 
 		~StateData();
@@ -272,6 +309,13 @@ namespace Lua
 
 			return true;
 		}
+
+#if LUA_CDATA_SUPPORT
+		inline RawLua::CDataBridge& GetCDataBridge()
+		{
+			return pBridge;
+		}
+#endif
 	};
 
 	/*
@@ -280,14 +324,23 @@ namespace Lua
 	 * We abuse the GetPathID var as it's a char[32] but it'll never actually fully use it.
 	 * Why? Because I didn't want to use yet another unordered_map for this, also this should be faster.
 	 */
-	inline Lua::StateData* GetLuaData(GarrysMod::Lua::ILuaInterface* LUA)
+	// constexpr int nPathIDOffset = 196 + 24;
+	FORCEINLINE Lua::StateData* GetLuaData(GarrysMod::Lua::ILuaInterface* LUA)
 	{
-		return *reinterpret_cast<Lua::StateData**>((char*)LUA->GetPathID() + 24);
+		return *reinterpret_cast<Lua::StateData**>((char*)LUA->GetPathID() + 24); // ((char*)LUA + nPathIDOffset);
 	}
 	extern void CreateLuaData(GarrysMod::Lua::ILuaInterface* LUA, bool bNullOut = false);
 	extern void RemoveLuaData(GarrysMod::Lua::ILuaInterface* LUA);
 	extern const std::unordered_set<Lua::StateData*>& GetAllLuaData();
+
+	// In a single call checks the type and returns the userdata saving some work.
+	extern bool CheckHolyLibType(GarrysMod::Lua::ILuaInterface* LUA, int nStackPos, int nType, LuaUserData** pUserData);
 	extern LuaUserData* GetHolyLibUserData(GarrysMod::Lua::ILuaInterface* LUA, int nStackPos);
+
+	extern bool FindOnObjectsMetaTable(lua_State* L, int nStackPos, int nKeyPos);
+
+	// GMod specific fast type check
+	extern bool CheckGModType(GarrysMod::Lua::ILuaInterface* LUA, int nStackPos, int nType, void** pUserData);
 
 	// ToDo
 	// - EnterLockdown
@@ -300,16 +353,17 @@ namespace Lua
 }
 
 // Creates a function Get[funcName]LuaData and returns the stored module data from the given module.
-#define LUA_GetModuleData(className, moduleName, funcName) \
+#define LUA_GetModuleDataWithID(className, funcName, id) \
 static inline className* Get##funcName##LuaData(GarrysMod::Lua::ILuaInterface* pLua) \
 { \
 	if (!pLua) { \
 		return NULL; \
 	} \
 \
-	return (className*)Lua::GetLuaData(pLua)->GetModuleData(moduleName.m_pID); \
+	return (className*)Lua::GetLuaData(pLua)->GetModuleData(id); \
 }
-// Another new line just for the macro to not shit itself. GG
+
+#define LUA_GetModuleData(className, moduleName, funcName) LUA_GetModuleDataWithID(className, funcName, moduleName.m_pID)
 
 /*
 	==============================================
@@ -536,6 +590,11 @@ struct LuaUserData : GCudata_holylib { // No constructor/deconstructor since its
 		udtype = pMetaEntry.iType;
 		metatable = pMetaEntry.metatable;
 
+		if (pMetaEntry.iType == UCHAR_MAX)
+		{
+			Warning(PROJECT_NAME ": Tried to push userdata of HolyLib Lua Type %i but it was never registered! (Is the module missing/disabled?)", pMetaEntry.iLuaType);
+		}
+
 		if (bNoUserTable)
 		{
 			flags |= UDATA_NO_USERTABLE;
@@ -754,7 +813,8 @@ static std::string triedNull_##className = MakeString("Tried to use a NULL ", st
 inline LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
 { \
 	unsigned char luaType = Lua::GetLuaData(LUA)->GetMetaTable(TO_LUA_TYPE(className)); \
-	if (!LUA->IsType(iStackPos, luaType)) \
+	LuaUserData* pVar = nullptr; \
+	if (!Lua::CheckHolyLibType(LUA, iStackPos, luaType, &pVar)) \
 	{ \
 		if (bError) \
 			LUA->ThrowError(invalidType_##className.c_str()); \
@@ -762,7 +822,6 @@ inline LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, i
 		return NULL; \
 	} \
 \
-	LuaUserData* pVar = static_cast<LuaUserData*>(static_cast<void*>(Lua::GetHolyLibUserData(LUA, iStackPos))); \
 	if ((!pVar || !pVar->GetData()) && bError) \
 		LUA->ThrowError(triedNull_##className.c_str()); \
 \
@@ -795,7 +854,8 @@ static std::string invalidType_##className = MakeString("Tried to use something 
 static std::string triedNull_##className = MakeString("Tried to use a NULL ", strName, "!"); \
 className* Get_##className(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
 { \
-	if (!LUA->IsType(iStackPos, luaType)) \
+	className* pVar = nullptr; \
+	if (!Lua::CheckGModType(LUA, iStackPos, luaType, (void**)&pVar)) \
 	{ \
 		if (bError) \
 			LUA->ThrowError(invalidType_##className.c_str()); \
@@ -803,7 +863,6 @@ className* Get_##className(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bo
 		return NULL; \
 	} \
 \
-	className* pVar = LUA->GetUserType<className>(iStackPos, luaType); \
 	if (!pVar && bError) \
 		LUA->ThrowError(triedNull_##className.c_str()); \
 \
@@ -822,8 +881,12 @@ inline LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, i
 	unsigned char luaType = LUADATA->GetMetaTable(TO_LUA_TYPE(className)); \
 	unsigned char luaType2 = LUADATA->GetMetaTable(TO_LUA_TYPE(className2)); \
 \
-	int iType = LUA->GetType(iStackPos); \
-	if (iType != luaType && iType != luaType2) \
+	LuaUserData* pVar = Lua::GetHolyLibUserData(LUA, iStackPos); \
+	if (!pVar) \
+		if (bError) \
+			LUA->ThrowError(triedNull_##className.c_str()); \
+	\
+	if (!pVar || pVar->GetType() != luaType && pVar->GetType() != luaType2) \
 	{ \
 		if (bError) \
 			LUA->ThrowError(invalidType_##className.c_str()); \
@@ -831,24 +894,7 @@ inline LuaUserData* Get_##className##_Data(GarrysMod::Lua::ILuaInterface* LUA, i
 		return NULL; \
 	} \
 \
-	if (iType == luaType) \
-	{ \
-		LuaUserData* pVar = static_cast<LuaUserData*>(static_cast<void*>(Lua::GetHolyLibUserData(LUA, iStackPos))); \
-		if (pVar) \
-			return pVar; \
-	} \
-\
-	if (iType == luaType2) \
-	{ \
-		LuaUserData* pVar = static_cast<LuaUserData*>(static_cast<void*>(Lua::GetHolyLibUserData(LUA, iStackPos))); \
-		if (pVar) \
-			return pVar; \
-	} \
- \
-	if (bError) \
-		LUA->ThrowError(triedNull_##className.c_str()); \
-\
-	return NULL; \
+	return pVar; \
 } \
 \
 className* Get_##className(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError) \
@@ -870,6 +916,7 @@ className* Get_##className(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bo
 }
 
 #define Push_LuaClass( className ) \
+static std::string triedPushing_##className = MakeString("Tried to push a ", #className, " class to Lua when it was never registered! (enable the module that registers them!)"); \
 LuaUserData* Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 { \
 	if (!var) \
@@ -879,6 +926,8 @@ LuaUserData* Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var
 	} \
 \
 	const Lua::LuaMetaEntry& pMeta = Lua::GetLuaData(LUA)->GetMetaEntry(TO_LUA_TYPE(className)); \
+	if (pMeta.iType == UCHAR_MAX) \
+		LUA->ThrowError(triedPushing_##className.c_str()); \
 	LuaUserData* userData = (LuaUserData*)((char*)RawLua::AllocateCDataOrUserData(LUA, pMeta.iType, udataSize) - sizeof(GCudata)); \
 	userData->Init(LUA, pMeta, var); \
 	return userData; \
@@ -891,6 +940,7 @@ LuaUserData* Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var
  */
 #pragma warning(disable:4505) // Why would we need a warning if a function got removed because its unused.
 #define PushReferenced_LuaClass( className ) \
+static std::string triedPushing_##className = MakeString("Tried to push a ", #className, " class to Lua when it was never registered! (enable the module that registers them!)"); \
 void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 { \
 	if (!var) \
@@ -905,8 +955,10 @@ void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 	{ \
 		it->second->Push(LUA); \
 	} else { \
-		LuaUserData* userData = (LuaUserData*)((char*)LUA->NewUserdata(udataSize) - sizeof(GCudata)); \
 		const Lua::LuaMetaEntry& pMeta = Lua::GetLuaData(LUA)->GetMetaEntry(TO_LUA_TYPE(className)); \
+		if (pMeta.iType == UCHAR_MAX) \
+			LUA->ThrowError(triedPushing_##className.c_str()); \
+		LuaUserData* userData = (LuaUserData*)((char*)LUA->NewUserdata(udataSize) - sizeof(GCudata)); \
 		userData->Init(LUA, pMeta, var, true); \
 		pushedUserData[var] = userData; \
 	} \
@@ -949,12 +1001,13 @@ void Push_##className(GarrysMod::Lua::ILuaInterface* LUA, className* var) \
 // which handles everything like finding the functions in the metatable
 // or getting vars on the object like: print(userData.value)
 #define Default__index(className) \
-LUA_FUNCTION_STATIC(className ## __index) \
+static int className ## __index( lua_State* L ) \
 { \
-	if (LUA->FindOnObjectsMetaTable(1, 2)) \
+	if (Lua::FindOnObjectsMetaTable(L, 1, 2)) \
 		return 1; \
 \
-	LUA->Pop(1); \
+	GarrysMod::Lua::ILuaInterface* LUA = ((lua_GmodState*)L)->luabase; \
+	LUA->SetState(L); \
 	Get_##className##_Data(LUA, 1, true)->PushLuaTable(LUA); \
 	if (!LUA->FindObjectOnTable(-1, 2)) \
 		LUA->PushNil(); \
@@ -1017,6 +1070,8 @@ LUA_FUNCTION_STATIC(className ## _GetTable) \
  * and since it's the same userdata thats reference pushed, we won't need a __eq
  */
 
+#define MISSING_MODULE_ERROR(lua, modulename) lua->ThrowError(#modulename " module is missing in this holylib build!");
+
 /*
 	Push functions for Gmod Types
 */ 
@@ -1034,6 +1089,7 @@ extern ConVar* Get_ConVar(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, boo
 	Push functions for HolyLib types.
 */
 
+#if MODULE_EXISTS_BITBUF
 class bf_read;
 /*
  * It will be deleted by Lua GC.
@@ -1049,12 +1105,14 @@ class bf_write;
  */
 extern LuaUserData* Push_bf_write(GarrysMod::Lua::ILuaInterface* LUA, bf_write* tbl, bool bDeleteUs);
 extern bf_write* Get_bf_write(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError);
+#endif
 
 #if MODULE_EXISTS_GAMEEVENT
 class IGameEvent;
 extern IGameEvent* Get_IGameEvent(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError);
 #endif
 
+#if MODULE_EXISTS_ENTITYLIST
 struct EntityList // entitylist module.
 {
 	EntityList();
@@ -1116,10 +1174,13 @@ extern EntityList& GetGlobalEntityList(GarrysMod::Lua::ILuaInterface* pLua);
 
 extern bool Is_EntityList(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos);
 extern EntityList* Get_EntityList(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError);
+#endif
 
+#if MODULE_EXISTS_GAMESERVER
 class CBaseClient;
 extern void Push_CBaseClient(GarrysMod::Lua::ILuaInterface* LUA, CBaseClient* tbl);
 extern CBaseClient* Get_CBaseClient(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos, bool bError);
+#endif
 
 extern void Push_QAngle(GarrysMod::Lua::ILuaInterface* LUA, QAngle* var);
 extern void Push_Vector(GarrysMod::Lua::ILuaInterface* LUA, Vector* var);

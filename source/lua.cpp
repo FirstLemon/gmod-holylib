@@ -9,9 +9,159 @@
 #include "CLuaInterface.h"
 #include "versioninfo.h"
 #include "detouring/customclassproxy.hpp"
+#include "eiface.h"
+#include "player.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
+
+// Testing functions
+
+static CBaseEntity* pTestWorld = nullptr;
+LUA_FUNCTION_STATIC(Test_PushEntity)
+{
+	// We just push the world entity, in Lua we then test if we got an Entity.
+	if (!pTestWorld)
+		pTestWorld = Util::GetCBaseEntityFromEdict(Util::engineserver->PEntityOfEntIndex(0));
+
+	Util::Push_Entity(LUA, pTestWorld);
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_RawGetEntity)
+{
+	Util::Get_Entity(LUA, 1, true);
+	return 0;
+}
+
+LUA_FUNCTION_STATIC(Test_GetEntity)
+{
+	CBaseEntity* pEntity = Util::Get_Entity(LUA, 1, true);
+	EHANDLE* pEntHandle = LUA->GetUserType<EHANDLE>(1, GarrysMod::Lua::Type::Entity);
+	// If something broke, either we will return false, or we will crash which is intented to make the tests fail.
+	LUA->PushBool(pEntity && pEntity->edict() && pEntity->edict()->m_EdictIndex == pEntHandle->GetEntryIndex());
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_GetPlayer) // Same as Test_GetEntity though calling Get_Player since it's a seperate independent function.
+{
+	CBasePlayer* pEntity = Util::Get_Player(LUA, 1, true);
+	EHANDLE* pEntHandle = LUA->GetUserType<EHANDLE>(1, GarrysMod::Lua::Type::Entity);
+	LUA->PushBool(pEntity && pEntity->edict() && pEntity->edict()->m_EdictIndex == pEntHandle->GetEntryIndex());
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_ClearLuaTable)
+{
+	LuaUserData* pUserData = Lua::GetHolyLibUserData(LUA, 1);
+	pUserData->ClearLuaTable(LUA);
+	return 0;
+}
+
+struct _HOLYLIB_CORE_TEST
+{
+	int JustAnExample = 123;
+};
+
+Push_LuaClass(_HOLYLIB_CORE_TEST)
+Get_LuaClass(_HOLYLIB_CORE_TEST, "_HOLYLIB_CORE_TEST")
+
+Default__index(_HOLYLIB_CORE_TEST);
+Default__newindex(_HOLYLIB_CORE_TEST);
+Default__GetTable(_HOLYLIB_CORE_TEST);
+Default__gc(_HOLYLIB_CORE_TEST, 
+	_HOLYLIB_CORE_TEST* pTestData = (_HOLYLIB_CORE_TEST*)pStoredData;
+	if (pTestData)
+		delete pTestData;
+)
+
+LUA_FUNCTION_STATIC(Test_PushTestUserData)
+{
+	Push__HOLYLIB_CORE_TEST(LUA, new _HOLYLIB_CORE_TEST);
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_GetTestUserData)
+{
+	_HOLYLIB_CORE_TEST* pTest = Get__HOLYLIB_CORE_TEST(LUA, 1, true);
+	LUA->PushBool(pTest->JustAnExample == 123); // Verify we didn't get garbage
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_RawGetTestUserData)
+{
+	Get__HOLYLIB_CORE_TEST(LUA, 1, true);
+	return 0;
+}
+
+class LuaCoreTestModuleData : public Lua::ModuleData
+{
+public:
+	int nTest = 456;
+};
+
+LUA_GetModuleDataWithID(LuaCoreTestModuleData, HolyLib_Core, 0);
+
+LUA_FUNCTION_STATIC(Test_GetModuleData)
+{
+	LuaCoreTestModuleData* pData = GetHolyLib_CoreLuaData(LUA);
+	LUA->PushBool(pData->nTest == 456);
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_RawGetModuleData)
+{
+	GetHolyLib_CoreLuaData(LUA);
+	return 0;
+}
+
+LUA_FUNCTION_STATIC(Test_GetGModVector)
+{
+	Vector* pData = Get_Vector(LUA, 1);
+	LUA->PushBool(pData->x == 1 && pData->y == 2 && pData->z == 3);
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_RawGetGModVector)
+{
+	Get_Vector(LUA, 1);
+	return 0;
+}
+
+static void SetupCoreTestFunctions(GarrysMod::Lua::ILuaInterface* pLua)
+{
+	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::_HOLYLIB_CORE_TEST, pLua->CreateMetaTable("_HOLYLIB_CORE_TEST"));
+		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST__index, "__index");
+		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST__newindex, "__newindex");
+		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST__gc, "__gc");
+		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST_GetTable, "GetTable");
+	pLua->Pop(1);
+
+	Lua::GetLuaData(pLua)->SetModuleData(0, new LuaCoreTestModuleData);
+
+	Util::StartTable(pLua);
+		Util::AddFunc(pLua, Test_PushEntity, "PushEntity");
+		Util::AddFunc(pLua, Test_GetEntity, "GetEntity");
+		Util::AddFunc(pLua, Test_RawGetEntity, "RawGetEntity"); // Used to test performance
+		Util::AddFunc(pLua, Test_GetPlayer, "GetPlayer");
+		Util::AddFunc(pLua, Test_ClearLuaTable, "ClearLuaTable");
+		Util::AddFunc(pLua, Test_PushTestUserData, "PushTestUserData");
+		Util::AddFunc(pLua, Test_GetTestUserData, "GetTestUserData");
+		Util::AddFunc(pLua, Test_RawGetTestUserData, "RawGetTestUserData");
+		Util::AddFunc(pLua, Test_GetModuleData, "GetModuleData");
+		Util::AddFunc(pLua, Test_RawGetModuleData, "RawGetModuleData");
+		Util::AddFunc(pLua, Test_GetGModVector, "GetGModVector");
+		Util::AddFunc(pLua, Test_RawGetGModVector, "RawGetGModVector");
+	Util::FinishTable(pLua, "_HOLYLIB_CORE");
+}
+
+static void RemoveCoreTestFunctions(GarrysMod::Lua::ILuaInterface* pLua)
+{
+	Util::NukeTable(pLua, "_HOLYLIB_CORE");
+	pTestWorld = nullptr;
+}
+
+// Testing functions end
 
 bool Lua::PushHook(const char* hook, GarrysMod::Lua::ILuaInterface* pLua)
 {
@@ -21,7 +171,7 @@ bool Lua::PushHook(const char* hook, GarrysMod::Lua::ILuaInterface* pLua)
 		return false;
 	}
 
-	if (!ThreadInMainThread())
+	if (!ThreadInMainThread() && pLua == g_Lua)
 	{
 		Warning(PROJECT_NAME ": Lua::PushHook was called ouside of the main thread! (%s)\n", hook);
 		return false;
@@ -78,6 +228,8 @@ void Lua::Init(GarrysMod::Lua::ILuaInterface* LUA)
 	g_pModuleManager.LuaInit(g_Lua, false);
 	SetupUnHolyVTableForThisShit(g_Lua);
 
+	SetupCoreTestFunctions(g_Lua); // For Tests.
+
 	std::vector<GarrysMod::Lua::LuaFindResult> results;
 	GetShared()->FindScripts("lua/autorun/_holylib/*.lua", "GAME", results);
 	for (GarrysMod::Lua::LuaFindResult& result : results)
@@ -114,6 +266,8 @@ void Lua::Shutdown()
 
 	g_Lua->PushNil();
 	g_Lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, "_HOLYLIB");
+
+	RemoveCoreTestFunctions(g_Lua);
 }
 
 void Lua::FinalShutdown()
@@ -242,9 +396,6 @@ void Lua::DestroyInterface(GarrysMod::Lua::ILuaInterface* LUA)
 	Lua::CloseLuaInterface(LUA);
 }
 
-// From LuaJIT, though we can strip it out later
-// ToDo: Find out how to untangle these internal dependencies, we / our core system should not depend on modules.
-extern RawLua::CDataBridge* GetCDataBridgeFromInterface(GarrysMod::Lua::ILuaInterface* pLua);
 LuaUserData* Lua::GetHolyLibUserData(GarrysMod::Lua::ILuaInterface * LUA, int nStackPos)
 {
 	lua_State* L = LUA->GetState();
@@ -254,12 +405,14 @@ LuaUserData* Lua::GetHolyLibUserData(GarrysMod::Lua::ILuaInterface * LUA, int nS
 
 	if (!tvisudata(val))
 	{
+#if LUA_CDATA_SUPPORT
 		if (tviscdata(val))
 		{
-			RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(LUA);
-			if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+			RawLua::CDataBridge& pBridge = Lua::GetLuaData(LUA)->GetCDataBridge();
+			if (pBridge.IsRegistered(val))
 				return (LuaUserData*)lj_obj_ptr(G(L), val);
 		}
+#endif
 
 		return nullptr;
 	}
@@ -271,6 +424,107 @@ LuaUserData* Lua::GetHolyLibUserData(GarrysMod::Lua::ILuaInterface * LUA, int nS
 	}
 
 	return nullptr;
+}
+
+bool Lua::CheckHolyLibType(GarrysMod::Lua::ILuaInterface* LUA, int nStackPos, int nType, LuaUserData** pUserData)
+{
+	LuaUserData* pData = Lua::GetHolyLibUserData(LUA, nStackPos);
+
+	if (pData && pData->GetType() == nType)
+	{
+		*pUserData = pData;
+		return true;
+	}
+
+	*pUserData = nullptr;
+	return false;
+}
+
+bool Lua::CheckGModType(GarrysMod::Lua::ILuaInterface* LUA, int nStackPos, int nType, void** pUserData)
+{
+	lua_State* L = LUA->GetState();
+	TValue* val = RawLua::index2adr(L, nStackPos);
+
+	if (val)
+	{
+		if (tvisudata(val))
+		{
+			GarrysMod::Lua::ILuaBase::UserData* pData = (GarrysMod::Lua::ILuaBase::UserData*)uddata(udataV(val));
+			if (pData && pData->type == nType)
+			{
+				*pUserData = pData->data;
+				return true;
+			}
+		}
+
+#if LUA_CDATA_SUPPORT
+		if (tviscdata(val))
+		{
+			RawLua::CDataBridge& pBridge = Lua::GetLuaData(LUA)->GetCDataBridge();
+			if (pBridge.IsRegistered(val))
+			{
+				GarrysMod::Lua::ILuaBase::UserData* pData = (GarrysMod::Lua::ILuaBase::UserData*)lj_obj_ptr(G(L), val);
+				if (pData && pData->type == nType)
+				{
+					*pUserData = pData->data;
+					return true;
+				}
+			}
+		}
+#endif
+	}
+
+	*pUserData = nullptr;
+	return false;
+}
+
+// NOTE: This Only works on stack values that are on the top!!!
+static inline TValue* FastIndex2Addr(lua_State* L, int nStackPos)
+{
+	TValue *o = L->base + (nStackPos - 1);
+	return o < L->top ? o : niltv(L);
+}
+
+// Should only be called by Default__index!
+bool Lua::FindOnObjectsMetaTable(lua_State* L, int nStackPos, int nKeyPos)
+{
+	if (Util::func_lj_tab_get)
+	{
+		TValue* val = FastIndex2Addr(L, nStackPos);
+
+		if (val && tvisudata(val))
+		{
+			GCudata* udata = udataV(val);
+			GCtab* meta = tabref(udata->metatable);
+			if (meta)
+			{
+				TValue* tabVal = (TValue*)Util::func_lj_tab_get(L, meta, L->top-1);
+				if (!tvisnil(tabVal))
+				{
+					copyTV(L, L->top++, tabVal);
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	// TEMP: Change this later!!!
+	GarrysMod::Lua::ILuaInterface* LUA = ((lua_GmodState*)L)->luabase;
+	LUA->SetState(L);
+	if (LUA->GetMetaTable(nStackPos))
+	{
+		LUA->Push(nKeyPos);
+		LUA->RawGet(-2);
+		
+		if (Util::func_lua_type(LUA->GetState(), -1))
+			return true;
+
+		LUA->Pop(2);
+	}
+
+	return false;
 }
 
 // We need to do some hooking for these since our userdata is "special"
@@ -303,10 +557,11 @@ public:
 
 		if (!tvisudata(val))
 		{
+#if LUA_CDATA_SUPPORT
 			if (tviscdata(val))
 			{
-				RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(This());
-				if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+				RawLua::CDataBridge& pBridge = Lua::GetLuaData(This())->GetCDataBridge();
+				if (pBridge.IsRegistered(val))
 				{
 					auto uData = (GarrysMod::Lua::ILuaBase::UserData*)lj_obj_ptr(G(L), val);
 					if (uData)
@@ -315,6 +570,7 @@ public:
 					}
 				}
 			}
+#endif
 
 			return -1;
 		}
@@ -341,12 +597,14 @@ public:
 
 		if (!tvisudata(val))
 		{
+#if LUA_CDATA_SUPPORT
 			if (tviscdata(val))
 			{
-				RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(This());
-				if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+				RawLua::CDataBridge& pBridge = Lua::GetLuaData(This())->GetCDataBridge();
+				if (pBridge.IsRegistered(val))
 					return (void*)lj_obj_ptr(G(L), val);
 			}
+#endif
 
 			return nullptr;
 		}
@@ -373,10 +631,11 @@ public:
 
 		if (!tvisudata(val))
 		{
+#if LUA_CDATA_SUPPORT
 			if (tviscdata(val))
 			{
-				RawLua::CDataBridge* pBridge = GetCDataBridgeFromInterface(This());
-				if (pBridge->pRegisteredTypes.IsBitSet(cdataV(val)->ctypeid))
+				RawLua::CDataBridge& pBridge = Lua::GetLuaData(This())->GetCDataBridge();
+				if (pBridge.IsRegistered(val))
 				{
 					GarrysMod::Lua::ILuaBase::UserData* uData = (GarrysMod::Lua::ILuaBase::UserData*)lj_obj_ptr(G(L), val);
 					if (uData)
@@ -385,6 +644,7 @@ public:
 					}
 				}
 			}
+#endif
 
 			return;
 		}

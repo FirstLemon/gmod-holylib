@@ -46,7 +46,7 @@ static ConVar holylib_filesystem_predictpath("holylib_filesystem_predictpath", "
 	"If enabled, it will try to predict the path of a file");
 static ConVar holylib_filesystem_predictexistance("holylib_filesystem_predictexistance", "0", 0, 
 	"If enabled, it will try to predict the path of a file, but if the file doesn't exist in the predicted path, we'll just say it doesn't exist.");
-static ConVar holylib_filesystem_splitgamepath("holylib_filesystem_splitgamepath", "1", FCVAR_ARCHIVE, 
+static ConVar holylib_filesystem_splitgamepath("holylib_filesystem_splitgamepath", "0", FCVAR_ARCHIVE, 
 	"If enabled, it will create for each content type like models/, materials/ a game path which will be used to find that content.");
 static ConVar holylib_filesystem_splitluapath("holylib_filesystem_splitluapath", "0", 0, 
 	"If enabled, it will do the same thing holylib_filesystem_splitgamepath does but with lsv. Currently it breaks workshop addons.");
@@ -170,12 +170,12 @@ FileHandle_t GetFileHandleFromCache(std::string_view strFilePath)
 	if (iPos != 0)
 	{
 		if (g_pFileSystemModule.InDebug())
-			Msg("holylib - GetFileHandleFromCache: Pos: %llu\n", g_pFullFileSystem->Tell(it->second));
+			Msg("holylib - GetFileHandleFromCache: Pos: %u\n", g_pFullFileSystem->Tell(it->second));
 		
 		g_pFullFileSystem->Seek(it->second, 0, FILESYSTEM_SEEK_HEAD); // Why doesn't it reset?
 		
 		if (g_pFileSystemModule.InDebug())
-			Msg("holylib - GetFileHandleFromCache: Rewind pos: %llu\n", g_pFullFileSystem->Tell(it->second));
+			Msg("holylib - GetFileHandleFromCache: Rewind pos: %u\n", g_pFullFileSystem->Tell(it->second));
 		
 		int iNewPos = (int)g_pFullFileSystem->Tell(it->second);
 		if (iNewPos != 0)
@@ -1689,6 +1689,9 @@ inline const char* CPathIDInfo::GetPathIDString() const
 	 * This had happen in https://github.com/RaphaelIT7/gmod-holylib/issues/23 where it would result in crashes inside strlen calls on the string.
 	 */
 
+	if (!g_pPathIDTable)
+		return NULL;
+
 	return g_pPathIDTable->String( m_PathID );
 }
 
@@ -1794,7 +1797,11 @@ void CFileSystemModule::InitDetour(bool bPreServer)
 	Detour::CheckFunction((void*)func_CBaseFileSystem_CSearchPath_GetDebugString, "CBaseFileSystem::CSearchPath::GetDebugString");
 
 	SourceSDK::FactoryLoader dedicated_factory("dedicated_srv");
+#if ARCHITECTURE_IS_X86
 	g_pPathIDTable = Detour::ResolveSymbol<CUtlSymbolTableMT>(dedicated_factory, Symbols::g_PathIDTableSym);
+#else
+	g_pPathIDTable = Detour::ResolveSymbolFromLea<CUtlSymbolTableMT>(dedicated_factory.GetModule(), Symbols::g_PathIDTableSym);
+#endif
 	Detour::CheckValue("get class", "g_PathIDTable", g_pPathIDTable != NULL);
 #endif
 }
