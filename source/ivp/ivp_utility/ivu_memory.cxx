@@ -66,23 +66,18 @@ void ivp_byte_swap4(uint& fourbytes)
 }
 */
 
-inline void ivp_byte_swap4(unsigned int &fourbytes)
+void ivp_byte_swap4(uint &fourbytes)
 {
-	std::uint32_t tmp;
-	// Safe bit copy from uint -> uint32_t (same size, but avoids aliasing assumptions)
-	std::memcpy(&tmp, &fourbytes, sizeof(tmp));
+	uint buffer;
+	std::memcpy(&buffer, &fourbytes, sizeof(buffer));
 
-#ifdef _WIN32
-	tmp = _byteswap_ulong(tmp);
-#else
-	tmp =	((tmp & 0x000000FFU) << 24) |
-			((tmp & 0x0000FF00U) << 8) |
-			((tmp & 0x00FF0000U) >> 8) |
-			((tmp & 0xFF000000U) >> 24);
+#ifdef _MSC_VER
+	buffer = _byteswap_ulong(buffer);
+#elif defined(__GNUC__)
+	buffer = __builtin_bswap32(buffer);
 #endif
 
-	// Copy the swapped value back
-	std::memcpy(&fourbytes, &tmp, sizeof(tmp));
+	std::memcpy(&fourbytes, &buffer, sizeof(buffer));
 }
 
 /*
