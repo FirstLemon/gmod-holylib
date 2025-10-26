@@ -2,21 +2,21 @@ return {
     groupName = "IGModAudioChannel:__index",
     cases = {
         {
-            name = "Function exists globally",
+            name = "Function exists when module enabled",
             when = HolyLib_IsModuleEnabled("bass"),
             func = function()
                 expect( FindMetaTable("IGModAudioChannel").__index ).to.beA( "function" )
             end
         },
         {
-            name = "Metatable doesn't exist",
+            name = "Function is nil when module disabled",
             when = not HolyLib_IsModuleEnabled("bass"),
             func = function()
                 expect( FindMetaTable("IGModAudioChannel") ).to.beA( "nil" )
             end
         },
         {
-            name = "Sets the right value",
+            name = "Returns the right value from channel",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,

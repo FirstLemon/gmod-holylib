@@ -3,24 +3,21 @@ return {
 
     cases = {
         {
-            name = "Function exists globally",
+            name = "Function exists when module enabled",
             when = HolyLib_IsModuleEnabled("bass"),
             func = function()
                 expect( bass.PlayFile ).to.beA( "function" )
             end
         },
         {
-            name = "Function doesn't exists globally",
+            name = "Function is nil when module disabled",
             when = not HolyLib_IsModuleEnabled("bass"),
             func = function()
                 expect( bass.PlayFile ).to.beA( "nil" )
             end
         },
-        -- #############
-        -- Success Cases
-        -- #############
         {
-            name = "Success Case - Playing valid sample audio file with mono flag",
+            name = "Playing valid sample audio file with mono flag",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -40,7 +37,7 @@ return {
             end
         },
         {
-            name = "Success Case - Playing valid sample audio file with no flag",
+            name = "Playing valid sample audio file with default flags",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -60,7 +57,7 @@ return {
             end
         },
         {
-            name = "Success Case - Playing valid sample audio file with noplay flag",
+            name = "Playing valid sample audio file with noplay flag",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -80,7 +77,7 @@ return {
             end
         },
         {
-            name = "Success Case - Playing valid sample audio file with noblock flag",
+            name = "Playing valid sample audio file with noblock flag",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -100,7 +97,7 @@ return {
             end
         },
         {
-            name = "Success Case - Ignores invalid / nonsense flag",
+            name = "Ingore unknown or non-sensical flags",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -119,11 +116,8 @@ return {
                 end)
             end
         },
-        -- #############
-        -- Failure Cases
-        -- #############
         {
-            name = "Failure Case - Invalid Path",
+            name = "Handles invalid file paths gracefully",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -141,7 +135,7 @@ return {
             end
         },
         {
-            name = "Failure Case - incorrect 3d usage",
+            name = "Incorrect 3d flag usage",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -159,7 +153,7 @@ return {
             end
         },
         {
-            name = "Failure Case - Not an audio file",
+            name = "Handles non-audio files gracefully",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,

@@ -16,7 +16,7 @@ return {
             end
         },
         {
-            name = "Valid IGModAudioChannel",
+            name = "__tostring on valid channel returns correct string",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -32,5 +32,18 @@ return {
                 end)
             end
         },
+        {
+            name = "__tostring on invlalid channel is being handled correctly",
+            when = HolyLib_IsModuleEnabled("bass"),
+            func = function()
+                local filePath = "sound/bass-test.wav"
+                local flags = ""
+
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    local invalidChannel = bass.IGModAudioChannel()
+                    local output = invalidChannel:__tostring()
+                    expect( output ).to.beA( "string" ) 
+                end)
+        }
     }
 }

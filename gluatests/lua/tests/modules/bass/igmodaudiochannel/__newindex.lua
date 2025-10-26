@@ -16,7 +16,7 @@ return {
             end
         },
         {
-            name = "Sets the right value",
+            name = "Sets the new index value on channel",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
