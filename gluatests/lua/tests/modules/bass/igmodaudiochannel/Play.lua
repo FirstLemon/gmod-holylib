@@ -23,7 +23,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -44,7 +44,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -72,7 +72,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -94,7 +94,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)

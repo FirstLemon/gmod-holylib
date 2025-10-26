@@ -22,7 +22,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "mono"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -42,7 +42,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -62,7 +62,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -82,7 +82,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "noblock"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -102,7 +102,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "holy noplay hello"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -140,7 +140,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = "3d mono"
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -161,7 +161,6 @@ return {
                 local filePath = "sound/not-real.txt"
                 local flags = ""
 
-                -- this makes no sense whatsoever
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
                     expect( channel ).to.beNil()
                     expect( errorCode ).to.equal( 41 )

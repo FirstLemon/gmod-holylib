@@ -21,7 +21,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)

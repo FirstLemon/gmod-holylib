@@ -21,7 +21,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -33,10 +33,11 @@ return {
             end
         },
         {
+            -- this makes no sense whatsoever
             name = "__tostring on invlalid channel is being handled correctly",
             when = HolyLib_IsModuleEnabled("bass"),
             func = function()
-                local filePath = "sound/bass-test.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = ""
 
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
@@ -44,6 +45,7 @@ return {
                     local output = invalidChannel:__tostring()
                     expect( output ).to.beA( "string" ) 
                 end)
-        }
+            end
+        },
     }
 }
