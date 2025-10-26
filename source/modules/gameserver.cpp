@@ -28,7 +28,7 @@ public:
 
 static ConVar gameserver_disablespawnsafety("holylib_gameserver_disablespawnsafety", "0", 0, "If enabled, players can spawn on slots above 128 but this WILL cause stability and many other issues!");
 static ConVar gameserver_connectionlesspackethook("holylib_gameserver_connectionlesspackethook", "1", 0, "If enabled, the HolyLib:ProcessConnectionlessPacket hook is active and will be called.");
-static ConVar sv_filter_nobanresponse("sv_filter_nobanresponse", "0", 0, "If enabled, a blocked ip won't be informed that its even blocked.");
+ConVar sv_filter_nobanresponse("sv_filter_nobanresponse", "0", 0, "If enabled, a blocked ip won't be informed that its even blocked.");
 
 CGameServerModule g_pGameServerModule;
 IModule* pGameServerModule = &g_pGameServerModule;
@@ -2473,9 +2473,12 @@ static Detouring::Hook detour_CBaseServer_ProcessConnectionlessPacket;
 static bool hook_CBaseServer_ProcessConnectionlessPacket(IServer* server, netpacket_s* packet)
 {
 	if (!gameserver_connectionlesspackethook.GetBool() || server->IsHLTV())
-	{
 		return detour_CBaseServer_ProcessConnectionlessPacket.GetTrampoline<Symbols::CBaseServer_ProcessConnectionlessPacket>()(server, packet);
-	}
+
+#if MODULE_EXISTS_NETWORKTHREADING
+	if (!ThreadInMainThread()) // Happens when processing packets in the networking thread :^
+		return detour_CBaseServer_ProcessConnectionlessPacket.GetTrampoline<Symbols::CBaseServer_ProcessConnectionlessPacket>()(server, packet);
+#endif
 
 	int originalPos = packet->message.GetNumBitsRead();
 	if (Lua::PushHook("HolyLib:ProcessConnectionlessPacket"))
@@ -2500,9 +2503,7 @@ static bool hook_CBaseServer_ProcessConnectionlessPacket(IServer* server, netpac
 #endif
 
 		if (bHandled)
-		{
 			return true;
-		}
 	}
 
 	packet->message.Seek(originalPos);
@@ -3150,7 +3151,11 @@ void CGameServerModule::InitDetour(bool bPreServer)
 	func_NET_ReceiveStream = (Symbols::NET_ReceiveStream)Detour::GetFunction(engine_loader.GetModule(), Symbols::NET_ReceiveStreamSym);
 	Detour::CheckFunction((void*)func_NET_ReceiveStream, "NET_ReceiveStream");
 
+#if ARCHITECTURE_IS_X86
 	s_NetChannels = Detour::ResolveSymbol<CUtlVectorMT<CUtlVector<CNetChan*>>>(engine_loader, Symbols::s_NetChannelsSym);
+#else
+	s_NetChannels = Detour::ResolveSymbolFromLea<CUtlVectorMT<CUtlVector<CNetChan*>>>(engine_loader.GetModule(), Symbols::s_NetChannelsSym);
+#endif
 
 	host_timescale = g_pCVar->FindVar("host_timescale");
 }

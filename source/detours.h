@@ -11,6 +11,7 @@
 #include "tier0/dbg.h"
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 
 #ifdef DLL_TOOLS
 #ifdef WIN32
@@ -80,7 +81,7 @@ namespace Detour
 	extern void ReportLeak();
 	extern const std::unordered_set<std::string>& GetDisabledDetours();
 	extern const std::unordered_set<std::string>& GetFailedDetours();
-	extern const std::unordered_set<std::string>& GetLoadedDetours();
+	extern const std::unordered_map<std::string, unsigned int>& GetLoadedDetours();
 
 	extern SymbolFinder symfinder;
 	template<class T>
@@ -152,7 +153,10 @@ namespace Detour
 
 		void* matchAddr = GetFunction(pModule, pSymbols[DETOUR_SYMBOL_ID]);
 		if (matchAddr == NULL)
+		{
+			Warning(PROJECT_NAME ": Failed to get matchAddr!\n");
 			return NULL;
+		}
 
 	#if defined(SYSTEM_WINDOWS)
 		uint8_t* ip = reinterpret_cast<uint8_t*>((char*)(matchAddr) + pSymbols[DETOUR_SYMBOL_ID].offset);
@@ -175,6 +179,7 @@ namespace Detour
 		#endif
 		}
 
+		Warning(PROJECT_NAME ": Failed to match LEA bytes!\n");
 		return NULL;
 	}
 
