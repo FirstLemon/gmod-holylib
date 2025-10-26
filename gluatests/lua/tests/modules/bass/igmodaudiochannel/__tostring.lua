@@ -16,7 +16,7 @@ return {
             end
         },
         {
-            name = "__tostring on valid channel returns correct string",
+            name = "__tostring on valid channel returns correct representation",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -27,23 +27,27 @@ return {
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
                     local output = channel:__tostring()
                     expect( output ).to.beA( "string" ) 
+                    expect( output ).to.equal( "IGModAudioChannel [bass_testsound.wav]" )
                     
                     done()
                 end)
             end
         },
         {
-            -- this makes no sense whatsoever
-            name = "__tostring on invlalid channel is being handled correctly",
+            name = "__tostring on invalid channel rerturns IGModAudioChannel [NULL]",
             when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
             func = function()
-                local filePath = "sound/bass_testsound.wav"
+                local filePath = "sound/noExists.wav"
                 local flags = ""
 
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
-                    local invalidChannel = bass.IGModAudioChannel()
-                    local output = invalidChannel:__tostring()
+                    local output = channel:__tostring()
                     expect( output ).to.beA( "string" ) 
+                    expect( output ).to.equal( "IGModAudioChannel [NULL]" )
+                    
+                    done()
                 end)
             end
         },

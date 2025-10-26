@@ -16,7 +16,7 @@ return {
             end
         },
         {
-            name = "Destroying Audio Channel",
+            name = "Destroyed Audio channel is no longer valid",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
             timeout = 2,
@@ -27,15 +27,11 @@ return {
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
                     expect( channel ).toNot.beNil()
                     expect( channel ).to.beValid()
-                    
+
                     channel:Destroy()
 
-                    local ok, error = pcall(function()
-                        return channel:IsValid()
-                    end)
-
-                    expect( ok ).to.beFalse()
-                    expect( error ).to.equal( "Tried to use a NULL IGModAudioChannel!" )
+                    expect( channel:IsValid ).to.errWith( "" )
+                    expect( channel ).notTo.exist()
                     
                     done()
                 end)
@@ -55,10 +51,7 @@ return {
                     expect( channel ).to.beValid()
                     
                     channel:Destroy()
-
-                    local ok, error = pcall(function()
-                        return channel:IsValid()
-                    end)
+                    
 
                     expect( ok ).to.beFalse()
                     expect( error ).to.equal( "Tried to use a NULL IGModAudioChannel!" )
