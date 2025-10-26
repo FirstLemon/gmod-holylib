@@ -160,7 +160,8 @@ return {
             func = function()
                 local filePath = "sound/not-real.txt"
                 local flags = ""
-        
+
+                -- this makes no sense whatsoever
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
                     expect( channel ).to.beNil()
                     expect( errorCode ).to.equal( 41 )
