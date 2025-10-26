@@ -206,23 +206,27 @@ function CalculateDifferences(currentResults, previousResults)
 end
 
 -- Markdown time :D
-function GenerateMarkdown(results, currentRun, previousRun)
+function GenerateMarkdown(results, currentRun, previousRun, isPullRequest)
 	local markdown = {}
-	table.insert(markdown, "# Results")
+	table.insert(markdown, "# Run Results")
 	table.insert(markdown, "Current run: " .. currentRun .. [[<br>
 Previous run: ]] .. previousRun .. "<br>")
 
-	for branch, funcs in pairs(results) do
+	if isPullRequest then
+		table.insert(markdown, "These Results are compared against the lastest main HolyLib build!")
+	end
+
+	for branch, funcs in SortedPairs(results) do
 		table.insert(markdown, "")
 		table.insert(markdown, "# Branch: " .. branch)
-		table.insert(markdown, "| Function Name | Total Calls | Time Per Call | Difference to Previous |")
-		table.insert(markdown, "| ------------- | ----------- | ------------- | ---------------------- |")
+		table.insert(markdown, "| Function Name | Total Calls | Time Per Call | Difference to Previous Build |")
+		table.insert(markdown, "| ------------- | ----------- | ------------- | ---------------------------- |")
 
-		for funcName, funcResults in pairs(funcs) do
+		for funcName, funcResults in SortedPairs(funcs) do
 			local diff = funcResults.diffTimePerCall
 			local maxDiff = 0.20 -- It may fluxuate between builds because of different runners/hardware but it shouldn't worsen by more than 20%
 			if diff > (1 + maxDiff) then
-				print("::notice title=" .. funcName .. "::Performance improved significantly (" .. string.format("%.2fx", 1 / diff) .. " faster)")
+				print("::notice title=" .. funcName .. "::Performance improved significantly (" .. string.format("%.2fx", diff) .. " faster)")
 			elseif diff < (1 - maxDiff) then
 				print("::warning title=" .. funcName .. "::Performance is worse beyond expectation (" .. string.format("%.2fx", diff) .. " slower)")
 			end
@@ -243,6 +247,7 @@ local holylogs_host = settings[3]
 local holylogs_api = settings[4]
 local run_number = tonumber(settings[5])
 local previous_run_number = tonumber(settings[6] or "0")
+local isPullRequest = settings[7] == "pull_request"
 
 local usingPublic = (not holylogs_host or holylogs_host == "") and (not holylogs_api or holylogs_api == "")
 if not run_number then
@@ -264,7 +269,7 @@ PrintTable(currentResults)
 PrintTable(previousResults)
 
 local differences = CalculateDifferences(currentResults, previousResults)
-local markdown = GenerateMarkdown(currentResults, run_number, lastRun)
+local markdown = GenerateMarkdown(currentResults, run_number, lastRun, isPullRequest)
 WriteFile("generated_summary.md", markdown)
 
 PrintTable(currentResults)

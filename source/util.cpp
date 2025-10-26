@@ -26,10 +26,6 @@ CGlobalEntityList* Util::entitylist = nullptr;
 CUserMessages* Util::pUserMessages = nullptr;
 
 std::unordered_set<LuaUserData*> g_pLuaUserData;
-#if HOLYLIB_UTIL_BASEUSERDATA && HOLYLIB_UTIL_GLOBALUSERDATA 
-std::shared_mutex g_UserDataMutex;
-std::unordered_map<void*, BaseUserData*> g_pGlobalLuaUserData;
-#endif
 
 std::unordered_set<int> Util::g_pReference;
 ConVar Util::holylib_debug_mainutil("holylib_debug_mainutil", "1");
@@ -37,10 +33,6 @@ ConVar Util::holylib_debug_mainutil("holylib_debug_mainutil", "1");
 // We require this here since we depend on the Lua namespace
 void LuaUserData::ForceGlobalRelease(void* pData)
 {
-#if HOLYLIB_UTIL_DEBUG_BASEUSERDATA
-	Msg("holylib - util: Global release for Userdata %p (%p) got aquired %i\n", it->second, pData, it->second->m_iReferenceCount);
-#endif
-
 	bool bFound = false;
 	const std::unordered_set<Lua::StateData*> pStateData = Lua::GetAllLuaData();
 	for (Lua::StateData* pState : pStateData)
@@ -136,15 +128,6 @@ void Util::Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt)
 		return;
 	}
 
-	// In the case we are missing our symbol for CBaseEntity::GetLuaEntity, this will be slower though will still be fully functional.
-	if (!func_CBaseEntity_GetLuaEntity)
-	{
-		GarrysMod::Lua::ILuaObject* pObj = LUA->NewTemporaryObject();
-		pObj->SetEntity(pEnt);
-		pObj->Push();
-		return;
-	}
-
 	if (LUA == g_Lua)
 	{
 		const CBaseHandle& pHandle = pEnt->GetRefEHandle(); // The only virtual function that would never dare to change
@@ -159,14 +142,23 @@ void Util::Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt)
 				g_pEntitySerialNum[nEntryIndex] = nEntSerial;
 				g_pEntityReferences[nEntryIndex] = nullptr;
 
-				GarrysMod::Lua::CLuaObject* pObject = (GarrysMod::Lua::CLuaObject*)func_CBaseEntity_GetLuaEntity(pEnt);
-				if (!pObject)
+
+				if (!func_CBaseEntity_GetLuaEntity)
 				{
-					LUA->GetField(LUA_GLOBALSINDEX, "NULL");
-					return;
+					GarrysMod::Lua::ILuaObject* pObj = LUA->NewTemporaryObject();
+					pObj->SetEntity(pEnt);
+					pObj->Push();
+				} else {
+					GarrysMod::Lua::CLuaObject* pObject = (GarrysMod::Lua::CLuaObject*)func_CBaseEntity_GetLuaEntity(pEnt);
+					if (!pObject)
+					{
+						LUA->GetField(LUA_GLOBALSINDEX, "NULL");
+						return;
+					}
+
+					Util::ReferencePush(LUA, pObject->GetReference()); // Assuming the reference is always right.
 				}
 
-				Util::ReferencePush(LUA, pObject->GetReference()); // Assuming the reference is always right.
 				g_pEntityReferences[nEntryIndex] = udataV(L->top-1); // Should be fine since the GCudata is never moved/nuked.
 				return;
 			}
@@ -177,6 +169,15 @@ void Util::Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt)
 				setudataV(L, L->top++, g_pEntityReferences[nEntryIndex]);
 				return;
 			}
+		}
+
+		// In the case we are missing our symbol for CBaseEntity::GetLuaEntity, this will be slower though will still be fully functional.
+		if (!func_CBaseEntity_GetLuaEntity)
+		{
+			GarrysMod::Lua::ILuaObject* pObj = LUA->NewTemporaryObject();
+			pObj->SetEntity(pEnt);
+			pObj->Push();
+			return;
 		}
 
 		GarrysMod::Lua::CLuaObject* pObject = (GarrysMod::Lua::CLuaObject*)func_CBaseEntity_GetLuaEntity(pEnt);
@@ -213,7 +214,10 @@ CBaseEntity* Util::Get_Entity(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos,
 
 	CBaseEntity* pEntity = Util::entitylist->GetBaseEntity(*pEntHandle);
 	if (!pEntity && bError)
+	{
+		Warning(PROJECT_NAME ": EHANDLE Index %i - %i\n", pEntHandle->GetEntryIndex(), pEntHandle->GetSerialNumber());
 		LUA->ThrowError("Tried to use a NULL Entity! (The weird case?)");
+	}
 		
 	return pEntity;
 }
@@ -308,23 +312,28 @@ void CBaseEntity::CalcAbsolutePosition(void)
 	}
 }
 
-static Symbols::CCollisionProperty_MarkSurroundingBoundsDirty func_CCollisionProperty_MarkSurroundingBoundsDirty = nullptr;
-void CCollisionProperty::MarkSurroundingBoundsDirty()
-{
-	if (func_CCollisionProperty_MarkSurroundingBoundsDirty)
-	{
-		func_CCollisionProperty_MarkSurroundingBoundsDirty(this);
-	} else {
-		Warning(PROJECT_NAME " - Tried to use missing CCollisionProperty::MarkSurroundingBoundsDirty!\n");
-	}
-}
-
 CBaseEntity* Util::GetCBaseEntityFromEdict(edict_t* edict)
 {
 	if (!edict)
 		return nullptr;
 
 	return Util::servergameents->EdictToBaseEntity(edict);
+}
+
+CBaseEntity* Util::GetCBaseEntityFromIndex(int nEntIndex)
+{
+	if (nEntIndex < 0 || nEntIndex > MAX_EDICTS)
+		return nullptr;
+
+	return Util::servergameents->EdictToBaseEntity(Util::engineserver->PEntityOfEntIndex(nEntIndex));
+}
+
+CBaseEntity* Util::GetCBaseEntityFromHandle(const CBaseHandle& pHandle)
+{
+	if (g_pEntityList)
+		return (CBaseEntity*)pHandle.Get();
+
+	return Util::GetCBaseEntityFromIndex(pHandle.GetEntryIndex());
 }
 
 CBaseEntity* Util::FirstEnt()
@@ -491,6 +500,70 @@ void Util::UnblockGameEvent(const char* pName)
 	pBlockedEvents.erase(it);
 }
 
+/*
+	This isn't made for speed, instead this will be called once by code on ServerActivate
+	where then the calling code can cache the value.
+
+	Why do we use SendProp?
+	Because they are the most reliable and secure way to get offsets to variables even across platforms.
+	We normally try to avoid offsets, but these offset are our love.
+*/
+static std::unordered_map<std::string, std::unordered_set<SendProp*>> g_pSendProps;
+extern void AddSendProp(SendProp* pProp, std::unordered_set<SendProp*>& pSendProp);
+extern void AddSendTable(SendTable* pTables);
+void AddSendProp(SendProp* pProp, std::unordered_set<SendProp*>& pSendProp)
+{
+	if (pSendProp.find(pProp) == pSendProp.end())
+		pSendProp.insert(pProp);
+
+	if (pProp->GetDataTable())
+		AddSendTable(pProp->GetDataTable());
+
+	if (pProp->GetArrayProp())
+		AddSendProp(pProp->GetArrayProp(), pSendProp);
+}
+
+void AddSendTable(SendTable* pTable)
+{
+	std::unordered_set<SendProp*> pSendProp;
+	for (int i = 0; i < pTable->GetNumProps(); i++) {
+		SendProp* pProp = &pTable->m_pProps[i]; // Windows screwing with GetProp
+		
+		AddSendProp(pProp, pSendProp);
+	}
+
+	g_pSendProps[pTable->GetName()] = pSendProp;
+}
+
+int Util::FindOffsetForNetworkVar(const char* pDTName, const char* pVarName)
+{
+	if (!Util::servergamedll)
+		return -1;
+
+	if (g_pSendProps.size() == 0)
+	{
+		for(ServerClass *serverclass = Util::servergamedll->GetAllServerClasses(); serverclass->m_pNext != nullptr; serverclass = serverclass->m_pNext)
+			AddSendTable(serverclass->m_pTable);
+	}
+
+	auto it = g_pSendProps.find(pDTName);
+	if (it != g_pSendProps.end())
+	{
+		for (SendProp* pProp : it->second)
+		{
+			if (((std::string_view)pVarName) == pProp->GetName())
+			{
+				if (pProp->GetArrayProp())
+					return pProp->GetArrayProp()->GetOffset();
+
+				return pProp->GetOffset();
+			}
+		}
+	}
+
+	return -1;
+}
+
 IGet* Util::get = nullptr;
 CBaseEntityList* g_pEntityList = nullptr;
 Symbols::lua_rawseti Util::func_lua_rawseti = nullptr;
@@ -499,6 +572,7 @@ IGameEventManager2* Util::gameeventmanager = nullptr;
 IServerGameDLL* Util::servergamedll = nullptr;
 Symbols::lj_tab_new Util::func_lj_tab_new = nullptr;
 Symbols::lj_gc_barrierf Util::func_lj_gc_barrierf = nullptr;
+Symbols::lj_tab_get Util::func_lj_tab_get = nullptr;
 Symbols::lua_setfenv Util::func_lua_setfenv = nullptr;
 Symbols::lua_touserdata Util::func_lua_touserdata = nullptr;
 Symbols::lua_type Util::func_lua_type = nullptr;
@@ -578,7 +652,11 @@ void Util::AddDetour()
 
 	if (!entitylist)
 	{
-		entitylist = Detour::ResolveSymbol<CGlobalEntityList>(server_loader, Symbols::gEntListSym);
+		#ifdef ARCHITECTURE_X86
+			entitylist = Detour::ResolveSymbol<CGlobalEntityList>(server_loader, Symbols::gEntListSym);
+		#else
+			entitylist = Detour::ResolveSymbolFromLea<CGlobalEntityList>(server_loader.GetModule(), Symbols::gEntListSym);
+		#endif
 	}
 
 	Detour::CheckValue("get class", "gEntList", entitylist != nullptr);
@@ -628,6 +706,9 @@ void Util::AddDetour()
 	func_lj_gc_barrierf = (Symbols::lj_gc_barrierf)Detour::GetFunction(lua_shared_loader.GetModule(), Symbols::lj_gc_barrierfSym);
 	Detour::CheckFunction((void*)func_lj_gc_barrierf, "lj_gc_barrierf");
 
+	func_lj_tab_get = (Symbols::lj_tab_get)Detour::GetFunction(lua_shared_loader.GetModule(), Symbols::lj_tab_getSym);
+	Detour::CheckFunction((void*)func_lj_tab_get, "lj_tab_get");
+
 	if (!func_lua_touserdata || !func_lua_type || !func_lua_setfenv || !func_luaL_checklstring || !func_lua_pcall || !func_lua_insert || !func_lua_toboolean)
 	{
 		// This is like the ONLY dependency we have on symbols that without we cannot function.
@@ -636,6 +717,9 @@ void Util::AddDetour()
 
 	func_CBaseEntity_GetLuaEntity = (Symbols::CBaseEntity_GetLuaEntity)Detour::GetFunction(server_loader.GetModule(), Symbols::CBaseEntity_GetLuaEntitySym);
 	Detour::CheckFunction((void*)func_CBaseEntity_GetLuaEntity, "CBaseEntity::GetLuaEntity");
+
+	func_CBaseEntity_CalcAbsolutePosition = (Symbols::CBaseEntity_CalcAbsolutePosition)Detour::GetFunction(server_loader.GetModule(), Symbols::CBaseEntity_CalcAbsolutePositionSym);
+	Detour::CheckFunction((void*)func_CBaseEntity_CalcAbsolutePosition, "CBaseEntity::CalcAbsolutePosition");
 
 	pEntityList = g_pModuleManager.FindModuleByName("entitylist");
 
@@ -651,14 +735,6 @@ void Util::AddDetour()
 	 * 
 	 * New Idea: I'm updating everything. The goal is to support any realm & even multiple ILuaInterfaces at the same time (Preperation for lua_threaded support).
 	 */
-
-#ifndef SYSTEM_WINDOWS
-	func_CBaseEntity_CalcAbsolutePosition = (Symbols::CBaseEntity_CalcAbsolutePosition)Detour::GetFunction(server_loader.GetModule(), Symbols::CBaseEntity_CalcAbsolutePositionSym);
-	Detour::CheckFunction((void*)func_CBaseEntity_CalcAbsolutePosition, "CBaseEntity::CalcAbsolutePosition");
-
-	func_CCollisionProperty_MarkSurroundingBoundsDirty = (Symbols::CCollisionProperty_MarkSurroundingBoundsDirty)Detour::GetFunction(server_loader.GetModule(), Symbols::CCollisionProperty_MarkSurroundingBoundsDirtySym);
-	Detour::CheckFunction((void*)func_CCollisionProperty_MarkSurroundingBoundsDirty, "CCollisionProperty::MarkSurroundingBoundsDirty");
-#endif
 }
 
 void Util::RemoveDetour()
@@ -882,7 +958,7 @@ static void CreateDebugDump(const CCommand &args)
 			Bootil::Data::Tree& pDetours = pData.GetChild("detours");
 
 			Bootil::Data::Tree& pLoadedDetours = pDetours.GetChild("loaded");
-			for (auto& pName : Detour::GetLoadedDetours())
+			for (auto& [pName, _] : Detour::GetLoadedDetours())
 				pLoadedDetours.EnsureChildVar<bool>(pName, true);
 
 			Bootil::Data::Tree& pFailedDetours = pDetours.GetChild("failed");
@@ -903,6 +979,18 @@ static void CreateDebugDump(const CCommand &args)
 	}
 }
 static ConCommand createdebugdump("holylib_createdebugdump", CreateDebugDump, "Creates a debug dump that can be provided in a issue or bug report", 0);
+
+static void ShowOffsetOfVar(const CCommand &args)
+{
+	if (args.ArgC() != 3)
+	{
+		Msg("holylib_showdtoffset [dtname] [varname]\n");
+		return;
+	}
+
+	Msg("Offset: %i\n", Util::FindOffsetForNetworkVar(args.Arg(1), args.Arg(2)));
+}
+static ConCommand showdtoffset("holylib_showdtoffset", ShowOffsetOfVar, "Shows the offset", 0);
 
 GMODGet_LuaClass(IRecipientFilter, GarrysMod::Lua::Type::RecipientFilter, "RecipientFilter", )
 GMODGet_LuaClass(Vector, GarrysMod::Lua::Type::Vector, "Vector", )
