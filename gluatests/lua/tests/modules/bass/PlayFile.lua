@@ -158,7 +158,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/not-real.txt"
+                local filePath = "sound/not_real.txt"
                 local flags = ""
 
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)

@@ -3,23 +3,23 @@ return {
     cases = {
         {
             name = "Function exists on meta table",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             func = function()
-                expect( FindMetaTable("IGModAudioChannel").Play ).to.beA( "function" )
+                expect( FindMetaTable( "IGModAudioChannel" ).Play ).to.beA( "function" )
             end
         },
         {
             name = "Metatable doesn't exist",
-            when = not HolyLib_IsModuleEnabled("bass"),
+            when = not HolyLib_IsModuleEnabled( "bass" ),
             func = function()
-                expect( FindMetaTable("IGModAudioChannel") ).to.beA( "nil" )
+                expect( FindMetaTable( "IGModAudioChannel" ) ).to.beA( "nil" )
             end
         },
         -- Enums returned from GetState()
         -- https://wiki.facepunch.com/gmod/Enums/GMOD_CHANNEL
         {
             name = "Starts playback on valid channel",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
@@ -68,14 +68,14 @@ return {
         },
         {
             name = "Calling Play() twice is safe",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( channel ).to.beValid()
 
