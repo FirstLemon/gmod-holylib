@@ -222,7 +222,9 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_GetFileName)
 {
 	IGModAudioChannel* channel = Get_IGModAudioChannel(LUA, 1, true);
 
-	LUA->PushString(channel->GetFileName());
+	const char* fileName = V_GetFileName(channel->GetFileName());
+
+	LUA->PushString(fileName);
 	return 1;
 }
 
