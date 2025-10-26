@@ -26,10 +26,6 @@ CGlobalEntityList* Util::entitylist = nullptr;
 CUserMessages* Util::pUserMessages = nullptr;
 
 std::unordered_set<LuaUserData*> g_pLuaUserData;
-#if HOLYLIB_UTIL_BASEUSERDATA && HOLYLIB_UTIL_GLOBALUSERDATA 
-std::shared_mutex g_UserDataMutex;
-std::unordered_map<void*, BaseUserData*> g_pGlobalLuaUserData;
-#endif
 
 std::unordered_set<int> Util::g_pReference;
 ConVar Util::holylib_debug_mainutil("holylib_debug_mainutil", "1");
@@ -37,10 +33,6 @@ ConVar Util::holylib_debug_mainutil("holylib_debug_mainutil", "1");
 // We require this here since we depend on the Lua namespace
 void LuaUserData::ForceGlobalRelease(void* pData)
 {
-#if HOLYLIB_UTIL_DEBUG_BASEUSERDATA
-	Msg("holylib - util: Global release for Userdata %p (%p) got aquired %i\n", it->second, pData, it->second->m_iReferenceCount);
-#endif
-
 	bool bFound = false;
 	const std::unordered_set<Lua::StateData*> pStateData = Lua::GetAllLuaData();
 	for (Lua::StateData* pState : pStateData)
@@ -222,7 +214,10 @@ CBaseEntity* Util::Get_Entity(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos,
 
 	CBaseEntity* pEntity = Util::entitylist->GetBaseEntity(*pEntHandle);
 	if (!pEntity && bError)
+	{
+		Warning(PROJECT_NAME ": EHANDLE Index %i - %i\n", pEntHandle->GetEntryIndex(), pEntHandle->GetSerialNumber());
 		LUA->ThrowError("Tried to use a NULL Entity! (The weird case?)");
+	}
 		
 	return pEntity;
 }
@@ -317,17 +312,6 @@ void CBaseEntity::CalcAbsolutePosition(void)
 	}
 }
 
-static Symbols::CCollisionProperty_MarkSurroundingBoundsDirty func_CCollisionProperty_MarkSurroundingBoundsDirty = nullptr;
-void CCollisionProperty::MarkSurroundingBoundsDirty()
-{
-	if (func_CCollisionProperty_MarkSurroundingBoundsDirty)
-	{
-		func_CCollisionProperty_MarkSurroundingBoundsDirty(this);
-	} else {
-		Warning(PROJECT_NAME " - Tried to use missing CCollisionProperty::MarkSurroundingBoundsDirty!\n");
-	}
-}
-
 CBaseEntity* Util::GetCBaseEntityFromEdict(edict_t* edict)
 {
 	if (!edict)
@@ -342,6 +326,14 @@ CBaseEntity* Util::GetCBaseEntityFromIndex(int nEntIndex)
 		return nullptr;
 
 	return Util::servergameents->EdictToBaseEntity(Util::engineserver->PEntityOfEntIndex(nEntIndex));
+}
+
+CBaseEntity* Util::GetCBaseEntityFromHandle(const CBaseHandle& pHandle)
+{
+	if (g_pEntityList)
+		return (CBaseEntity*)pHandle.Get();
+
+	return Util::GetCBaseEntityFromIndex(pHandle.GetEntryIndex());
 }
 
 CBaseEntity* Util::FirstEnt()
@@ -726,6 +718,9 @@ void Util::AddDetour()
 	func_CBaseEntity_GetLuaEntity = (Symbols::CBaseEntity_GetLuaEntity)Detour::GetFunction(server_loader.GetModule(), Symbols::CBaseEntity_GetLuaEntitySym);
 	Detour::CheckFunction((void*)func_CBaseEntity_GetLuaEntity, "CBaseEntity::GetLuaEntity");
 
+	func_CBaseEntity_CalcAbsolutePosition = (Symbols::CBaseEntity_CalcAbsolutePosition)Detour::GetFunction(server_loader.GetModule(), Symbols::CBaseEntity_CalcAbsolutePositionSym);
+	Detour::CheckFunction((void*)func_CBaseEntity_CalcAbsolutePosition, "CBaseEntity::CalcAbsolutePosition");
+
 	pEntityList = g_pModuleManager.FindModuleByName("entitylist");
 
 	/*
@@ -740,14 +735,6 @@ void Util::AddDetour()
 	 * 
 	 * New Idea: I'm updating everything. The goal is to support any realm & even multiple ILuaInterfaces at the same time (Preperation for lua_threaded support).
 	 */
-
-#ifndef SYSTEM_WINDOWS
-	func_CBaseEntity_CalcAbsolutePosition = (Symbols::CBaseEntity_CalcAbsolutePosition)Detour::GetFunction(server_loader.GetModule(), Symbols::CBaseEntity_CalcAbsolutePositionSym);
-	Detour::CheckFunction((void*)func_CBaseEntity_CalcAbsolutePosition, "CBaseEntity::CalcAbsolutePosition");
-
-	func_CCollisionProperty_MarkSurroundingBoundsDirty = (Symbols::CCollisionProperty_MarkSurroundingBoundsDirty)Detour::GetFunction(server_loader.GetModule(), Symbols::CCollisionProperty_MarkSurroundingBoundsDirtySym);
-	Detour::CheckFunction((void*)func_CCollisionProperty_MarkSurroundingBoundsDirty, "CCollisionProperty::MarkSurroundingBoundsDirty");
-#endif
 }
 
 void Util::RemoveDetour()
@@ -971,7 +958,7 @@ static void CreateDebugDump(const CCommand &args)
 			Bootil::Data::Tree& pDetours = pData.GetChild("detours");
 
 			Bootil::Data::Tree& pLoadedDetours = pDetours.GetChild("loaded");
-			for (auto& pName : Detour::GetLoadedDetours())
+			for (auto& [pName, _] : Detour::GetLoadedDetours())
 				pLoadedDetours.EnsureChildVar<bool>(pName, true);
 
 			Bootil::Data::Tree& pFailedDetours = pDetours.GetChild("failed");
