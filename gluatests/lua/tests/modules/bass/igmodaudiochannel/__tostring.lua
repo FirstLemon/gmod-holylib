@@ -16,6 +16,8 @@ return {
             end
         },
         {
+            -- currently __tostring outputs the complete file path, but this may change in the future because it is not intended
+            -- be aware this tests will break if that happens
             name = "__tostring on valid channel returns correct representation",
             when = HolyLib_IsModuleEnabled("bass"),
             async = true,
@@ -27,7 +29,7 @@ return {
                 bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
                     local output = channel:__tostring()
                     expect( output ).to.beA( "string" ) 
-                    expect( output ).to.equal( "IGModAudioChannel [bass_testsound.wav]" )
+                    expect( output ).to.equal( "IGModAudioChannel [/home/steam/gmodserver/garrysmod/addons/gluatests/sound/bass_testsound.wav]" )
                     
                     done()
                 end)
@@ -39,11 +41,13 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/noExists.wav"
+                local filePath = "sound/bass_testsound.wav"
                 local flags = ""
 
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)       
+                    channel:Destroy()
                     local output = channel:__tostring()
+
                     expect( output ).to.beA( "string" ) 
                     expect( output ).to.equal( "IGModAudioChannel [NULL]" )
                     
