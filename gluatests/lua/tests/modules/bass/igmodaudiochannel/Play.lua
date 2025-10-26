@@ -2,14 +2,14 @@ return {
     groupName = "IGModAudioChannel:Play",
     cases = {
         {
-            name = "Function exists on meta table",
+            name = "Function exists when module enabled",
             when = HolyLib_IsModuleEnabled( "bass" ),
             func = function()
                 expect( FindMetaTable( "IGModAudioChannel" ).Play ).to.beA( "function" )
             end
         },
         {
-            name = "Metatable doesn't exist",
+            name = "Function is nil when module disabled",
             when = not HolyLib_IsModuleEnabled( "bass" ),
             func = function()
                 expect( FindMetaTable( "IGModAudioChannel" ) ).to.beA( "nil" )
@@ -26,7 +26,7 @@ return {
                 local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( channel ).to.beValid()
                     expect( channel:GetState() ).to.equal( 0 )
@@ -40,7 +40,7 @@ return {
         },
         {
             name = "Resumes playback on a valid channel after pause",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
@@ -89,14 +89,14 @@ return {
         },
         {
             name = "Audio channel remains valid after calling Play()",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( channel ).to.beValid()
 

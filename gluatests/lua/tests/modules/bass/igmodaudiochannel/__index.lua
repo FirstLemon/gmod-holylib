@@ -32,5 +32,21 @@ return {
                 end)
             end
         },
+        {
+            name = "Returns nil for non existent index from channel",
+            when = HolyLib_IsModuleEnabled("bass"),
+            async = true,
+            timeout = 2,
+            func = function()
+                local filePath = "sound/bass_testsound.wav"
+                local flags = ""
+        
+                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                    expect( channel.None ).to.beNil()
+                    
+                    done()
+                end)
+            end
+        },
     }
 }

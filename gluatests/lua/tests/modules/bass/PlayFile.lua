@@ -4,28 +4,28 @@ return {
     cases = {
         {
             name = "Function exists when module enabled",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             func = function()
                 expect( bass.PlayFile ).to.beA( "function" )
             end
         },
         {
             name = "Function is nil when module disabled",
-            when = not HolyLib_IsModuleEnabled("bass"),
+            when = not HolyLib_IsModuleEnabled( "bass" ),
             func = function()
                 expect( bass.PlayFile ).to.beA( "nil" )
             end
         },
         {
             name = "Playing valid sample audio file with mono flag",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = "mono"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( errorCode ).to.equal( 0 )
                     expect( errorMsg ).to.beNil()
@@ -38,14 +38,14 @@ return {
         },
         {
             name = "Playing valid sample audio file with default flags",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( errorCode ).to.equal( 0 )
                     expect( errorMsg ).to.beNil()
@@ -58,14 +58,14 @@ return {
         },
         {
             name = "Playing valid sample audio file with noplay flag",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = "noplay"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( errorCode ).to.equal( 0 )
                     expect( errorMsg ).to.beNil()
@@ -78,7 +78,7 @@ return {
         },
         {
             name = "Playing valid sample audio file with noblock flag",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
@@ -98,14 +98,14 @@ return {
         },
         {
             name = "Ingore unknown or non-sensical flags",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = "holy noplay hello"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function(channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( errorCode ).to.equal( 0 )
                     expect( errorMsg ).to.beNil()
@@ -118,14 +118,14 @@ return {
         },
         {
             name = "Handles invalid file paths gracefully",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/thisFileIsCool.wav"
                 local flags = "mono"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).to.beNil()
                     expect( errorCode ).to.equal( 2 )
                     expect( errorMsg ).to.equal( "BASS_ERROR_FILEOPEN" )
@@ -136,14 +136,14 @@ return {
         },
         {
             name = "Incorrect 3d flag usage",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = "3d mono"
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).to.beNil()
                     expect( errorCode ).to.equal( 21 )
                     expect( errorMsg ).to.equal( "BASS_ERROR_NO3D" )
@@ -154,14 +154,14 @@ return {
         },
         {
             name = "Handles non-audio files gracefully",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/not_real.txt"
                 local flags = ""
 
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).to.beNil()
                     expect( errorCode ).to.equal( 41 )
                     expect( errorMsg ).to.equal( "BASS_ERROR_FILEFORM" )

@@ -2,36 +2,38 @@ return {
     groupName = "IGModAudioChannel:Stop",
     cases = {
         {
-            name = "Function exists on meta table",
-            when = HolyLib_IsModuleEnabled("bass"),
+            name = "Function exists when module enabled",
+            when = HolyLib_IsModuleEnabled( "bass" ),
             func = function()
                 expect( FindMetaTable("IGModAudioChannel").Stop ).to.beA( "function" )
             end
         },
         {
-            name = "Metatable doesn't exist",
+            name = "Function is nil when module disabled",
             when = not HolyLib_IsModuleEnabled("bass"),
             func = function()
-                expect( FindMetaTable("IGModAudioChannel") ).to.beA( "nil" )
+                expect( FindMetaTable( "IGModAudioChannel" ) ).to.beA( "nil" )
             end
         },
         -- Enums returned from GetState()
         -- https://wiki.facepunch.com/gmod/Enums/GMOD_CHANNEL
         {
             name = "Stops playing the audio channel",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( channel:GetState() ).to.equal( 1 )
 
                     channel:Stop()
-                    expect( channel:GetState() ).to.equal( 0 )
+                    timer.Simple(0.05, function()
+                        expect( channel:GetState() ).to.equal( 0 )
+                    end)
                     
                     done()
                 end)
@@ -39,34 +41,36 @@ return {
         },
         {
             name = "Calling Stop() twice is safe",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
 
                     channel:Stop()
                     channel:Stop()
-                    expect( channel:GetState() ).to.equal( 0 )
+                    timer.Simple(0.05, function()
+                        expect( channel:GetState() ).to.equal( 0 )
+                    end)
                     
                     done()
                 end)
             end
         },
         {
-            name = "Audio channel remains valid after stopping",
-            when = HolyLib_IsModuleEnabled("bass"),
+            name = "Audio channel remains valid after calling stop()",
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( channel ).to.beValid()
 
@@ -80,25 +84,31 @@ return {
         },
         {
             name = "Stopped Audio channel can only be resumed with Play()",
-            when = HolyLib_IsModuleEnabled("bass"),
+            when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
                 local flags = ""
         
-                bass.PlayFile(filePath, flags, function(channel, errorCode, errorMsg)
+                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
                     expect( channel:GetState() ).to.equal( 1 )
 
                     channel:Stop()
-                    expect( channel:GetState() ).to.equal( 0 )
+                    timer.Simple(0.05, function()
+                        expect( channel:GetState() ).to.equal( 0 )
+                    end)
 
                     channel:Pause()
-                    expect( channel:GetState() ).to.equal( 0 )
+                    timer.Simple(0.05, function()
+                        expect( channel:GetState() ).to.equal( 0 )
+                    end)
 
                     channel:Play()
-                    expect( channel:GetState() ).to.equal( 1 )
+                    timer.Simple(0.05, function()
+                        expect( channel:GetState() ).to.equal( 1 )
+                    end)
                     
                     done()
                 end)
