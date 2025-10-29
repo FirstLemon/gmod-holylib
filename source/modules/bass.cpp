@@ -408,8 +408,7 @@ LUA_FUNCTION_STATIC(bass_PlayURL)
 extern CGlobalVars* gpGlobals;
 LUA_FUNCTION_STATIC(bass_Update)
 {
-	if (BASS_GetCPU() > 0.0f)
-		gGModAudio->Update((int)LUA->CheckNumberOpt(1, gpGlobals->absoluteframetime * 1000));
+	gGModAudio->Update((int)LUA->CheckNumberOpt(1, gpGlobals->absoluteframetime * 1000));
 	return 0;
 }
 
