@@ -22,12 +22,14 @@
 #define DLL_LoadModule(name, _) LoadLibrary(name)
 #define DLL_UnloadModule(handle) FreeLibrary((DLL_Handle)handle)
 #define DLL_GetAddress(handle, name) GetProcAddress((DLL_Handle)handle, name)
+#define DLL_LASTERROR "LINUXONLY"
 #else
 #include <dlfcn.h>
 #define DLL_Handle void*
 #define DLL_LoadModule(name, type) dlopen(name, type)
 #define DLL_UnloadModule(handle) dlclose(handle)
 #define DLL_GetAddress(handle, name) dlsym(handle, name)
+#define DLL_LASTERROR dlerror()
 #endif
 #endif
 
@@ -105,6 +107,8 @@ namespace Detour
 	}
 
 #ifdef SYSTEM_LINUX
+#define DLL_PREEXTENSION "lib"
+#define LIBRARY_EXTENSION ".so"
 #if ARCHITECTURE_IS_X86
 #define DLL_EXTENSION "_srv.so"
 #define DETOUR_SYMBOL_ID 0
@@ -113,7 +117,9 @@ namespace Detour
 #define DETOUR_SYMBOL_ID 1
 #endif
 #else
+#define DLL_PREEXTENSION ""
 #define DLL_EXTENSION ".dll"
+#define LIBRARY_EXTENSION ".dll"
 #if ARCHITECTURE_IS_X86
 #define DETOUR_SYMBOL_ID 2
 #else
