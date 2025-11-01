@@ -1,1 +1,0 @@
-This contains a few files from https://github.com/Meachamp/gm_8bit that we use for the voicechat.

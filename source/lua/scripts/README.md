@@ -1,1 +1,0 @@
-This folder contains Lua scripts that are included into HolyLib and executed by modules.
