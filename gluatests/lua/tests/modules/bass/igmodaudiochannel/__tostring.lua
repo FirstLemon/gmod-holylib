@@ -30,7 +30,7 @@ return {
                     expect( output ).to.equal( "IGModAudioChannel [sound/bass_testsound.wav]" )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -50,7 +50,7 @@ return {
                     expect( output ).to.equal( "IGModAudioChannel [NULL]" )
                     
                     done()
-                end)
+                end )
             end
         },
     }

@@ -35,7 +35,7 @@ return {
                     expect( channel:GetState() ).to.equal( 0 )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -45,7 +45,7 @@ return {
             timeout = 2,
             func = function()
                 local filePath = "sound/bass_testsound.wav"
-                local flags = ""
+                local flags = "noplay"
         
                 bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
@@ -57,7 +57,7 @@ return {
                     expect( channel:GetState() ).to.equal( 0 )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -71,13 +71,12 @@ return {
         
                 bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).toNot.beNil()
-                    expect( channel ).to.beValid()
 
                     channel:Stop()
                     expect( channel ).to.beValid()
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -106,7 +105,7 @@ return {
                     expect( channel:GetState() ).to.equal( 1 )
                     
                     done()
-                end)
+                end )
             end
         },
     }

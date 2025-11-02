@@ -33,6 +33,7 @@ public:
 	virtual void LuaThink(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
 	virtual void PreLuaModuleLoaded(lua_State* L, const char* pFileName) OVERRIDE;
 	virtual void PostLuaModuleLoaded(lua_State* L, const char* pFileName) OVERRIDE;
+	virtual void ClientDisconnect(edict_t* pClient) OVERRIDE;
 	virtual const char* Name() { return "voicechat"; };
 	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
 	virtual bool SupportsMultipleLuaStates() { return true; };
@@ -69,11 +70,7 @@ IModule* pVoiceChatModule = &g_pVoiceChatModule;
 struct VoiceData
 {
 	~VoiceData() {
-		if (pData)
-			delete[] pData;
-
-		if (pDecompressedData)
-			delete[] pDecompressedData;
+		Empty();
 	}
 
 	inline void AllocData()
@@ -289,6 +286,25 @@ struct VoiceData
 		);
 	}
 
+	inline void Empty()
+	{
+		if (pData)
+		{
+			delete[] pData;
+			pData = NULL;
+		}
+
+		if (pDecompressedData)
+		{
+			delete[] pDecompressedData;
+			pDecompressedData = NULL;
+		}
+
+		iLength = 0;
+		iDecompressedLength = 0;
+		bDecompressedChanged = false;
+	}
+
 	int iPlayerSlot = 0; // What if it's an invalid one ;D (It doesn't care.......)
 	bool bProximity = true;
 	bool bDecompressedChanged = false;
@@ -301,6 +317,12 @@ private:
 	char* pData = nullptr;
 	char* pDecompressedData = nullptr;
 };
+
+// For other modules to utilize since we don't expose the struct. Looking at you bass
+char* VoiceData_GetDecompressedData(VoiceData* pData, int* pLength)
+{
+	return pData->GetDecompressedData(pLength);	
+}
 
 Push_LuaClass(VoiceData)
 Get_LuaClass(VoiceData, "VoiceData")
@@ -459,6 +481,14 @@ LUA_FUNCTION_STATIC(VoiceData_CreateCopy)
 
 	Push_VoiceData(LUA, pData->CreateCopy());
 	return 1;
+}
+
+LUA_FUNCTION_STATIC(VoiceData_Empty)
+{
+	VoiceData* pData = Get_VoiceData(LUA, 1, true);
+
+	pData->Empty();
+	return 0;
 }
 
 struct WavAudioFile {
@@ -1536,6 +1566,49 @@ static void hook_CVoiceGameMgr_Update(CVoiceGameMgr* pManager, double frametime)
 	}
 }
 
+// This is seperate since most of the above code will be removed with the next gmod update as Rubat brought over our optimization :D
+static bool g_bIsPlayerTalking2[ABSOLUTE_PLAYER_LIMIT] = {0};
+static double g_fLastPlayerTalked2[ABSOLUTE_PLAYER_LIMIT] = {0};
+static void CheckTalkingState(int nPlayerSlot, bool bIsTalking)
+{
+	if (bIsTalking)
+	{
+		if (!g_bIsPlayerTalking2[nPlayerSlot]) // Started to talk
+		{
+			g_bIsPlayerTalking2[nPlayerSlot] = true;
+
+			if (Lua::PushHook("HolyLib:OnPlayerStartTalking"))
+			{
+				CBasePlayer* pPlayer = (CBasePlayer*)Util::GetCBaseEntityFromIndex(nPlayerSlot + 1);
+				Util::Push_Entity(g_Lua, pPlayer);
+
+				g_Lua->CallFunctionProtected(2, 0, true);
+			}
+		}
+		g_fLastPlayerTalked2[nPlayerSlot] = gpGlobals->curtime;
+	} else {
+		if (gpGlobals->curtime > (g_fLastPlayerTalked2[nPlayerSlot] + voicechat_stopdelay.GetFloat()))
+		{ // Stopped talking, tied to holylib_voicechat_stopdelay convar
+			g_bIsPlayerTalking2[nPlayerSlot] = false;
+
+			if (Lua::PushHook("HolyLib:OnPlayerStoppedTalking"))
+			{
+				CBasePlayer* pPlayer = (CBasePlayer*)Util::GetCBaseEntityFromIndex(nPlayerSlot + 1);
+				Util::Push_Entity(g_Lua, pPlayer);
+
+				g_Lua->CallFunctionProtected(2, 0, true);
+			}
+		}
+	}
+}
+
+void CVoiceChatModule::ClientDisconnect(edict_t* pClient)
+{
+	// We gotta prevent the hook from firing when the player already disconnected, so we reset these here
+	g_bIsPlayerTalking2[pClient->m_EdictIndex-1] = false;
+	g_fLastPlayerTalked2[pClient->m_EdictIndex-1] = 0.0;
+}
+
 void CVoiceChatModule::ServerActivate(edict_t* pEdictList, int edictCount, int clientMax)
 {
 	for (int i = 0; i < ABSOLUTE_PLAYER_LIMIT; ++i)
@@ -1543,6 +1616,9 @@ void CVoiceChatModule::ServerActivate(edict_t* pEdictList, int edictCount, int c
 		g_fLastPlayerTalked[i] = 0.0;
 		g_fLastPlayerUpdated[i] = 0.0;
 		g_bIsPlayerTalking[i] = false;
+
+		g_bIsPlayerTalking2[i] = false;
+		g_fLastPlayerTalked2[i] = 0.0;
 	}
 }
 
@@ -1553,6 +1629,9 @@ void CVoiceChatModule::LevelShutdown()
 		g_fLastPlayerTalked[i] = 0.0;
 		g_fLastPlayerUpdated[i] = 0.0;
 		g_bIsPlayerTalking[i] = false;
+
+		g_bIsPlayerTalking2[i] = false;
+		g_fLastPlayerTalked2[i] = 0.0;
 	}
 	g_pManager = NULL;
 }
@@ -1568,6 +1647,8 @@ static void hook_SV_BroadcastVoiceData(IClient* pClient, int nBytes, char* data,
 #if SYSTEM_LINUX
 	UpdatePlayerTalkingState(Util::GetPlayerByClient((CBaseClient*)pClient), true);
 #endif
+
+	CheckTalkingState(pClient->GetPlayerSlot(), true);
 
 	if (!voicechat_hooks.GetBool())
 	{
@@ -2172,8 +2253,8 @@ void CVoiceChatModule::LuaThink(GarrysMod::Lua::ILuaInterface* pLua)
 {
 	LuaVoiceModuleData* pData = GetVoiceChatLuaData(pLua);
 
-	if (pData->pVoiceStreamTasks.size() <= 0)
-		return;
+	for (int i=0; i<ABSOLUTE_PLAYER_LIMIT; ++i)
+		CheckTalkingState(i, false);
 
 	for (auto it = pData->pVoiceStreamTasks.begin(); it != pData->pVoiceStreamTasks.end(); )
 	{
@@ -2243,6 +2324,7 @@ void CVoiceChatModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServer
 		Util::AddFunc(pLua, VoiceData_GetProximity, "GetProximity");
 		Util::AddFunc(pLua, VoiceData_SetProximity, "SetProximity");
 		Util::AddFunc(pLua, VoiceData_CreateCopy, "CreateCopy");
+		Util::AddFunc(pLua, VoiceData_Empty, "Empty");
 	pLua->Pop(1);
 
 	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::VoiceStream, pLua->CreateMetaTable("VoiceStream"));

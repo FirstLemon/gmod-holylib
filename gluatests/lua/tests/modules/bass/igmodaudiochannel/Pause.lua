@@ -35,7 +35,7 @@ return {
                     expect( channel:GetState() ).to.equal( 2 )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -60,7 +60,7 @@ return {
                     expect( channel:GetState() ).to.equal( 2 )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -81,7 +81,7 @@ return {
                     expect( channel:GetState() ).to.equal( 0 )
                     
                     done()
-                end)
+                end )
             end
         },
     }

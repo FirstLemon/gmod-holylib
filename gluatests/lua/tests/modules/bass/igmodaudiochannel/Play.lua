@@ -36,7 +36,7 @@ return {
                     expect( channel:GetState() ).to.equal( 1 )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -65,7 +65,7 @@ return {
                     expect( channel:GetState() ).to.equal( 1 )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -86,7 +86,7 @@ return {
                     expect( channel:GetState() ).to.equal( 1 )
                     
                     done()
-                end)
+                end )
             end
         },
         {
@@ -106,7 +106,7 @@ return {
                     expect( channel ).to.beValid()
                     
                     done()
-                end)
+                end )
             end
         },
     }
