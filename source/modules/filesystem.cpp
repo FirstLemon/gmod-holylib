@@ -25,7 +25,7 @@ public:
 	virtual void Shutdown() OVERRIDE;
 	virtual void ServerActivate(edict_t* pEdictList, int edictCount, int clientMax) OVERRIDE;
 	virtual const char* Name() { return "filesystem"; };
-	virtual int Compatibility() { return LINUX32 | WINDOWS32; };
+	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32; };
 	virtual bool SupportsMultipleLuaStates() { return true; };
 };
 
@@ -46,7 +46,7 @@ static ConVar holylib_filesystem_predictpath("holylib_filesystem_predictpath", "
 	"If enabled, it will try to predict the path of a file");
 static ConVar holylib_filesystem_predictexistance("holylib_filesystem_predictexistance", "0", 0, 
 	"If enabled, it will try to predict the path of a file, but if the file doesn't exist in the predicted path, we'll just say it doesn't exist.");
-static ConVar holylib_filesystem_splitgamepath("holylib_filesystem_splitgamepath", "0", FCVAR_ARCHIVE, 
+static ConVar holylib_filesystem_splitgamepath("holylib_filesystem_splitgamepath", "1", FCVAR_ARCHIVE, 
 	"If enabled, it will create for each content type like models/, materials/ a game path which will be used to find that content.");
 static ConVar holylib_filesystem_splitluapath("holylib_filesystem_splitluapath", "0", 0, 
 	"If enabled, it will do the same thing holylib_filesystem_splitgamepath does but with lsv. Currently it breaks workshop addons.");
@@ -80,7 +80,7 @@ static void OnThreadsChange(IConVar* convar, const char* pOldValue, float flOldV
 
 		if (pConVar->GetInt() <= 0)
 		{
-			V_DestroyThreadPool(pFileSystemPool);
+			Util::DestroyThreadPool(pFileSystemPool);
 			pFileSystemPool = NULL;
 		} else {
 			Util::StartThreadPool(pFileSystemPool, pConVar->GetInt());
@@ -723,53 +723,6 @@ static bool hook_CBaseFileSystem_IsDirectory(void* filesystem, const char* pFile
 	return detour_CBaseFileSystem_IsDirectory.GetTrampoline<Symbols::CBaseFileSystem_IsDirectory>()(filesystem, pFileName, pPathID);
 }
 
-static int pBaseLength = 0;
-static char pBaseDir[MAX_PATH];
-static Detouring::Hook detour_CBaseFileSystem_FixUpPath;
-static bool hook_CBaseFileSystem_FixUpPath(IFileSystem* filesystem, const char *pFileName, char *pFixedUpFileName, int sizeFixedUpFileName)
-{
-	// NOTE for future me: 64x doesn't see to have this function anymore.
-	if (!holylib_filesystem_optimizedfixpath.GetBool())
-		return detour_CBaseFileSystem_FixUpPath.GetTrampoline<Symbols::CBaseFileSystem_FixUpPath>()(filesystem, pFileName, pFixedUpFileName, sizeFixedUpFileName);
-
-	// This is already utterly fast, so we don't need vprof here.
-	//VPROF_BUDGET("HolyLib - CBaseFileSystem::FixUpPath", VPROF_BUDGETGROUP_OTHER_FILESYSTEM);
-
-	if (!g_pFullFileSystem)
-		InitFileSystem((IFileSystem*)filesystem);
-
-	V_strncpy( pFixedUpFileName, pFileName, sizeFixedUpFileName );
-	V_FixSlashes( pFixedUpFileName, CORRECT_PATH_SEPARATOR );
-	V_FixDoubleSlashes( pFixedUpFileName );
-
-	if ( !V_IsAbsolutePath( pFixedUpFileName ) )
-	{
-		V_strlower( pFixedUpFileName );
-	}
-	else 
-	{
-		/*
-		 * What changed here ?
-		 * Gmod calls GetSearchPath every time FixUpPath is called.
-		 * Now, we only call it once and then reuse the value, since the BASE_PATH shouldn't change at runtime.
-		 */
-
-		if ( pBaseLength < 3 )
-			pBaseLength = filesystem->GetSearchPath( "BASE_PATH", true, pBaseDir, sizeof( pBaseDir ) );
-
-		if ( pBaseLength )
-		{
-			if ( *pBaseDir && (pBaseLength+1 < V_strlen( pFixedUpFileName ) ) && (0 != V_strncmp( pBaseDir, pFixedUpFileName, pBaseLength ) )  )
-			{
-				V_strlower( &pFixedUpFileName[pBaseLength-1] );
-			}
-		}
-		
-	}
-
-	return true;
-}
-
 static std::string_view nukeFileExtension(const std::string_view& fileName) {
 	size_t lastDotPos = fileName.find_last_of('.');
 	if (lastDotPos == std::string::npos) 
@@ -798,9 +751,13 @@ static bool shouldWeCare(const std::string_view& fileName) { // Skip models like
 	return true;
 }
 
-static const char* GetOverridePath(const char* pFileName, const char* pathID)
+static const char* GetSplitPath(const char* pFileName, const char* pathID)
 {
 	if (!holylib_filesystem_splitgamepath.GetBool())
+		return NULL;
+
+	// We only enable split path for anything on the GAME path.
+	if (!pathID || V_stricmp("GAME", pathID) != 0)
 		return NULL;
 
 	std::string_view strFileName = pFileName;
@@ -891,7 +848,9 @@ static FileHandle_t hook_CBaseFileSystem_OpenForRead(CBaseFileSystem* filesystem
 	char pFileNameBuff[MAX_PATH];
 	const char *pFileName = pFileNameBuff;
 
-	hook_CBaseFileSystem_FixUpPath(filesystem, pFileNameT, pFileNameBuff, sizeof(pFileNameBuff));
+#if ARCHITECTURE_X86 // This is a 32x only thing
+	filesystem->FixUpPath(pFileNameT, pFileNameBuff, sizeof(pFileNameBuff));
+#endif
 
 	if (holylib_filesystem_savesearchcache.GetBool())
 	{
@@ -916,7 +875,7 @@ static FileHandle_t hook_CBaseFileSystem_OpenForRead(CBaseFileSystem* filesystem
 
 	bool splitPath = false;
 	const char* origPath = pathID;
-	const char* newPath = GetOverridePath(pFileName, pathID);
+	const char* newPath = GetSplitPath(pFileName, pathID);
 	if (newPath)
 	{
 		if (g_pFileSystemModule.InDebug())
@@ -1183,7 +1142,7 @@ static long hook_CBaseFileSystem_GetFileTime(IFileSystem* filesystem, const char
 	
 	bool bSplitPath = false;
 	const char* origPath = pPathID;
-	const char* newPath = GetOverridePath(pFileName, pPathID);
+	const char* newPath = GetSplitPath(pFileName, pPathID);
 	if (newPath)
 	{
 		if (g_pFileSystemModule.InDebug())
@@ -1265,16 +1224,6 @@ static long hook_CBaseFileSystem_GetFileTime(IFileSystem* filesystem, const char
 	return detour_CBaseFileSystem_GetFileTime.GetTrampoline<Symbols::CBaseFileSystem_GetFileTime>()(filesystem, pFileName, pPathID);
 }
 
-static bool gBlockRemoveAllMapPaths = false;
-static Detouring::Hook detour_CBaseFileSystem_RemoveAllMapSearchPaths;
-static void hook_CBaseFileSystem_RemoveAllMapSearchPaths(IFileSystem* filesystem)
-{
-	if (gBlockRemoveAllMapPaths)
-		return;
-
-	detour_CBaseFileSystem_RemoveAllMapSearchPaths.GetTrampoline<Symbols::CBaseFileSystem_RemoveAllMapSearchPaths>()(filesystem);
-}
-
 static std::string_view getVPKFile(const std::string_view& fileName) {
 	size_t lastThingyPos = fileName.find_last_of('/');
 	size_t lastDotPos = fileName.find_last_of('.');
@@ -1293,7 +1242,6 @@ static void hook_CBaseFileSystem_AddSearchPath(IFileSystem* filesystem, const ch
 	/*std::string_view extension = getFileExtension(pPath);
 	if (extension == "bsp") {
 		const char* pPathID = "__TEMP_MAP_PATH";
-		gBlockRemoveAllMapPaths = true;
 		detour_CBaseFileSystem_AddSearchPath.GetTrampoline<Symbols::CBaseFileSystem_AddSearchPath>()(filesystem, pPath, pPathID, addType);
 
 		if (filesystem->IsDirectory("materials/", pPathID))
@@ -1317,7 +1265,6 @@ static void hook_CBaseFileSystem_AddSearchPath(IFileSystem* filesystem, const ch
 		if (filesystem->IsDirectory("cfg/", pPathID))
 			detour_CBaseFileSystem_AddSearchPath.GetTrampoline<Symbols::CBaseFileSystem_AddSearchPath>()(filesystem, pPath, "CONTENT_CONFIGS", addType);
 		
-		gBlockRemoveAllMapPaths = false;
 		filesystem->RemoveSearchPath(pPath, pPathID);
 	}*/
 
@@ -1600,6 +1547,8 @@ void CFileSystemModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn
 	AddOveridePath("resource/modevents.res", "MOD_WRITE");
 	AddOveridePath("resource/hltvevents.res", "MOD_WRITE");
 
+	int pBaseLength = 0;
+	char pBaseDir[MAX_PATH];
 	if ( pBaseLength < 3 )
 		pBaseLength = g_pFullFileSystem->GetSearchPath( "BASE_PATH", true, pBaseDir, sizeof( pBaseDir ) );
 
@@ -1715,7 +1664,6 @@ void CFileSystemModule::InitDetour(bool bPreServer)
 		return;
 
 	bShutdown = false;
-#if !defined(SYSTEM_WINDOWS)
 	if (holylib_filesystem_threads.GetInt() > 0)
 	{
 		pFileSystemPool = V_CreateThreadPool();
@@ -1747,12 +1695,6 @@ void CFileSystemModule::InitDetour(bool bPreServer)
 	);
 
 	Detour::Create(
-		&detour_CBaseFileSystem_FixUpPath, "CBaseFileSystem::FixUpPath",
-		dedicated_loader.GetModule(), Symbols::CBaseFileSystem_FixUpPathSym,
-		(void*)hook_CBaseFileSystem_FixUpPath, m_pID
-	);
-
-	Detour::Create(
 		&detour_CBaseFileSystem_OpenForRead, "CBaseFileSystem::OpenForRead",
 		dedicated_loader.GetModule(), Symbols::CBaseFileSystem_OpenForReadSym,
 		(void*)hook_CBaseFileSystem_OpenForRead, m_pID
@@ -1777,12 +1719,6 @@ void CFileSystemModule::InitDetour(bool bPreServer)
 	);
 
 	Detour::Create(
-		&detour_CBaseFileSystem_RemoveAllMapSearchPaths, "CBaseFileSystem::RemoveAllMapSearchPaths",
-		dedicated_loader.GetModule(), Symbols::CBaseFileSystem_RemoveAllMapSearchPathsSym,
-		(void*)hook_CBaseFileSystem_RemoveAllMapSearchPaths, m_pID
-	);
-
-	Detour::Create(
 		&detour_CBaseFileSystem_Close, "CBaseFileSystem::Close",
 		dedicated_loader.GetModule(), Symbols::CBaseFileSystem_CloseSym,
 		(void*)hook_CBaseFileSystem_Close, m_pID
@@ -1803,7 +1739,6 @@ void CFileSystemModule::InitDetour(bool bPreServer)
 	g_pPathIDTable = Detour::ResolveSymbolFromLea<CUtlSymbolTableMT>(dedicated_loader.GetModule(), Symbols::g_PathIDTableSym);
 #endif
 	Detour::CheckValue("get class", "g_PathIDTable", g_pPathIDTable != NULL);
-#endif
 }
 
 /*
@@ -1847,6 +1782,9 @@ void AsyncCallback(const FileAsyncRequest_t &request, int nBytesRead, FSAsyncSta
 
 LUA_FUNCTION_STATIC(filesystem_AsyncRead)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+	// We don't have GMods file whitelist/blacklist and if you call this just use file.Open
+
 	const char* fileName = LUA->CheckString(1);
 	const char* gamePath = LUA->CheckString(2);
 	LUA->CheckType(3, GarrysMod::Lua::Type::Function);
@@ -1891,14 +1829,18 @@ void FileAsyncReadThink(GarrysMod::Lua::ILuaInterface* pLua)
 
 LUA_FUNCTION_STATIC(filesystem_CreateDir)
 {
-	g_pFullFileSystem->CreateDirHierarchy(LUA->CheckString(1), LUA->CheckStringOpt(2, "DATA"));
+	g_pFullFileSystem->CreateDirHierarchy(LUA->CheckString(1), 
+		g_pModuleManager.IsUnsafeCodeEnabled() ? LUA->CheckStringOpt(2, "DATA") : "DATA" // Force "DATA" path if unsafe is diabled
+	);
 
 	return 0;
 }
 
 LUA_FUNCTION_STATIC(filesystem_Delete)
 {
-	g_pFullFileSystem->RemoveFile(LUA->CheckString(1), LUA->CheckStringOpt(2, "DATA"));
+	g_pFullFileSystem->RemoveFile(LUA->CheckString(1),
+		g_pModuleManager.IsUnsafeCodeEnabled() ? LUA->CheckStringOpt(2, "DATA") : "DATA" // Force "DATA" path if unsafe is diabled
+	);
 
 	return 0;
 }
@@ -1944,14 +1886,14 @@ LUA_FUNCTION_STATIC(filesystem_Find)
 	std::vector<std::string> folders;
 
 	const char* filepath = LUA->CheckString(1);
-	const char* path = LUA->CheckString(2);
+	const char* gamePath = LUA->CheckString(2);
 	const char* sorting = LUA->CheckStringOpt(3, "");
 
 	FileFindHandle_t findHandle;
-	const char *pFilename = g_pFullFileSystem->FindFirstEx(filepath, path, &findHandle);
+	const char *pFilename = g_pFullFileSystem->FindFirstEx(filepath, gamePath, &findHandle);
 	while (pFilename)
 	{
-		if (g_pFullFileSystem->IsDirectory(((std::string)filepath + pFilename).c_str(), path)) {
+		if (g_pFullFileSystem->IsDirectory(((std::string)filepath + pFilename).c_str(), gamePath)) {
 			folders.push_back(pFilename);
 		} else {
 			files.push_back(pFilename);
@@ -1967,11 +1909,11 @@ LUA_FUNCTION_STATIC(filesystem_Find)
 			std::sort(files.begin(), files.end(), std::greater<std::string>());
 			std::sort(folders.begin(), folders.end(), std::greater<std::string>());
 		} else if (strcmp(sorting, "dateasc") == 0) { // sort the files ascending by date.
-			SortByDate(files, filepath, path, true);
-			SortByDate(folders, filepath, path, true);
+			SortByDate(files, filepath, gamePath, true);
+			SortByDate(folders, filepath, gamePath, true);
 		} else if (strcmp(sorting, "datedesc") == 0) { // sort the files descending by date.
-			SortByDate(files, filepath, path, false);
-			SortByDate(folders, filepath, path, false);
+			SortByDate(files, filepath, gamePath, false);
+			SortByDate(folders, filepath, gamePath, false);
 		} else { // Fallback to default: nameasc | sort the files ascending by name.
 			std::sort(files.begin(), files.end());
 			std::sort(folders.begin(), folders.end());
@@ -2016,11 +1958,14 @@ namespace Lua
 
 LUA_FUNCTION_STATIC(filesystem_Open)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+	// We don't have GMods file whitelist/blacklist and if you call this just use file.Open
+
 	const char* filename = LUA->CheckString(1);
 	const char* fileMode = LUA->CheckString(2);
-	const char* path = LUA->CheckStringOpt(3, "GAME");
+	const char* gamePath = LUA->CheckStringOpt(3, "GAME");
 
-	FileHandle_t fh = g_pFullFileSystem->Open(filename, fileMode, path);
+	FileHandle_t fh = g_pFullFileSystem->Open(filename, fileMode, gamePath);
 	if (fh)
 	{
 		Lua::File* file = new Lua::File;
@@ -2038,6 +1983,9 @@ LUA_FUNCTION_STATIC(filesystem_Rename)
 	const char* original = LUA->CheckString(1);
 	const char* newname = LUA->CheckString(2);
 	const char* gamePath = LUA->CheckStringOpt(3, "DATA");
+
+	if (!g_pModuleManager.IsUnsafeCodeEnabled())
+		gamePath = "DATA"; // Force "DATA" path if unsafe is diabled
 
 	LUA->PushBool(g_pFullFileSystem->RenameFile(original, newname, gamePath));
 
@@ -2060,6 +2008,8 @@ LUA_FUNCTION_STATIC(filesystem_Time)
 
 LUA_FUNCTION_STATIC(filesystem_AddSearchPath)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+
 	const char* folderPath = LUA->CheckString(1);
 	const char* gamePath = LUA->CheckString(2);
 	SearchPathAdd_t addType = LUA->GetBool(-1) ? SearchPathAdd_t::PATH_ADD_TO_HEAD : SearchPathAdd_t::PATH_ADD_TO_TAIL;
@@ -2070,6 +2020,8 @@ LUA_FUNCTION_STATIC(filesystem_AddSearchPath)
 
 LUA_FUNCTION_STATIC(filesystem_RemoveSearchPath)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+
 	const char* folderPath = LUA->CheckString(1);
 	const char* gamePath = LUA->CheckString(2);
 	LUA->PushBool(g_pFullFileSystem->RemoveSearchPath(folderPath, gamePath));
@@ -2079,6 +2031,8 @@ LUA_FUNCTION_STATIC(filesystem_RemoveSearchPath)
 
 LUA_FUNCTION_STATIC(filesystem_RemoveSearchPaths)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+
 	const char* gamePath = LUA->CheckString(1);
 	g_pFullFileSystem->RemoveSearchPaths(gamePath);
 
@@ -2087,6 +2041,8 @@ LUA_FUNCTION_STATIC(filesystem_RemoveSearchPaths)
 
 LUA_FUNCTION_STATIC(filesystem_RemoveAllSearchPaths)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+
 	g_pFullFileSystem->RemoveAllSearchPaths();
 
 	return 0;
@@ -2094,6 +2050,8 @@ LUA_FUNCTION_STATIC(filesystem_RemoveAllSearchPaths)
 
 LUA_FUNCTION_STATIC(filesystem_RelativePathToFullPath)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+
 	const char* filePath = LUA->CheckString(1);
 	const char* gamePath = LUA->CheckString(2);
 
@@ -2107,6 +2065,8 @@ LUA_FUNCTION_STATIC(filesystem_RelativePathToFullPath)
 
 LUA_FUNCTION_STATIC(filesystem_FullPathToRelativePath)
 {
+	Util::DoUnsafeCodeCheck(LUA);
+
 	const char* fullPath = LUA->CheckString(1);
 	const char* gamePath = LUA->CheckStringOpt(2, NULL);
 
@@ -2260,7 +2220,7 @@ void CFileSystemModule::Shutdown()
 	if (pFileSystemPool)
 	{
 		pFileSystemPool->ExecuteAll();
-		V_DestroyThreadPool(pFileSystemPool);
+		Util::DestroyThreadPool(pFileSystemPool);
 		pFileSystemPool = NULL;
 	}
 

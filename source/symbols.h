@@ -352,9 +352,6 @@ namespace Symbols
 	typedef long (GMCOMMON_CALLING_CONVENTION* CBaseFileSystem_FastFileTime)(void* filesystem, const CSearchPath* path, const char* pFileName);
 	extern const std::vector<Symbol> CBaseFileSystem_FastFileTimeSym;
 
-	typedef bool (GMCOMMON_CALLING_CONVENTION* CBaseFileSystem_FixUpPath)(void* filesystem, const char* pFileName, char* pFixedUpFileName, int sizeFixedUpFileName);
-	extern const std::vector<Symbol> CBaseFileSystem_FixUpPathSym;
-
 	typedef FileHandle_t(GMCOMMON_CALLING_CONVENTION* CBaseFileSystem_OpenForRead)(void* filesystem, const char* pFileNameT, const char* pOptions, unsigned flags, const char* pathID, char** ppszResolvedFilename);
 	extern std::vector<Symbol> CBaseFileSystem_OpenForReadSym;
 
@@ -366,9 +363,6 @@ namespace Symbols
 
 	typedef void (GMCOMMON_CALLING_CONVENTION* CBaseFileSystem_AddVPKFile)(void* filesystem, const char* pPath, const char* pathID, SearchPathAdd_t addType);
 	extern const std::vector<Symbol> CBaseFileSystem_AddVPKFileSym;
-
-	typedef void (GMCOMMON_CALLING_CONVENTION* CBaseFileSystem_RemoveAllMapSearchPaths)(void* filesystem);
-	extern const std::vector<Symbol> CBaseFileSystem_RemoveAllMapSearchPathsSym;
 
 	typedef void (GMCOMMON_CALLING_CONVENTION* CBaseFileSystem_Close)(void* filesystem, FileHandle_t);
 	extern const std::vector<Symbol> CBaseFileSystem_CloseSym;
@@ -717,8 +711,8 @@ namespace Symbols
 	typedef void (*Bootil_File_ChangeMonitor_CheckForChanges)(void* changeMonitor);
 	extern const std::vector<Symbol> Bootil_File_ChangeMonitor_CheckForChangesSym;
 
-	typedef bool (*Bootil_File_ChangeMonitor_HasChanged)(void* changeMonitor);
-	extern const std::vector<Symbol> Bootil_File_ChangeMonitor_HasChangedSym;
+	typedef bool (*Bootil_File_ChangeMonitor_HasChanges)(void* changeMonitor);
+	extern const std::vector<Symbol> Bootil_File_ChangeMonitor_HasChangesSym;
 
 	//---------------------------------------------------------------------------------
 	// Purpose: soundscape Symbols

@@ -263,6 +263,8 @@ static BASS_Encode_SetPaused* func_BASS_Encode_SetPaused;
 static BASS_Encode_GetChannel* func_BASS_Encode_GetChannel;
 static BASS_Encode_SetChannel* func_BASS_Encode_SetChannel;
 static BASS_Encode_Write* func_BASS_Encode_Write;
+static BASS_Encode_CastInit* func_BASS_Encode_CastInit;
+static BASS_Encode_CastSetTitle* func_BASS_Encode_CastSetTitle;
 
 static BASS_Encode_MP3_Start* func_BASS_Encode_MP3_Start;
 static BASS_Encode_OGG_Start* func_BASS_Encode_OGG_Start;
@@ -354,6 +356,8 @@ bool CGMod_Audio::Init(CreateInterfaceFn interfaceFactory)
 		GetBassEncFunc(BASS_Encode_GetChannel, pBassEnc);
 		GetBassEncFunc(BASS_Encode_SetChannel, pBassEnc);
 		GetBassEncFunc(BASS_Encode_Write, pBassEnc);
+		GetBassEncFunc(BASS_Encode_CastInit, pBassEnc);
+		GetBassEncFunc(BASS_Encode_CastSetTitle, pBassEnc);
 		g_bUsesBassEnc = true;
 	}
 
@@ -424,33 +428,22 @@ unsigned long CGMod_Audio::GetVersion()
 
 void CGMod_Audio::Shutdown()
 {
-	// Msg("CGMod_Audio::Shutdown start\n");
 	FinishAllAsync((void*)EncoderForceShutdownPointer); // Finish all callbacks
 
-	// Msg("CGMod_Audio::Shutdown 2\n");
 	if (g_pGModAudioThreadPool)
 	{
-		// Msg("CGMod_Audio::Shutdown %i\n", g_pGModAudioThreadPool->GetJobCount());
-		g_pGModAudioThreadPool->AbortAll(); // ToDo: Debug this and check why 64x shits itself when shutting down
-		g_pGModAudioThreadPool->Stop(1);
-		V_DestroyThreadPool(g_pGModAudioThreadPool);
+		Util::DestroyThreadPool(g_pGModAudioThreadPool);
 		g_pGModAudioThreadPool = nullptr;
 	}
 
-	// Msg("CGMod_Audio::Shutdown 3\n");
-
 	BASS_Free();
 	BASS_PluginFree(0);
-
-	// Msg("CGMod_Audio::Shutdown 4\n");
 
 	for (void* pLoadedDLL : m_pLoadedDLLs)
 	{
 		DLL_UnloadModule((DLL_Handle)pLoadedDLL);
 	}
 	m_pLoadedDLLs.clear();
-
-	// Msg("CGMod_Audio::Shutdown 5\n");
 }
 
 IBassAudioStream* CGMod_Audio::CreateAudioStream(IAudioStreamEvent* event)
@@ -657,14 +650,12 @@ bool CGMod_Audio::LoadPlugin(const char* pluginName, const char** pErrorOut)
 
 void CGMod_Audio::FinishAllAsync(void* nSignalData)
 {
-	Msg("FinishAllAsync start\n");
 	if (g_pGModAudioThreadPool)
 		g_pGModAudioThreadPool->ExecuteAll();
 
 	std::unordered_set<CGModAudioChannelEncoder*> pEncoders = m_pEncoders; // Copy to avoid issues with deletion while iterating
 	for (CGModAudioChannelEncoder* pEncoder : pEncoders)
 		pEncoder->HandleFinish(nSignalData); // Freed inside
-	Msg("FinishAllAsync done\n");
 }
 
 IGModAudioChannel* CGMod_Audio::CreateDummyChannel(int nSampleRate, int nChannels, unsigned long nFlags, const char** pErrorOut)
@@ -1537,6 +1528,28 @@ void CGModAudioChannelEncoder::SetChannel(IGModAudioChannel* pChannel, const cha
 void CGModAudioChannelEncoder::WriteData(const void* pData, unsigned long nLength)
 {
 	func_BASS_Encode_Write( m_pEncoder, pData, nLength );
+}
+
+bool CGModAudioChannelEncoder::CastInit(
+	const char* server, const char* password, const char* content,
+	const char* name, const char* url, const char* genre,
+	const char* desc, char headers[4096], unsigned long bitrate,
+	unsigned long flags, const char** pErrorOut
+)
+{
+	if (!func_BASS_Encode_CastInit( m_pEncoder, server, password, content, name, url, genre, desc, headers, bitrate, flags ))
+	{
+		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
+		return false;
+	}
+
+	*pErrorOut = NULL;
+	return true;
+}
+
+void CGModAudioChannelEncoder::CastSetTitle(const char* title,const char* url)
+{
+	func_BASS_Encode_CastSetTitle( m_pEncoder, title, url );
 }
 
 CGModAudioFX::CGModAudioFX(DWORD pFXHandle, bool bIsFX)

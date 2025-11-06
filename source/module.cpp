@@ -87,7 +87,13 @@ void CModule::SetupConfig()
 		return;
 
 	Bootil::Data::Tree& pData = pConfig->GetData().GetChild(m_pModule->Name());
-	m_bEnabled = pData.EnsureChildVar<bool>("enabled", m_bEnabled);
+	if (pData.EnsureChildVar<bool>("enabledByDefault", m_bEnabled) != m_bEnabled)
+	{ // Module was disabled by default, and now is enabled. Happens when compatibility changes
+		pData.GetChild("enabled").Var<bool>(m_bEnabled);
+	} else {
+		m_bEnabled = pData.EnsureChildVar<bool>("enabled", m_bEnabled);
+	}
+
 	m_pModule->SetDebug(pData.EnsureChildVar<int>("debugLevel", m_pModule->InDebug()));
 
 	m_pModule->OnConfigLoad(pData);
@@ -126,6 +132,7 @@ void CModule::SetModule(IModule* module)
 
 	m_bEnabled = m_pModule->IsEnabledByDefault() ? m_bCompatible : false;
 
+	// Setup here so that command line arguments do not intentionally change the config.
 	SetupConfig();
 
 	std::string pStrName = "holylib_enable_";
@@ -247,9 +254,24 @@ CModuleManager::CModuleManager()
 		module_debug.SetValue("1");
 	}*/
 
+	if (CommandLine()->FindParm("-holylib_allowunsafe"))
+	{
+		Msg(PROJECT_NAME " - code: Found -holylib_allowunsafe enabling unsafe code...\n");
+		m_bEnabledUnsafeCode = true;
+	}
+
+	if (CommandLine()->FindParm("-holylib_denyunsafe"))
+	{
+		Msg(PROJECT_NAME " - code: Found -holylib_denyunsafe disabling unsafe code...\n");
+		m_bEnabledUnsafeCode = false;
+	}
+
+	if (CommandLine()->FindParm("-holylib_allowunsafe") && CommandLine()->FindParm("-holylib_denyunsafe"))
+		Msg(PROJECT_NAME " - code: Both -holylib_allowunsafe and -holylib_denyunsafe were found -holylib_denyunsafe takes priority! (But... Why... Why both...)\n");
+
 	if (!m_pConfig)
 	{
-		m_pConfig = g_pConfigSystem->LoadConfig("garrysmod/holylib/cfg/modules.json");
+		m_pConfig = g_pConfigSystem->LoadConfig(HOLYLIB_CONFIG_PATH "modules.json");
 		if (m_pConfig->GetState() == ConfigState::INVALID_JSON)
 		{
 			Warning(PROJECT_NAME " - modulesystem: Failed to load modules.json!\n- Check if the json is valid or delete the config to let a new one be generated!\n");
