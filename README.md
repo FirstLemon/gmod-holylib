@@ -3214,8 +3214,8 @@ Creates a IGMODAudioChannel for the given file.<br>
 callback - function(IGMODAudioChannel channel, number errorCode, string error)<br>
 Creates a IGMODAudioChannel for the given url.<br>
 
-#### bass.Update(number time)
-Updates all bass channels processing as x(time) seconds passed.<br>
+#### bool bass.Update(number time)
+Updates all bass channels processing as x(time) milliseconds passed.<br>
 
 #### string bass.GetVersion()
 Returns the bass version as a string.<br>
