@@ -17,10 +17,10 @@ return {
             end
         },
         {
-            name = "GetVersion returns a version string",
+            name = "GetVersion returns a string",
             when = HolyLib_IsModuleEnabled( "bass" ),
             func = function()
-                expect( bass.GetVersion() ).to.beA( "String" )
+                expect( bass.GetVersion() ).to.beA( "string" )
             end
         },
     }
