@@ -3215,7 +3215,8 @@ callback - function(IGMODAudioChannel channel, number errorCode, string error)<b
 Creates a IGMODAudioChannel for the given url.<br>
 
 #### bool bass.Update(number time)
-Updates all bass channels processing as x(time) milliseconds passed.<br>
+Manually updates all BASS channels as if `time` seconds have passed.
+It returns true on success, false if an update is already in progress.
 
 #### string bass.GetVersion()
 Returns the bass version as a string.<br>
