@@ -1131,8 +1131,9 @@ LUA_FUNCTION_STATIC(bass_PlayURL)
 extern CGlobalVars* gpGlobals;
 LUA_FUNCTION_STATIC(bass_Update)
 {
-	gGModAudio->Update((int)LUA->CheckNumberOpt(1, gpGlobals->absoluteframetime * 1000));
-	return 0;
+	bool wasUpdated = gGModAudio->Update((int)LUA->CheckNumberOpt(1, gpGlobals->absoluteframetime * 1000));
+	LUA->PushBool(wasUpdated);
+	return 1;
 }
 
 LUA_FUNCTION_STATIC(bass_GetVersion)
