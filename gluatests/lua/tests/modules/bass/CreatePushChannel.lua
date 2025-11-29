@@ -1,5 +1,5 @@
 return {
-    groupName = "bass.CreateDummyChannel",
+    groupName = "bass.CreatePushChannel",
 
     cases = {
         {
@@ -53,7 +53,7 @@ return {
             name = "Invalid arg types throw lua error",
             when = HolyLib_IsModuleEnabled( "bass" ),
             func = function()
-                expect( bass.CreatePushChannel, "44000", 1, 0 ).to.err()
+                expect( bass.CreatePushChannel, "We are definitely not horses", 1, 0 ).to.err()
             end
         },
     }
