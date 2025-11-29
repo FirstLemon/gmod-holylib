@@ -10,7 +10,7 @@ return {
         },
         {
             name = "Function is nil when module disabled",
-            when = not HolyLib_IsModuleEnabled("bass"),
+            when = not HolyLib_IsModuleEnabled( "bass" ),
             func = function()
                 expect( FindMetaTable( "IGModAudioChannel" ) ).to.beA( "nil" )
             end
