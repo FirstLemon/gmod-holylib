@@ -187,7 +187,6 @@ void CheckPhysicsLag(const char* pFunctionName, CPhysicsObject* pObject1, CPhysi
 			{
 				auto ivp_vector = g_pPhysicsHolyLib->GetRecheckOVVector();
 				g_Lua->PreCreateTable(ivp_vector.len(), ivp_vector.len());
-				int i = 0;
 				for (int i=0; i< ivp_vector.len(); ++i)
 				{
 					IPhysicsObject* pCurrentOVObject = (IPhysicsObject*)ivp_vector.element_at(i)->client_data;
@@ -1917,7 +1916,9 @@ IPhysicsObject *PhysCreateWorld(IPhysicsEnvironment* pEnvironment, CBaseEntity* 
 
 LUA_FUNCTION_STATIC(IPhysicsEnvironment_CreateWorldPhysics)
 {
+#if 0
 	ILuaPhysicsEnvironment* pLuaEnv = Get_ILuaPhysicsEnvironment(LUA, 1, true);
+#endif
 	IPhysicsEnvironment* pEnvironment = GetPhysicsEnvironmentFromLua(LUA, 1, true);
 	
 #if ARCHITECTURE_IS_X86
@@ -2712,6 +2713,12 @@ void CPhysEnvModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 	DeleteAll_IPhysicsCollisionSet(pLua);
 }
 
+#if SYSTEM_WINDOWS
+DETOUR_THISCALL_START()
+	DETOUR_THISCALL_ADDFUNC0( hook_CPhysicsHook_FrameUpdatePostEntityThink, FrameUpdatePostEntityThink, void* );
+DETOUR_THISCALL_FINISH();
+#endif
+
 static DLL_Handle g_pPhysicsModule = NULL;
 void CPhysEnvModule::InitDetour(bool bPreServer)
 {
@@ -2743,6 +2750,7 @@ void CPhysEnvModule::InitDetour(bool bPreServer)
 		g_pPhysicsModule = NULL;
 	}
 
+	DETOUR_PREPARE_THISCALL();
 #if PHYSENV_INCLUDEIVPFALLBACK
 	if (g_pFullFileSystem)
 	{
@@ -2918,7 +2926,7 @@ void CPhysEnvModule::InitDetour(bool bPreServer)
 	Detour::Create(
 		&detour_CPhysicsHook_FrameUpdatePostEntityThink, "CPhysicsHook::FrameUpdatePostEntityThink",
 		server_loader.GetModule(), Symbols::CPhysicsHook_FrameUpdatePostEntityThinkSym,
-		(void*)hook_CPhysicsHook_FrameUpdatePostEntityThink, m_pID
+		(void*)DETOUR_THISCALL(hook_CPhysicsHook_FrameUpdatePostEntityThink, FrameUpdatePostEntityThink), m_pID
 	);
 
 	func_CCollisionEvent_FrameUpdate = (Symbols::CCollisionEvent_FrameUpdate)Detour::GetFunction(server_loader.GetModule(), Symbols::CCollisionEvent_FrameUpdateSym);

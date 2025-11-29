@@ -184,6 +184,9 @@ https://github.com/RaphaelIT7/gmod-holylib/compare/Release0.7...main
 \- [#] Changed `voicechat.SaveVoiceStream` & `voicechat.LoadVoiceStream` to remove their 4th `sync` argument, if a callback is provided it will be async, else it'll run sync<br>
 \- [#] Renamed `HolyLib:OnPhysFrame` to `HolyLib:PrePhysFrame`<br>
 \- [#] Fixed a typo `bf_write:WriteBitVec3normal` -> `bf_write:WriteBitVec3Normal`<br>
+\- [#] Changed arguments and return value of `HolyLib:PostEntityConstructor`<br>
+\- [#] Changed `pvs.AddEntityToTransmit` to only work inside `HolyLib:PreCheckTransmit` due to safety & performance reasons<br>
+\- [#] Changed `HolyLib:[Pre/Post]CheckTransmit` hooks to be disabled by default needing to be now enabled using `pvs.Enable[Pre/Post]TransmitHook`<br>
 \- [-] Removed `VoiceData:GetUncompressedData` decompress size argument<br>
 \- [-] Removed `CBaseClient:Transmit` third argument `fragments`.<br>
 \- [-] Removed `gameserver.CalculateCPUUsage` and `gameserver.ApproximateProcessMemoryUsage` since they never worked.<br>
@@ -434,12 +437,25 @@ hook.Add("HolyLib:GetGModTags", "Example", function()
 end)
 ```
 
-#### HolyLib:PostEntityConstructor(Entity ent, String className)
+#### bool(default = false, makeServerOnly) HolyLib:PostEntityConstructor(String className)
 Called before `CBaseEntity::PostConstructor` is called.<br>
-This should allow you to set the `EFL_SERVER_ONLY` flag properly.<br>
+Return `true` to make the entity being created a serverside only entity.<br>
+
+This for example is useful for `light` entities as they do not need to be networked since they use the `lightstyle` stringtable easily saving 1000+ entity slots.<br>
+Example:
+```lua
+hook.Add("HolyLib:PostEntityConstructor", "Example_ServerSide_Lights", function(class)
+	if class == "light" then
+		-- Return true makes these entities serverside only since they do not need networking at all
+		-- This is because they use the lightstyle stringtable for networking / use the IVEngineServer::LightStyle binding
+		return true 
+	end
+end)
+```
 
 > [!NOTE]
-> This may currently not work.
+> This may currently not work. Thanks past me...<br>
+> This hook is now fully functional though you cannot get the Entity itself inside of it due to it not being registered anywhere yet.<br>
 
 #### HolyLib:OnPlayerGotOnLadder(Entity ladder, Entity ply)
 Called when a gets onto a ladder -> Direct bind to `CFuncLadder::PlayerGotOn`<br>
@@ -971,7 +987,8 @@ bool always - If the entity should always be transmitted? (Verify)<br>
 Adds the given Entity to be transmitted.
 
 > [!NOTE]
-> Only use this function inside the `HolyLib:[Pre/Post]CheckTransmit` hook!<br>
+> Only use this function inside the `HolyLib:PreCheckTransmit` hook!<br>
+> Do **not** use it inside `HolyLib:PostCheckTransmit` since its blocked there due to else needing some expensive changes.<br>
 
 #### (REMOVED AGAIN) pvs.IsEmptyBaseline()
 Returns `true` if the baseline is empty.<br>
@@ -1004,6 +1021,19 @@ Forces a full update for the specific client.<br>
 #### table pvs.GetEntitesFromTransmit()
 Returns a table containing all entities that will be networked.<br>
 
+#### pvs.ForceWeaponTransmit(Entity weapon, bool forceTransmit = false)
+Allows you to mark a weapon to be forcefully transmitted even when offhand.<br>
+The weapon will remain to be forcefully transmitted until this is called with false again or the weapon is removed!<br>
+This is only useful if you use the `networking` module with the `holylib_networking_transmit_all_weapons 0` and `holylib_networking_transmit_all_weapons_to_owner 0`<br>
+
+#### pvs.EnablePreTransmitHook(bool enable = false)
+Enables/Disables the `HolyLib:PreCheckTransmit` hook.<br>
+The internal value is reset on mapchange, so you need to set it always again on Lua startup.<br>
+
+#### pvs.EnablePostTransmitHook(bool enable = false)
+Enables/Disables the `HolyLib:PostCheckTransmit` hook.<br>
+The internal value is reset on mapchange, so you need to set it always again on Lua startup.<br>
+
 ### Enums
 
 #### pvs.FL_EDICT_DONTSEND = 1<br>
@@ -1026,8 +1056,14 @@ Return `true` to cancel it.<br>
 
 You could do the transmit stuff yourself inside this hook.<br>
 
+> [!NOTE]
+> This hook needs to be enabled first using `pvs.EnablePreTransmitHook(true)`<br>
+
 #### HolyLib:PostCheckTransmit(Entity ply)
 entity ply - The player that everything is transmitted to.<br>
+
+> [!NOTE]
+> This hook needs to be enabled first using `pvs.EnablePostTransmitHook(true)`<br>
 
 ## surffix
 This module ports over [Momentum Mod's](https://github.com/momentum-mod/game/blob/develop/mp/src/game/shared/momentum/mom_gamemovement.cpp#L2393-L2993) surf fixes.<br>
@@ -1236,7 +1272,16 @@ If enabled, it will cache the file handle and return it if needed.<br>
 > This is a noticeable improvement, but it seems to break .bsp files :/<br>
 
 ### (EXPERIMENTAL) holylib_filesystem_savesearchcache (default `1`)
-If enabled, the search cache will be written into a file and loaded on startup to improve startup times
+If enabled, the search cache will be written into a file and loaded on startup to improve startup times<br>
+
+### (EXPERIMENTAL) holylib_filesystem_mergesearchcache (default `1`)
+If enabled, when saving the search cache it will not remove old entries and instead keep them even if they were unused this session<br>
+
+### (EXPERIMENTAL) holylib_filesystem_skipinvalidluapaths (default `1`)
+If enabled, invalid lua paths like include/include/ will be skipped instantly<br>
+
+### (EXPERIMENTAL) holylib_filesystem_tryalternativeluapath (default `1`)
+If enabled, if it can't find a file in the search cache, it will remove the first folder and try again as when loading Lua gmod loves to test different folders first<br>
 
 #### holylib_debug_filesystem (default `0`)
 If enabled, it will print all filesyste suff.<br>
@@ -1352,7 +1397,7 @@ Supports: Linux32 | Linux64<br>
 If enabled, it completely disables the concommand/convar blacklist.<br>
 
 ## vprof
-This module adds VProf to gamemode calls, adds two convars and an entire library.
+This module adds VProf to gamemode calls, adds two convars and an entire library.<br>
 
 Supports: Linux32 | Linux64 | Windows32<br>
 
@@ -1609,7 +1654,7 @@ Theses are the CounterGroup_t enums.<br>
 If enabled, vprof results will be dumped into a file in the vprof/ folder<br>
 
 ### cvars
-This module adds one function to the `cvars` library.<br>
+This module adds a seperate `cvar` library with new functions.<br>
 
 Supports: Linux32 | Linux64 | Windows32 | Windows64<br>
 
@@ -1827,7 +1872,7 @@ Useful if you want to read the userdata of the instancebaseline stringtable.<br>
 > This is because you could cause a crash if you were to create too many stack allocated buffers!<br>
 
 > [!NOTE]
-> The size is clamped internally between a minimum of `4` bytes and a maximum of `65536` bytes.
+> The size is clamped internally between a minimum of `4` bytes and a maximum of `65536` bytes on Linux and to `8192` on Windows.
 
 #### bf_write bitbuf.CreateStackWriteBuffer(number size or string data, function callback)
 callback = `function(bf) end`<br>
@@ -1838,7 +1883,7 @@ Create a write buffer with the given size or with the given data allocated on th
 > This is because you could cause a crash if you were to create too many stack allocated buffers!<br>
 
 > [!NOTE]
-> The size is clamped internally between a minimum of `4` bytes and a maximum of `65536` bytes.
+> The size is clamped internally between a minimum of `4` bytes and a maximum of `65536` bytes on Linux and to `8192` on Windows.
 
 ### bf_read
 This class will later be used to read net messages from HLTV clients.<br>
@@ -1868,7 +1913,7 @@ You can store variables into it.<br>
 Returns the number of bits left.<br>
 
 #### number bf_read:GetNumBitsRead()
-Returns the number of bits read.
+Returns the number of bits read.<br>
 
 #### number bf_read:GetNumBits()
 Returns the size of the data in bits.<br>
@@ -1883,7 +1928,7 @@ Returns the number of bytes read.<br>
 Returns the size of the data in bytes.<br>
 
 #### number bf_read:GetCurrentBit()
-Returns the current position/bit.
+Returns the current position/bit.<br>
 
 > [!NOTE]
 > This is only available for the 32x!	
@@ -1937,7 +1982,7 @@ Reads the given number of bits.<br>
 Reads a Vector.<br>
 
 #### vector bf_read:ReadBitVec3Normal()
-Reads a normalizted Vector.
+Reads a normalizted Vector.<br>
 
 #### number bf_read:ReadByte()
 Reads a byte.<br>
@@ -1992,8 +2037,8 @@ Sets the current position to the given position.<br>
 Returns `true` on success.<br>
 
 #### bool bf_read:SeekRelative(number pos)
-Sets the current position to the given position relative to the current position.
-Basicly `newPosition = currentPosition + iPos`	
+Sets the current position to the given position relative to the current position.<br>
+Basicly `newPosition = currentPosition + iPos`<br>
 Returns `true` on success.<br>
 
 ### bf_write<br>
@@ -2191,9 +2236,30 @@ This helps to reduce networking cost as networking all weapons of every player i
 Setting it to `1` causes it to network the additional weapon to **all** players<br>
 Setting it to `2` causes it to network the additional weapon **only** to the owner<br>
 
-#### networking_bind_gmodhands_to_player(default `1`)
+#### holylib_networking_bind_gmodhands_to_player(default `1`)
 If enabled, the GMOD Hands entity / the entity set with `Player:SetHands` will be bound to the player and only networked with the player himself.<br>
 Will become useless with https://github.com/Facepunch/garrysmod-requests/issues/2839<br>
+
+#### holylib_networking_bind_viewmodels_to_player(default `1`)
+If enabled, the viewmodels will be bound to the player and only networked if the player is networked.<br>
+Will become useless with https://github.com/Facepunch/garrysmod-requests/issues/2839<br>
+
+#### holylib_networking_transmit_newweapons(default `1`)
+If enabled, weapons that a player newly picked up will be networked to them.<br>
+Only functional/mean to be used with both `holylib_networking_transmit_all_weapons` and `holylib_networking_transmit_all_weapons_to_owner` being disabled<br>
+This saves lots of networking by only networking off hand weapons when they change/update and won't continously send updates about them<br>
+
+#### holylib_networking_transmit_onfullupdate(default `1`)
+If enabled, players and their own weapons are transmitted for the first x ticks when they had a full update<br>
+This means, if your client has a full update, you will be networked all other players(not their weapons only the player themselves due to performance reasons) and your own weapons.<br>
+
+#### holylib_networking_transmit_onfullupdate_networktoothers(default `1`)
+Depends on `holylib_networking_transmit_onfullupdate` being enabled.<br>
+For other players, if another player has a full update, they will be networked to everyone to ensure that every player knows of every other players existance.<br>
+
+#### holylib_networking_transmit_ticks(default `100`)
+How many ticks are used in which new weapons or full updates are networked.<br>
+This tick count is used by the `holylib_networking_transmit_newweapons`, `holylib_networking_transmit_onfullupdate` and `holylib_networking_transmit_onfullupdate_networktoothers` convars internally.<br>
 
 ## steamworks
 This module adds a few functions related to steam.<br>
@@ -2355,7 +2421,7 @@ It won't do any processing, it will just send it as it is.<br>
 
 #### voicechat.BroadcastVoiceData(VoiceData data, table plys = nil)
 Same as `voicechat.SendVoiceData` but broadcasts it to all players.<br>
-If given a table it will only send it to thoes players.<br>
+If given a table it will only send it to those players.<br>
 
 #### voicechat.ProcessVoiceData(Player ply, VoiceData data)
 Let's the server process the VoiceData like it was received from the client.<br>
@@ -3228,8 +3294,11 @@ Creates a IGMODAudioChannel for the given file.<br>
 callback - function(IGMODAudioChannel channel, number errorCode, string error)<br>
 Creates a IGMODAudioChannel for the given url.<br>
 
-#### bass.Update(number time)
-Updates all bass channels processing as x(time) seconds passed.<br>
+#### bool bass.Update(number time = RealFrameTime())
+Manually updates all BASS channels as if `time` milliseconds have passed.<br>
+If no time is specified it defaults to [RealFrameTime()](https://wiki.facepunch.com/gmod/Global.RealFrameTime).<br>
+It returns true on success, false if an update is already in progress.<br>
+See https://www.un4seen.com/doc/#bass/BASS_Update.html for more details.<br>
 
 #### string bass.GetVersion()
 Returns the bass version as a string.<br>
@@ -5069,6 +5138,7 @@ Mostly only useful to influence which soundscape could be selected.<br>
 
 #### soundscape.EnableUpdateHook(bool enable = false)
 Enables/Disables the `HolyLib:OnSoundScapeUpdateForPlayer` hook.<br>
+The internal value is reset on mapchange, so you need to set it always again on Lua startup.<br>
 
 ### Hooks
 

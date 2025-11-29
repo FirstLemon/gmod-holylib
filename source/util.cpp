@@ -27,19 +27,21 @@ IVEngineServer* engine = nullptr;
 CGlobalEntityList* Util::entitylist = nullptr;
 CUserMessages* Util::pUserMessages = nullptr;
 
-std::unordered_set<LuaUserData*> g_pLuaUserData;
+#if HOLYLIB_UTIL_DEBUG_LUAUSERDATA
+std::unordered_set<LuaUserData*> g_pLuaUserData; // Debug only use
+#endif
 
 std::unordered_set<int> Util::g_pReference;
 ConVar Util::holylib_debug_mainutil("holylib_debug_mainutil", "1");
 
 // We require this here since we depend on the Lua namespace
-void LuaUserData::ForceGlobalRelease(void* pData)
+void ReferencedLuaUserData::ForceGlobalRelease(void* pData)
 {
 	bool bFound = false;
 	const std::unordered_set<Lua::StateData*> pStateData = Lua::GetAllLuaData();
 	for (Lua::StateData* pState : pStateData)
 	{
-		std::unordered_map<void*, LuaUserData*> owningData = pState->GetPushedUserData(); // Copy it over in case it->second gets deleted while iterating
+		std::unordered_map<void*, ReferencedLuaUserData*> owningData = pState->GetPushedUserData(); // Copy it over in case it->second gets deleted while iterating
 		auto it2 = owningData.find(pData);
 		if (it2 == owningData.end())
 			continue;
@@ -63,7 +65,7 @@ void LuaUserData::ForceGlobalRelease(void* pData)
 	*/
 	for (Lua::StateData* pState : pStateData)
 	{
-		std::unordered_map<void*, LuaUserData*> owningData = pState->GetPushedUserData(); // Copy it over in case it->second gets deleted while iterating
+		std::unordered_map<void*, ReferencedLuaUserData*> owningData = pState->GetPushedUserData(); // Copy it over in case it->second gets deleted while iterating
 		auto it2 = owningData.find(pData);
 		if (it2 == owningData.end())
 			continue;
@@ -117,10 +119,8 @@ CBasePlayer* Util::Get_Player(GarrysMod::Lua::ILuaInterface* LUA, int iStackPos,
 	return (CBasePlayer*)pEntity;
 }
 
-#if 0
 GCudata* g_pEntityReferences[MAX_EDICTS] = {nullptr}; // nulled out in Util::InitDetours
 int g_pEntitySerialNum[MAX_EDICTS] = {-1};
-#endif
 
 IModuleWrapper* Util::pEntityList;
 static Symbols::CBaseEntity_GetLuaEntity func_CBaseEntity_GetLuaEntity = nullptr;
@@ -134,7 +134,6 @@ void Util::Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt)
 
 	if (LUA == g_Lua)
 	{
-#if 0
 		const CBaseHandle& pHandle = pEnt->GetRefEHandle(); // The only virtual function that would never dare to change
 		int nEntryIndex = pHandle.GetEntryIndex();
 		if (nEntryIndex >= 0 && MAX_EDICTS > nEntryIndex)
@@ -175,7 +174,6 @@ void Util::Push_Entity(GarrysMod::Lua::ILuaInterface* LUA, CBaseEntity* pEnt)
 				return;
 			}
 		}
-#endif
 
 		// In the case we are missing our symbol for CBaseEntity::GetLuaEntity, this will be slower though will still be fully functional.
 		if (!func_CBaseEntity_GetLuaEntity)
@@ -246,7 +244,8 @@ IServerGameEnts* Util::servergameents = nullptr;
 IServerGameClients* Util::servergameclients = nullptr;
 CBaseClient* Util::GetClientByPlayer(const CBasePlayer* ply)
 {
-	return Util::GetClientByUserID(Util::engineserver->GetPlayerUserId(((CBaseEntity*)ply)->edict()));
+	// Follows source engines assumption that CGameClient/player index == entindex - 1
+	return Util::GetClientByIndex(ply->edict()->m_EdictIndex - 1);
 }
 
 CBaseClient* Util::GetClientByIndex(int index)
@@ -570,6 +569,14 @@ int Util::FindOffsetForNetworkVar(const char* pDTName, const char* pVarName)
 	return -1;
 }
 
+#if SYSTEM_WINDOWS
+#undef CreateEvent // Where tf is that windows include >:(
+DETOUR_THISCALL_START()
+	DETOUR_THISCALL_ADDFUNC1( hook_CSteam3Server_NotifyClientDisconnect, NotifyClientDisconnect, void*, CBaseClient* );
+	DETOUR_THISCALL_ADDRETFUNC2( hook_CGameEventManager_CreateEvent, IGameEvent*, CreateEvent, void*, const char*, bool );
+DETOUR_THISCALL_FINISH();
+#endif
+
 IGet* Util::get = nullptr;
 CBaseEntityList* g_pEntityList = nullptr;
 Symbols::lua_rawseti Util::func_lua_rawseti = nullptr;
@@ -623,16 +630,17 @@ void Util::AddDetour()
 		servergamedll = server_loader.GetInterface<IServerGameDLL>(INTERFACEVERSION_SERVERGAMEDLL);
 	Detour::CheckValue("get interface", "IServerGameDLL", servergamedll != nullptr);
 
+	DETOUR_PREPARE_THISCALL();
 	Detour::Create(
 		&detour_CSteam3Server_NotifyClientDisconnect, "CSteam3Server::NotifyClientDisconnect",
 		engine_loader.GetModule(), Symbols::CSteam3Server_NotifyClientDisconnectSym,
-		(void*)hook_CSteam3Server_NotifyClientDisconnect, 0
+		(void*)DETOUR_THISCALL(hook_CSteam3Server_NotifyClientDisconnect, NotifyClientDisconnect), 0
 	);
 
 	Detour::Create(
 		&detour_CGameEventManager_CreateEvent, "CGameEventManager::CreateEvent",
 		engine_loader.GetModule(), Symbols::CGameEventManager_CreateEventSym,
-		(void*)hook_CGameEventManager_CreateEvent, 0
+		(void*)DETOUR_THISCALL(hook_CGameEventManager_CreateEvent, CreateEvent), 0
 	);
 
 	SourceSDK::ModuleLoader steam_api_loader("steam_api");
@@ -658,10 +666,10 @@ void Util::AddDetour()
 
 	if (!entitylist)
 	{
-		#ifdef ARCHITECTURE_X86
+		#if defined(ARCHITECTURE_X86) && defined(SYSTEM_LINUX)
 			entitylist = Detour::ResolveSymbol<CGlobalEntityList>(server_loader, Symbols::gEntListSym);
 		#else
-			entitylist = Detour::ResolveSymbolFromLea<CGlobalEntityList>(server_loader.GetModule(), Symbols::gEntListSym);
+			entitylist = Detour::ResolveSymbolWithOffset<CGlobalEntityList>(server_loader.GetModule(), Symbols::gEntListSym);
 		#endif
 	}
 

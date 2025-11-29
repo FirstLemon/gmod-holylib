@@ -41,7 +41,7 @@ class IGameEventManager2;
 class IServer;
 class IServerGameDLL;
 class ISteamUser;
-struct CBaseHandle;
+class CBaseHandle;
 namespace Util
 {
 	#define LUA_REGISTRYINDEX	(-10000)
@@ -365,6 +365,7 @@ public:
 	{
 		m_pDTName = pDTName;
 		m_pVarName = pVarName;
+		m_nArraySize = nArraySize;
 	}
 
 	inline void Init()
@@ -394,7 +395,7 @@ public:
 		return *(void**)Util::GoToNetworkVarOffset(pBase, m_nOffset);
 	}
 
-	FORCEINLINE void* GetPointerArray(const void* pBase, int nArraySlot)
+	FORCEINLINE void* GetPointerArray(const void* pBase, const int nArraySlot)
 	{
 		if (m_nOffset == -1)
 			Init();

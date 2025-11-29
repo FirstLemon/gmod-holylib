@@ -94,6 +94,38 @@ LUA_FUNCTION_STATIC(Test_RawGetTestUserData)
 	return 0;
 }
 
+struct _HOLYLIB_CORE_TEST_REFERENCED
+{
+	int JustAnExample = 123;
+};
+static _HOLYLIB_CORE_TEST_REFERENCED g_pCoreTestReferencedUserData;
+
+PushReferenced_LuaClass(_HOLYLIB_CORE_TEST_REFERENCED)
+Get_LuaClass(_HOLYLIB_CORE_TEST_REFERENCED, "_HOLYLIB_CORE_TEST_REFERENCED")
+
+Default__index(_HOLYLIB_CORE_TEST_REFERENCED);
+Default__newindex(_HOLYLIB_CORE_TEST_REFERENCED);
+Default__GetTable(_HOLYLIB_CORE_TEST_REFERENCED);
+
+LUA_FUNCTION_STATIC(Test_PushReferencedTestUserData)
+{
+	Push__HOLYLIB_CORE_TEST_REFERENCED(LUA, &g_pCoreTestReferencedUserData);
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_GetReferencedTestUserData)
+{
+	_HOLYLIB_CORE_TEST_REFERENCED* pTest = Get__HOLYLIB_CORE_TEST_REFERENCED(LUA, 1, true);
+	LUA->PushBool(pTest->JustAnExample == 123); // Verify we didn't get garbage
+	return 1;
+}
+
+LUA_FUNCTION_STATIC(Test_RawReferencedGetTestUserData)
+{
+	Get__HOLYLIB_CORE_TEST_REFERENCED(LUA, 1, true);
+	return 0;
+}
+
 class LuaCoreTestModuleData : public Lua::ModuleData
 {
 public:
@@ -171,6 +203,12 @@ static void SetupCoreTestFunctions(GarrysMod::Lua::ILuaInterface* pLua)
 		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST_GetTable, "GetTable");
 	pLua->Pop(1);
 
+	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::_HOLYLIB_CORE_TEST_REFERENCED, pLua->CreateMetaTable("_HOLYLIB_CORE_TEST_REFERENCED"));
+		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST_REFERENCED__index, "__index");
+		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST_REFERENCED__newindex, "__newindex");
+		Util::AddFunc(pLua, _HOLYLIB_CORE_TEST_REFERENCED_GetTable, "GetTable");
+	pLua->Pop(1);
+
 	Lua::GetLuaData(pLua)->SetModuleData(0, new LuaCoreTestModuleData);
 
 	Util::StartTable(pLua);
@@ -182,6 +220,9 @@ static void SetupCoreTestFunctions(GarrysMod::Lua::ILuaInterface* pLua)
 		Util::AddFunc(pLua, Test_PushTestUserData, "PushTestUserData");
 		Util::AddFunc(pLua, Test_GetTestUserData, "GetTestUserData");
 		Util::AddFunc(pLua, Test_RawGetTestUserData, "RawGetTestUserData");
+		Util::AddFunc(pLua, Test_PushReferencedTestUserData, "PushReferencedTestUserData");
+		Util::AddFunc(pLua, Test_GetReferencedTestUserData, "GetReferencedTestUserData");
+		Util::AddFunc(pLua, Test_RawReferencedGetTestUserData, "RawReferencedGetTestUserData");
 		Util::AddFunc(pLua, Test_GetModuleData, "GetModuleData");
 		Util::AddFunc(pLua, Test_RawGetModuleData, "RawGetModuleData");
 		Util::AddFunc(pLua, Test_GetGModVector, "GetGModVector");
@@ -211,6 +252,12 @@ bool Lua::PushHook(const char* hook, GarrysMod::Lua::ILuaInterface* pLua)
 	if (!ThreadInMainThread() && pLua == g_Lua)
 	{
 		Warning(PROJECT_NAME ": Lua::PushHook was called ouside of the main thread! (%s)\n", hook);
+		return false;
+	}
+
+	if (g_pModuleManager.GetModuleRealm() == Module_Realm::MENU)
+	{
+		DevMsg(PROJECT_NAME ": Lua::PushHook was blocked due to us being loaded by the Menu state, not server.\n");
 		return false;
 	}
 
@@ -268,7 +315,8 @@ void Lua::Init(GarrysMod::Lua::ILuaInterface* LUA)
 	SetupCoreTestFunctions(g_Lua); // For Tests.
 
 	std::vector<GarrysMod::Lua::LuaFindResult> results;
-	GetShared()->FindScripts("lua/autorun/_holylib/*.lua", "GAME", results);
+
+	GarrysMod::Lua::FindScriptsSafe(GetShared(), "lua/autorun/_holylib/*.lua", "GAME", results);
 	for (GarrysMod::Lua::LuaFindResult& result : results)
 	{
 		std::string fileName = "lua/autorun/_holylib/";

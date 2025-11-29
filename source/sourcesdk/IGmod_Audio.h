@@ -91,6 +91,8 @@ enum BassFX // IDs match BASS_FX enums
 class IGModAudioFX
 {
 public:
+	virtual ~IGModAudioFX() {};
+
 	virtual void Free(IGModAudioChannel* pChannel) = 0;
 	virtual void GetParameters( void* params ) = 0;
 	virtual void Reset() = 0;
@@ -152,6 +154,7 @@ public:
 	virtual void SetSlideAttribute( unsigned long nAttribute, float nValue, unsigned long nTime, const char** pErrorOut ) = 0;
 	virtual float GetAttribute( unsigned long nAttribute, const char** pErrorOut ) = 0;
 	virtual bool IsAttributeSliding( unsigned long nAttribute ) = 0;
+	virtual unsigned long GetChannelData( void* pBuffer, unsigned long nLength ) = 0;
 
 	// FX Stuff, formerly I wanted to expose the IGModAudioFX
 	// though I did not like the idea of having to manage yet another independent but linked object
@@ -206,7 +209,7 @@ public:
 	virtual ~IGMod_Audio() {};
 	virtual bool Init( CreateInterfaceFn ) = 0;
 	virtual void Shutdown() = 0;
-	virtual void Update( unsigned int ) = 0;
+	virtual bool Update( unsigned int ) = 0;
 	virtual IBassAudioStream* CreateAudioStream( IAudioStreamEvent* ) = 0;
 	virtual void SetEar( Vector*, Vector*, Vector*, Vector* ) = 0;
 	virtual IGModAudioChannel* PlayURL( const char* url, const char* flags, int* ) = 0;

@@ -98,6 +98,8 @@ public:
 class CGModAudioFX : public IGModAudioFX
 {
 public:
+	virtual ~CGModAudioFX() {};
+
 	virtual void Free(IGModAudioChannel* pChannel);
 	virtual void GetParameters( void* params );
 	virtual void Reset();
@@ -175,6 +177,7 @@ public:
 	virtual void SetSlideAttribute( unsigned long nAttribute, float nValue, unsigned long nTime, const char** pErrorOut );
 	virtual float GetAttribute( unsigned long nAttribute, const char** pErrorOut );
 	virtual bool IsAttributeSliding( unsigned long nAttribute );
+	virtual unsigned long GetChannelData( void* pBuffer, unsigned long nLength );
 	
 	// FX
 	virtual bool SetFX( const char* pFXName, unsigned long nType, int nPriority, void* pParams, const char** pErrorOut );
@@ -223,7 +226,7 @@ public:
 	virtual ~CGMod_Audio();
 	virtual bool Init( CreateInterfaceFn );
 	virtual void Shutdown();
-	virtual void Update( unsigned int );
+	virtual bool Update( unsigned int );
 	virtual IBassAudioStream* CreateAudioStream( IAudioStreamEvent* );
 	virtual void SetEar( Vector*, Vector*, Vector*, Vector* );
 	virtual IGModAudioChannel* PlayURL( const char* url, const char* flags, int* );

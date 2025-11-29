@@ -284,8 +284,11 @@ Detour::CheckFunction((void*)func_##name, #name);
 
 bool CGMod_Audio::Init(CreateInterfaceFn interfaceFactory)
 {
-	ConnectTier1Libraries( &interfaceFactory, 1 );
-	ConnectTier2Libraries( &interfaceFactory, 1 );
+	if (interfaceFactory)
+	{
+		ConnectTier1Libraries( &interfaceFactory, 1 );
+		ConnectTier2Libraries( &interfaceFactory, 1 );
+	}
 
 	BASS_SetConfig(BASS_CONFIG_UPDATEPERIOD, 10);
 
@@ -476,13 +479,15 @@ void CGMod_Audio::StopAllPlayback()
 	BASS_Start();
 }
 
-void CGMod_Audio::Update(unsigned int updatePeriod)
+bool CGMod_Audio::Update(unsigned int updatePeriod)
 {
-	BASS_Update(updatePeriod);
+	bool retWasUpdated = BASS_Update(updatePeriod);
 
 	std::unordered_set<CGModAudioChannelEncoder*> pEncoders = m_pEncoders;
 	for (CGModAudioChannelEncoder* pEncoder : pEncoders)
 		pEncoder->HandleFinish(NULL);
+
+	return retWasUpdated;
 }
 
 static Vector g_pLocalEarPosition;
@@ -1142,6 +1147,11 @@ bool CGModAudioChannel::IsAttributeSliding(unsigned long nAttribute)
 	return BASS_ChannelIsSliding(m_pHandle, nAttribute);
 }
 
+unsigned long CGModAudioChannel::GetChannelData(void* pBuffer, unsigned long nLength)
+{
+	return BASS_ChannelGetData(m_pHandle, pBuffer, nLength);
+}
+
 bool CGModAudioChannel::SetFX( const char* pFXName, unsigned long nType, int nPriority, void* pParams, const char** pErrorOut )
 {
 	*pErrorOut = NULL;
@@ -1196,6 +1206,7 @@ bool CGModAudioChannel::FXReset( const char* pFXName )
 		return false;
 
 	it->second->Reset();
+	return true;
 }
 
 bool CGModAudioChannel::FXFree( const char* pFXName )
@@ -1207,6 +1218,7 @@ bool CGModAudioChannel::FXFree( const char* pFXName )
 	CGModAudioFX* pFX = it->second;
 	m_pFX.erase(it);
 	pFX->Free(this);
+	return true;
 }
 
 bool CGModAudioChannel::IsPush()
@@ -1217,7 +1229,7 @@ bool CGModAudioChannel::IsPush()
 void CGModAudioChannel::WriteData(const void* pData, unsigned long nLength, const char** pErrorOut)
 {
 	*pErrorOut = NULL;
-	if (BASS_StreamPutData( m_pHandle, pData, nLength ) == -1)
+	if (BASS_StreamPutData( m_pHandle, pData, nLength ) == (DWORD)-1)
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
 }
 
