@@ -308,6 +308,7 @@ All hooks that get called use `hook.Run`. Gmod calls `gamemode.Call`.<br>
 ## Debug Stuff
 There is `-holylib_startdisabled` which will cause all modules to be disabled on startup.<br>
 And with `holylib_toggledetour` you can block specific detours from being created.<br>
+You can disable holylib entirely by adding the `-holylib_disable` command line option<br>
 
 ## holylib
 This module contains the HolyLib library.<br>
@@ -3511,13 +3512,20 @@ See https://www.un4seen.com/doc/#bass/BASS_ChannelSetAttribute.html (all `BASS_A
 Sets a channel attribute to the given value over a specific time.<br>
 See https://www.un4seen.com/doc/#bass/BASS_ChannelSlideAttribute.html (all `BASS_ATTRIB_` enums are exposed inside the `bass.` table)<br>
 
-#### number(value|nil on failure), string(errMsg - nil) IGModAudioChannel:SetAttribute(number attribute)
+#### number(value|nil on failure), string(errMsg - nil) IGModAudioChannel:GetAttribute(number attribute)
 Returns the channels attribute value.<br>
 See https://www.un4seen.com/doc/#bass/BASS_ChannelGetAttribute.html (all `BASS_ATTRIB_` enums are exposed inside the `bass.` table)<br>
 
-#### bool(sliding) IGModAudioChannel:SetAttribute(number attribute)
+#### bool(sliding) IGModAudioChannel:IsAttributeSliding(number attribute)
 Returns `true` if the given attribute is actively sliding to a value over time.<br>
 See https://www.un4seen.com/doc/#bass/BASS_ChannelIsSliding.html (all `BASS_ATTRIB_` enums are exposed inside the `bass.` table)<br>
+
+#### string(nil on failure), number(length) IGModAudioChannel:GetChannelData(number nSize)
+Returns the given bytes of channel data - you cannot specify `BASS_DATA_` flags!<br>
+See https://www.un4seen.com/doc/#bass/BASS_ChannelGetData.html<br>
+
+> [!NOTE]
+> The nSize is limited to 64kb!
 
 #### bool(success), string(errMsg - nil) IGModAudioChannel:SetFX(string fxName, number fxType, number priority, table fxParams)
 fxName - A unique name used for FX so that you can have multiple of the same fx type with unique names you assigned<br>

@@ -426,7 +426,7 @@ void ShutdownSteamUser()
 		}
 	}
 
-	g_pSteamUser = NULL;
+	g_pSteamUser = nullptr;
 	hSteamPipe = NULL;
 	hSteamUser = NULL;
 	// Warning("Nuked g_pSteamUser\n");
@@ -443,7 +443,7 @@ void CreateSteamUserIfMissing()
 			return;
 		}
 
-		//if (Util::get != NULL)
+		//if (Util::get != nullptr)
 		//	g_pSteamUser = Util::get->SteamUser();
 
 		ISteamClient* pSteamClient = SteamGameServerClient();
@@ -482,7 +482,7 @@ static IGameEvent* hook_CGameEventManager_CreateEvent(void* manager, const char*
 {
 	auto it = Util::pBlockedEvents.find(name);
 	if (it != Util::pBlockedEvents.end())
-		return NULL;
+		return nullptr;
 
 	return detour_CGameEventManager_CreateEvent.GetTrampoline<Symbols::CGameEventManager_CreateEvent>()(manager, name, bForce);
 }
@@ -766,6 +766,12 @@ void Util::RemoveDetour()
 static bool g_pShouldLoad = false;
 bool Util::ShouldLoad()
 {
+	if (CommandLine()->FindParm("-holylib_disable"))
+	{
+		Msg(PROJECT_NAME " - core: Refusing to load due to -holylib_disable!\n");
+		return false;
+	}
+
 	if (CommandLine()->FindParm("-holylibexists") && !g_pShouldLoad) // Don't set this manually!
 		return false;
 
@@ -1039,13 +1045,13 @@ static void CreateDebugDump(const CCommand &args)
 		pInformation.EnsureChildVar<int>("tick", Util::server->GetTick());
 		pInformation.EnsureChildVar<int>("tickinterval", Util::server->GetTickInterval());
 
-		if (Util::get)
+		/*if (Util::get)
 		{
 			Bootil::Data::Tree& pGmodInformation = pData.GetChild("gmod");
 			pGmodInformation.EnsureChildVar<Bootil::BString>("version", Util::get->VersionStr());
 			pGmodInformation.EnsureChildVar<Bootil::BString>("versionTime", Util::get->VersionTimeStr());
 			pGmodInformation.EnsureChildVar<Bootil::BString>("branch", Util::get->SteamBranch());
-		}
+		}*/
 
 		// Dump all holylib convars.
 		{
