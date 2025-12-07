@@ -314,12 +314,12 @@ IModuleWrapper* CModuleManager::RegisterModule(IModule* pModule)
 	module->SetModule(pModule);
 	module->SetID(g_pIDs);
 	Msg(PROJECT_NAME ": Registered module %-*s (%-*i Enabled: %s Compatible: %s MultiLua: %s)\n", 
-		15,
+		20,
 		module->FastGetModule()->Name(), 
 		2,
 		g_pIDs,
 		module->IsEnabled() ? "true, " : "false,", 
-		module->FastIsCompatible() ? "true " : "false",
+		module->FastIsCompatible() ? "true, " : "false,",
 		module->GetModule()->SupportsMultipleLuaStates() ? "true " : "false"
 	);
 
@@ -347,6 +347,14 @@ IModuleWrapper* CModuleManager::FindModuleByName(const char* name)
 			return module;
 
 	return nullptr;
+}
+
+IModuleWrapper* CModuleManager::GetModuleByID(int nIndex)
+{
+	if (0 > nIndex || nIndex > m_pModules.size())
+		return nullptr;
+
+	return m_pModules[nIndex];
 }
 
 void CModuleManager::Setup(CreateInterfaceFn appfn, CreateInterfaceFn gamefn)

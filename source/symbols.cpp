@@ -163,6 +163,10 @@ namespace Symbols
 		Symbol::FromSignature("\x48\x89\x5C\x24\x08\x57\x48\x83\xEC\x20\x48\x8B\xFA\x48\x8B\xD9*****\x48\x8B\xC8"), // 48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 ?? ?? ?? ?? ?? 48 8B C8
 	};
 
+	const std::vector<Symbol> CLuaInterface_RunStringExSym = {
+		Symbol::FromName("_ZN13CLuaInterface11RunStringExEPKcS1_S1_bbbb"),
+	};
+
 	//---------------------------------------------------------------------------------
 	// Purpose: gameevent Symbols
 	//---------------------------------------------------------------------------------
@@ -1119,5 +1123,29 @@ namespace Symbols
 
 	const std::vector<Symbol> Filter_Add_fSym = {
 		Symbol::FromName("_ZL12Filter_Add_fRK8CCommand"),
+	};
+
+	//---------------------------------------------------------------------------------
+	// Purpose: networkingreplacement Symbols
+	// NOTE: Way to complex for windows
+	//---------------------------------------------------------------------------------
+	const std::vector<Symbol> SV_EnsureInstanceBaselineSym = {
+		Symbol::FromName("_Z25SV_EnsureInstanceBaselineP11ServerClassiPKvi"),
+	};
+
+	const std::vector<Symbol> SendTable_EncodeSym = {
+		Symbol::FromName("_Z16SendTable_EncodePK9SendTablePKvP8bf_writeiP10CUtlMemoryI20CSendProxyRecipientsiEb"),
+	};
+
+	const std::vector<Symbol> CFrameSnapshotManager_GetPreviouslySentPacketSym = {
+		Symbol::FromName("_ZN21CFrameSnapshotManager23GetPreviouslySentPacketEii"),
+	};
+
+	const std::vector<Symbol> CFrameSnapshotManager_UsePreviouslySentPacketSym = {
+		Symbol::FromName("_ZN21CFrameSnapshotManager23UsePreviouslySentPacketEP14CFrameSnapshotii"),
+	};
+
+	const std::vector<Symbol> CFrameSnapshotManager_CreatePackedEntitySym = {
+		Symbol::FromName("_ZN21CFrameSnapshotManager18CreatePackedEntityEP14CFrameSnapshoti"),
 	};
 }
