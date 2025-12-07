@@ -60,6 +60,13 @@ public:
 	virtual const char* GetFileName() { return m_strFileName.c_str(); };
 	virtual IGModEncoderCallback* GetCallback() { return m_pCallback; };
 
+	virtual bool CastInit(
+		const char* server, const char* password, const char* content,
+		const char* name, const char* url, const char* genre, const char* desc,
+		char headers[4096], unsigned long bitrate, unsigned long flags, const char** pErrorOut
+	);
+	virtual void CastSetTitle( const char* title, const char* url );
+
 public: // Non virtual
 	CGModAudioChannelEncoder(DWORD pChannel, const char* pFileName, IGModEncoderCallback* pCallback );
 	void InitEncoder(unsigned long nEncoderFlags);
@@ -91,6 +98,8 @@ public:
 class CGModAudioFX : public IGModAudioFX
 {
 public:
+	virtual ~CGModAudioFX() {};
+
 	virtual void Free(IGModAudioChannel* pChannel);
 	virtual void GetParameters( void* params );
 	virtual void Reset();
@@ -129,7 +138,7 @@ public:
 	virtual float GetVolume();
 	virtual void SetPlaybackRate(float);
 	virtual float GetPlaybackRate();
-	virtual void SetPos( Vector*, Vector* = NULL, Vector* = NULL );
+	virtual void SetPos( Vector*, Vector* = nullptr, Vector* = nullptr );
 	virtual void GetPos( Vector*, Vector*, Vector* );
 	virtual void SetTime( double, bool );
 	virtual double GetTime();
@@ -168,6 +177,7 @@ public:
 	virtual void SetSlideAttribute( unsigned long nAttribute, float nValue, unsigned long nTime, const char** pErrorOut );
 	virtual float GetAttribute( unsigned long nAttribute, const char** pErrorOut );
 	virtual bool IsAttributeSliding( unsigned long nAttribute );
+	virtual unsigned long GetChannelData( void* pBuffer, unsigned long nLength );
 	
 	// FX
 	virtual bool SetFX( const char* pFXName, unsigned long nType, int nPriority, void* pParams, const char** pErrorOut );
@@ -193,7 +203,7 @@ public:
 	virtual void ResetSplitStream();
 
 public:
-	CGModAudioChannel( DWORD handle, ChannelType nType, const char* pFileName = NULL );
+	CGModAudioChannel( DWORD handle, ChannelType nType, const char* pFileName = nullptr );
 	virtual ~CGModAudioChannel();
 
 private:

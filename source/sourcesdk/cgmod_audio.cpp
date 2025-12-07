@@ -263,6 +263,8 @@ static BASS_Encode_SetPaused* func_BASS_Encode_SetPaused;
 static BASS_Encode_GetChannel* func_BASS_Encode_GetChannel;
 static BASS_Encode_SetChannel* func_BASS_Encode_SetChannel;
 static BASS_Encode_Write* func_BASS_Encode_Write;
+static BASS_Encode_CastInit* func_BASS_Encode_CastInit;
+static BASS_Encode_CastSetTitle* func_BASS_Encode_CastSetTitle;
 
 static BASS_Encode_MP3_Start* func_BASS_Encode_MP3_Start;
 static BASS_Encode_OGG_Start* func_BASS_Encode_OGG_Start;
@@ -282,35 +284,38 @@ Detour::CheckFunction((void*)func_##name, #name);
 
 bool CGMod_Audio::Init(CreateInterfaceFn interfaceFactory)
 {
-	ConnectTier1Libraries( &interfaceFactory, 1 );
-	ConnectTier2Libraries( &interfaceFactory, 1 );
+	if (interfaceFactory)
+	{
+		ConnectTier1Libraries( &interfaceFactory, 1 );
+		ConnectTier2Libraries( &interfaceFactory, 1 );
+	}
 
 	BASS_SetConfig(BASS_CONFIG_UPDATEPERIOD, 10);
 
 #ifdef DEDICATED
-	if (!BASS_Init(0, 44100, 0, 0, NULL)) {
+	if (!BASS_Init(0, 44100, 0, 0, nullptr)) {
 		Warning(PROJECT_NAME ": Couldn't Init Bass (%i)!", BASS_ErrorGetCode());
 	}
 #else
-	if(!BASS_Init(-1, 44100, 0, 0, NULL)) {
+	if(!BASS_Init(-1, 44100, 0, 0, nullptr)) {
 		Warning("BASS_Init failed(%i)! Attempt 1.\n", BASS_ErrorGetCode());
 
-		if(!BASS_Init(1, 44100, BASS_DEVICE_DEFAULT, 0, NULL)) {
+		if(!BASS_Init(1, 44100, BASS_DEVICE_DEFAULT, 0, nullptr)) {
 			Warning("BASS_Init failed(%i)! Attempt 2.\n", BASS_ErrorGetCode());
 
-			if(!BASS_Init(-1, 44100, BASS_DEVICE_3D | BASS_DEVICE_DEFAULT, 0, NULL)) {
+			if(!BASS_Init(-1, 44100, BASS_DEVICE_3D | BASS_DEVICE_DEFAULT, 0, nullptr)) {
 				Warning("BASS_Init failed(%i)! Attempt 3.\n", BASS_ErrorGetCode());
 
-				if(!BASS_Init(1, 44100, BASS_DEVICE_3D | BASS_DEVICE_DEFAULT, 0, NULL)) {
+				if(!BASS_Init(1, 44100, BASS_DEVICE_3D | BASS_DEVICE_DEFAULT, 0, nullptr)) {
 					Warning("BASS_Init failed(%i)! Attempt 4.\n", BASS_ErrorGetCode());
 
-					if(!BASS_Init(-1 , 44100, 0, 0, NULL)) {
+					if(!BASS_Init(-1 , 44100, 0, 0, nullptr)) {
 						Warning("BASS_Init failed(%i)! Attempt 5.\n", BASS_ErrorGetCode());
 
-						if(!BASS_Init(1, 44100, 0, 0, NULL)) {
+						if(!BASS_Init(1, 44100, 0, 0, nullptr)) {
 							Warning("BASS_Init failed(%i)! Attempt 6.\n", BASS_ErrorGetCode());
 
-							if(!BASS_Init(0, 44100, 0, 0, NULL)) {
+							if(!BASS_Init(0, 44100, 0, 0, nullptr)) {
 								Warning("Couldn't Init Bass (%i)!", BASS_ErrorGetCode()); // In Gmod this is an Error.
 							}
 						}
@@ -354,6 +359,8 @@ bool CGMod_Audio::Init(CreateInterfaceFn interfaceFactory)
 		GetBassEncFunc(BASS_Encode_GetChannel, pBassEnc);
 		GetBassEncFunc(BASS_Encode_SetChannel, pBassEnc);
 		GetBassEncFunc(BASS_Encode_Write, pBassEnc);
+		GetBassEncFunc(BASS_Encode_CastInit, pBassEnc);
+		GetBassEncFunc(BASS_Encode_CastSetTitle, pBassEnc);
 		g_bUsesBassEnc = true;
 	}
 
@@ -424,45 +431,34 @@ unsigned long CGMod_Audio::GetVersion()
 
 void CGMod_Audio::Shutdown()
 {
-	// Msg("CGMod_Audio::Shutdown start\n");
 	FinishAllAsync((void*)EncoderForceShutdownPointer); // Finish all callbacks
 
-	// Msg("CGMod_Audio::Shutdown 2\n");
 	if (g_pGModAudioThreadPool)
 	{
-		// Msg("CGMod_Audio::Shutdown %i\n", g_pGModAudioThreadPool->GetJobCount());
-		g_pGModAudioThreadPool->AbortAll(); // ToDo: Debug this and check why 64x shits itself when shutting down
-		g_pGModAudioThreadPool->Stop(1);
-		V_DestroyThreadPool(g_pGModAudioThreadPool);
+		Util::DestroyThreadPool(g_pGModAudioThreadPool);
 		g_pGModAudioThreadPool = nullptr;
 	}
 
-	// Msg("CGMod_Audio::Shutdown 3\n");
-
 	BASS_Free();
 	BASS_PluginFree(0);
-
-	// Msg("CGMod_Audio::Shutdown 4\n");
 
 	for (void* pLoadedDLL : m_pLoadedDLLs)
 	{
 		DLL_UnloadModule((DLL_Handle)pLoadedDLL);
 	}
 	m_pLoadedDLLs.clear();
-
-	// Msg("CGMod_Audio::Shutdown 5\n");
 }
 
 IBassAudioStream* CGMod_Audio::CreateAudioStream(IAudioStreamEvent* event)
 {
 	if (true)
-		return NULL;
+		return nullptr;
 
 	CBassAudioStream* pBassStream = new CBassAudioStream();
 	if (!pBassStream->Init(event))
 	{
 		delete pBassStream;
-		return NULL;
+		return nullptr;
 	}
 
 	return (IBassAudioStream*)pBassStream;
@@ -489,7 +485,7 @@ bool CGMod_Audio::Update(unsigned int updatePeriod)
 
 	std::unordered_set<CGModAudioChannelEncoder*> pEncoders = m_pEncoders;
 	for (CGModAudioChannelEncoder* pEncoder : pEncoders)
-		pEncoder->HandleFinish(NULL);
+		pEncoder->HandleFinish(nullptr);
 
 	return retWasUpdated;
 }
@@ -562,7 +558,7 @@ IGModAudioChannel* CGMod_Audio::PlayURL(const char* url, const char* flags, int*
 	*errorCode = 0;
 	if (url == nullptr || flags == nullptr) {
 		*errorCode = -1;
-		return NULL;
+		return nullptr;
 	}
 
 	bool autoplay = true;
@@ -571,13 +567,13 @@ IGModAudioChannel* CGMod_Audio::PlayURL(const char* url, const char* flags, int*
 
 	if (stream == 0) {
 		*errorCode = BASS_ErrorGetCode();
-		return NULL;
+		return nullptr;
 	}
 
 	if (autoplay && !BASS_ChannelPlay(stream, TRUE)) {
 		*errorCode = BASS_ErrorGetCode();
 		BASS_StreamFree(stream);
-		return NULL;
+		return nullptr;
 	}
 
 	return new CGModAudioChannel(stream, ChannelType::CHANNEL_URL);
@@ -589,7 +585,7 @@ IGModAudioChannel* CGMod_Audio::PlayFile(const char* filePath, const char* flags
 	*errorCode = 0;
 	if (filePath == nullptr || flags == nullptr) {
 		*errorCode = -1;
-		return NULL;
+		return nullptr;
 	}
 
 	// char fullPath[MAX_PATH];
@@ -602,7 +598,7 @@ IGModAudioChannel* CGMod_Audio::PlayFile(const char* filePath, const char* flags
 	if (!pHandle)
 	{
 		*errorCode = BASS_ERROR_FILEOPEN;
-		return NULL;
+		return nullptr;
 	}
 	
 	bool autoplay = true;
@@ -615,13 +611,13 @@ IGModAudioChannel* CGMod_Audio::PlayFile(const char* filePath, const char* flags
 
 	if (stream == 0) {
 		*errorCode = BASS_ErrorGetCode();
-		return NULL;
+		return nullptr;
 	}
 
 	if (autoplay && !BASS_ChannelPlay(stream, TRUE)) {
 		*errorCode = BASS_ErrorGetCode();
 		BASS_StreamFree(stream);
-		return NULL;
+		return nullptr;
 	}
 
 	return new CGModAudioChannel(stream, ChannelType::CHANNEL_FILE, filePath);
@@ -630,7 +626,7 @@ IGModAudioChannel* CGMod_Audio::PlayFile(const char* filePath, const char* flags
 bool CGMod_Audio::LoadPlugin(const char* pluginName, const char** pErrorOut)
 {
 	if (pErrorOut)
-		*pErrorOut = NULL;
+		*pErrorOut = nullptr;
 
 	if (m_pLoadedPlugins.find(pluginName) != m_pLoadedPlugins.end())
 		return true;
@@ -659,24 +655,22 @@ bool CGMod_Audio::LoadPlugin(const char* pluginName, const char** pErrorOut)
 
 void CGMod_Audio::FinishAllAsync(void* nSignalData)
 {
-	Msg("FinishAllAsync start\n");
 	if (g_pGModAudioThreadPool)
 		g_pGModAudioThreadPool->ExecuteAll();
 
 	std::unordered_set<CGModAudioChannelEncoder*> pEncoders = m_pEncoders; // Copy to avoid issues with deletion while iterating
 	for (CGModAudioChannelEncoder* pEncoder : pEncoders)
 		pEncoder->HandleFinish(nSignalData); // Freed inside
-	Msg("FinishAllAsync done\n");
 }
 
 IGModAudioChannel* CGMod_Audio::CreateDummyChannel(int nSampleRate, int nChannels, unsigned long nFlags, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
-	HSTREAM pStream = BASS_StreamCreate(nSampleRate, nChannels, nFlags, STREAMPROC_DUMMY, NULL);
+	*pErrorOut = nullptr;
+	HSTREAM pStream = BASS_StreamCreate(nSampleRate, nChannels, nFlags, STREAMPROC_DUMMY, nullptr);
 	if (!pStream)
 	{
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
-		return NULL;
+		return nullptr;
 	}
 
 	return new CGModAudioChannel(pStream, ChannelType::CHANNEL_DUMMY, "DUMMY");
@@ -684,12 +678,12 @@ IGModAudioChannel* CGMod_Audio::CreateDummyChannel(int nSampleRate, int nChannel
 
 IGModAudioChannel* CGMod_Audio::CreatePushChannel(int nSampleRate, int nChannels, unsigned long nFlags, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
-	HSTREAM pStream = BASS_StreamCreate(nSampleRate, nChannels, nFlags, STREAMPROC_PUSH, NULL);
+	*pErrorOut = nullptr;
+	HSTREAM pStream = BASS_StreamCreate(nSampleRate, nChannels, nFlags, STREAMPROC_PUSH, nullptr);
 	if (!pStream)
 	{
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
-		return NULL;
+		return nullptr;
 	}
 
 	return new CGModAudioChannel(pStream, ChannelType::CHANNEL_PUSH, "PUSH");
@@ -697,18 +691,18 @@ IGModAudioChannel* CGMod_Audio::CreatePushChannel(int nSampleRate, int nChannels
 
 IGModAudioChannel* CGMod_Audio::CreateMixerChannel(int nSampleRate, int nChannels, unsigned long nFlags, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	if (!func_BASS_Mixer_StreamCreate)
 	{
 		*pErrorOut = "Missing BassMix plugin to function!";
-		return NULL;
+		return nullptr;
 	}
 
 	HSTREAM pStream = func_BASS_Mixer_StreamCreate(nSampleRate, nChannels, nFlags);
 	if (!pStream)
 	{
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
-		return NULL;
+		return nullptr;
 	}
 
 	return new CGModAudioChannel(pStream, ChannelType::CHANNEL_MIXER, "MIXER");
@@ -716,18 +710,18 @@ IGModAudioChannel* CGMod_Audio::CreateMixerChannel(int nSampleRate, int nChannel
 
 IGModAudioChannel* CGMod_Audio::CreateSplitChannel(IGModAudioChannel* pChannel, unsigned long nFlags, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	if (!func_BASS_Split_StreamCreate)
 	{
 		*pErrorOut = "Missing BassMix plugin to function!";
-		return NULL;
+		return nullptr;
 	}
 
-	HSTREAM pStream = func_BASS_Split_StreamCreate(((CGModAudioChannel*)pChannel)->m_pHandle, nFlags, NULL);
+	HSTREAM pStream = func_BASS_Split_StreamCreate(((CGModAudioChannel*)pChannel)->m_pHandle, nFlags, nullptr);
 	if (!pStream)
 	{
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
-		return NULL;
+		return nullptr;
 	}
 
 	return new CGModAudioChannel(pStream, ChannelType::CHANNEL_SPLIT, "SPLIT");
@@ -737,7 +731,7 @@ IGModAudioChannel* CGMod_Audio::CreateSplitChannel(IGModAudioChannel* pChannel, 
 bool CGMod_Audio::LoadDLL(const char* pDLLName, void** pDLLHandle)
 {
 	if (pDLLHandle)
-		*pDLLHandle = NULL;
+		*pDLLHandle = nullptr;
 
 	std::string pFileName = DLL_PREEXTENSION;
 	pFileName.append(pDLLName);
@@ -860,7 +854,7 @@ void CGModAudioChannel::SetPos(Vector* earPosition, Vector* earForward, Vector* 
 	//	BASS_ChannelFlags(m_pHandle, BASS_SAMPLE_3D, 0);
 	}
 
-	BASS_ChannelSet3DPosition(m_pHandle, &earPos, earForward ? &earDir : NULL, earUp ? &earUpVec : NULL);
+	BASS_ChannelSet3DPosition(m_pHandle, &earPos, earForward ? &earDir : nullptr, earUp ? &earUpVec : nullptr);
 	BASS_Apply3D();
 }
 
@@ -1034,7 +1028,7 @@ void CGModAudioChannel::GetLevel(float* leftLevel, float* rightLevel)
 void CGModAudioChannel::FFT(float *data, GModChannelFFT_t channelFFT)
 {
 	if (BASS_ChannelIsActive(m_pHandle) == BASS_ACTIVE_PLAYING) {
-		BASS_ChannelGetData(m_pHandle, data, BASS_DATA_FFT256 << channelFFT);
+		BASS_ChannelGetData(m_pHandle, data, BASS_DATA_FFT256 << (int)channelFFT);
 	} else {
 		memset(data, 0, sizeof(float) * (1 << (8 + (int)channelFFT)));
 	}
@@ -1082,14 +1076,14 @@ IGModAudioChannelEncoder* CGModAudioChannel::CreateEncoder(
 	IGModEncoderCallback* pCallback, const char** pErrorOut
 )
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	CGModAudioChannelEncoder* pEncoder = new CGModAudioChannelEncoder(m_pHandle, pFileName, pCallback);
 	if (pEncoder->GetLastError(pErrorOut))
-		return NULL;
+		return nullptr;
 
 	pEncoder->InitEncoder(nFlags);
 	if (pEncoder->GetLastError(pErrorOut))
-		return NULL;
+		return nullptr;
 
 	return pEncoder;
 }
@@ -1101,7 +1095,7 @@ void CGModAudioChannel::Update( unsigned long nLength )
 
 bool CGModAudioChannel::CreateLink( IGModAudioChannel* pChannel, const char** pErrorOut )
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	bool success = BASS_ChannelSetLink( m_pHandle, ((CGModAudioChannel*)pChannel)->m_pHandle );
 	if (success)
 		return true;
@@ -1112,7 +1106,7 @@ bool CGModAudioChannel::CreateLink( IGModAudioChannel* pChannel, const char** pE
 
 bool CGModAudioChannel::DestroyLink( IGModAudioChannel* pChannel, const char** pErrorOut )
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	bool success = BASS_ChannelRemoveLink( m_pHandle, ((CGModAudioChannel*)pChannel)->m_pHandle );
 	if (success)
 		return true;
@@ -1123,21 +1117,21 @@ bool CGModAudioChannel::DestroyLink( IGModAudioChannel* pChannel, const char** p
 
 void CGModAudioChannel::SetAttribute(unsigned long nAttribute, float nValue, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	if (!BASS_ChannelSetAttribute(m_pHandle, nAttribute, nValue))
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
 }
 
 void CGModAudioChannel::SetSlideAttribute(unsigned long nAttribute, float nValue, unsigned long nTime, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	if (!BASS_ChannelSlideAttribute(m_pHandle, nAttribute, nValue, nTime))
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
 }
 
 float CGModAudioChannel::GetAttribute(unsigned long nAttribute, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	float nRet = 0;
 	if (!BASS_ChannelGetAttribute(m_pHandle, nAttribute, &nRet))
 	{
@@ -1153,9 +1147,14 @@ bool CGModAudioChannel::IsAttributeSliding(unsigned long nAttribute)
 	return BASS_ChannelIsSliding(m_pHandle, nAttribute);
 }
 
+unsigned long CGModAudioChannel::GetChannelData(void* pBuffer, unsigned long nLength)
+{
+	return BASS_ChannelGetData(m_pHandle, pBuffer, nLength);
+}
+
 bool CGModAudioChannel::SetFX( const char* pFXName, unsigned long nType, int nPriority, void* pParams, const char** pErrorOut )
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	auto it = m_pFX.find(pFXName);
 	if (it != m_pFX.end())
 	{
@@ -1185,7 +1184,7 @@ bool CGModAudioChannel::SetFX( const char* pFXName, unsigned long nType, int nPr
 
 void CGModAudioChannel::SetFXParameter( const char* pFXName, void* params, const char** pErrorOut )
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	auto it = m_pFX.find(pFXName);
 	if (it == m_pFX.end())
 	{
@@ -1207,6 +1206,7 @@ bool CGModAudioChannel::FXReset( const char* pFXName )
 		return false;
 
 	it->second->Reset();
+	return true;
 }
 
 bool CGModAudioChannel::FXFree( const char* pFXName )
@@ -1218,6 +1218,7 @@ bool CGModAudioChannel::FXFree( const char* pFXName )
 	CGModAudioFX* pFX = it->second;
 	m_pFX.erase(it);
 	pFX->Free(this);
+	return true;
 }
 
 bool CGModAudioChannel::IsPush()
@@ -1227,8 +1228,8 @@ bool CGModAudioChannel::IsPush()
 
 void CGModAudioChannel::WriteData(const void* pData, unsigned long nLength, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
-	if (BASS_StreamPutData( m_pHandle, pData, nLength ) == -1)
+	*pErrorOut = nullptr;
+	if (BASS_StreamPutData( m_pHandle, pData, nLength ) == (DWORD)-1)
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
 }
 
@@ -1239,7 +1240,7 @@ bool CGModAudioChannel::IsMixer()
 
 void CGModAudioChannel::AddMixerChannel(IGModAudioChannel* pChannel, unsigned long nFlags, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	if (func_BASS_Mixer_StreamAddChannel(m_pHandle, ((CGModAudioChannel*)pChannel)->m_pHandle, nFlags))
 		return;
 
@@ -1281,7 +1282,7 @@ CGModAudioChannelEncoder::CGModAudioChannelEncoder(DWORD pChannel, const char* p
 	m_nStatus = GModEncoderStatus::NONE;
 	m_strLastError = "";
 	m_pEncoder = NULL;
-	m_pFileHandle = NULL; // Can be NULL when given "" as a filename
+	m_pFileHandle = nullptr; // Can be NULL when given "" as a filename
 
 	g_CGMod_Audio.AddEncoder(this);
 
@@ -1291,7 +1292,7 @@ CGModAudioChannelEncoder::CGModAudioChannelEncoder(DWORD pChannel, const char* p
 
 bool CGModAudioChannelEncoder::GetLastError(const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 	if (m_strLastError.length() == 0)
 		return false;
 
@@ -1459,7 +1460,7 @@ void CGModAudioChannelEncoder::OnEncoderFreed()
 	if (m_pFileHandle)
 	{
 		g_pFullFileSystem->Close((FileHandle_t)m_pFileHandle);
-		m_pFileHandle = NULL;
+		m_pFileHandle = nullptr;
 	}
 
 	if (m_nStatus != GModEncoderStatus::DIED)
@@ -1498,8 +1499,8 @@ bool CGModAudioChannelEncoder::EncoderServerClientCallback(HENCODE handle, BOOL 
 
 bool CGModAudioChannelEncoder::ServerInit( const char* port, unsigned long buffer, unsigned long burst, unsigned long flags, const char** pErrorOut )
 {
-	*pErrorOut = NULL;
-	if (func_BASS_Encode_ServerInit(m_pEncoder, port, buffer, burst, flags, NULL, this) == 0)
+	*pErrorOut = nullptr;
+	if (func_BASS_Encode_ServerInit(m_pEncoder, port, buffer, burst, flags, nullptr, this) == 0)
 	{
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
 		return false;
@@ -1530,7 +1531,7 @@ int CGModAudioChannelEncoder::GetState()
 
 void CGModAudioChannelEncoder::SetChannel(IGModAudioChannel* pChannel, const char** pErrorOut)
 {
-	*pErrorOut = NULL;
+	*pErrorOut = nullptr;
 
 	if (func_BASS_Encode_SetChannel( m_pEncoder, ((CGModAudioChannel*)pChannel)->m_pHandle ) == 0)
 		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
@@ -1539,6 +1540,28 @@ void CGModAudioChannelEncoder::SetChannel(IGModAudioChannel* pChannel, const cha
 void CGModAudioChannelEncoder::WriteData(const void* pData, unsigned long nLength)
 {
 	func_BASS_Encode_Write( m_pEncoder, pData, nLength );
+}
+
+bool CGModAudioChannelEncoder::CastInit(
+	const char* server, const char* password, const char* content,
+	const char* name, const char* url, const char* genre,
+	const char* desc, char headers[4096], unsigned long bitrate,
+	unsigned long flags, const char** pErrorOut
+)
+{
+	if (!func_BASS_Encode_CastInit( m_pEncoder, server, password, content, name, url, genre, desc, headers, bitrate, flags ))
+	{
+		*pErrorOut = BassErrorToString(BASS_ErrorGetCode());
+		return false;
+	}
+
+	*pErrorOut = nullptr;
+	return true;
+}
+
+void CGModAudioChannelEncoder::CastSetTitle(const char* title,const char* url)
+{
+	func_BASS_Encode_CastSetTitle( m_pEncoder, title, url );
 }
 
 CGModAudioFX::CGModAudioFX(DWORD pFXHandle, bool bIsFX)

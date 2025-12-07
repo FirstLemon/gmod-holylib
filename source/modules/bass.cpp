@@ -11,15 +11,15 @@
 class CBassModule : public IModule
 {
 public:
-	virtual void Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn) OVERRIDE;
-	virtual void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) OVERRIDE;
-	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
-	virtual void Shutdown() OVERRIDE;
-	virtual void Think(bool bSimulating) OVERRIDE;
-	virtual const char* Name() { return "bass"; };
-	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
-	virtual bool IsEnabledByDefault() { return true; };
-	virtual bool SupportsMultipleLuaStates() { return true; };
+	void Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn) override;
+	void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) override;
+	void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) override;
+	void Shutdown() override;
+	void Think(bool bSimulating) override;
+	const char* Name() override { return "bass"; };
+	int Compatibility() override { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
+	bool IsEnabledByDefault() override { return true; };
+	bool SupportsMultipleLuaStates() override { return true; };
 };
 
 static CBassModule g_pBassModule;
@@ -343,21 +343,23 @@ public:
 		m_nCallbackReference = Util::ReferenceCreate(pLua, "BassEncoderCallback - callback reference");
 	}
 
-	virtual ~BassEncoderCallback() {
+	~BassEncoderCallback() override
+	{
 		if (m_pLua && m_nCallbackReference != -1)
 		{
 			Msg("BassEncoderCallback deleted while still holding a reference!\n");
 			Util::ReferenceFree(m_pLua, m_nCallbackReference, "BassEncoderCallback - callback leftover deletion");
 			m_nCallbackReference = -1;
-			m_pLua = NULL;
+			m_pLua = nullptr;
 		}
 	};
 
-	virtual bool ShouldForceFinish(IGModAudioChannelEncoder* pEncoder, void* nSignalData) {
+	bool ShouldForceFinish(IGModAudioChannelEncoder* pEncoder, void* nSignalData) override
+	{
 		return m_pLua == nSignalData; // Force finish as this is our signal that our interface is shutting down!
 	};
 
-	virtual void OnFinish(IGModAudioChannelEncoder* pEncoder, GModEncoderStatus nStatus)
+	void OnFinish(IGModAudioChannelEncoder* pEncoder, GModEncoderStatus nStatus) override
 	{
 		if (m_nCallbackReference == -1)
 			return;
@@ -374,10 +376,13 @@ public:
 
 		Util::ReferenceFree(m_pLua, m_nCallbackReference, "BassEncoderCallback - callback deletion OnFinish");
 		m_nCallbackReference = -1;
-		m_pLua = NULL;
+		m_pLua = nullptr;
 	}
 
-	virtual bool OnServerClient(IGModAudioChannelEncoder* pEncoder, bool connect, const char* client, char* headers) { return true; };
+	bool OnServerClient(IGModAudioChannelEncoder* pEncoder, bool connect, const char* client, char* headers) override
+	{
+		return true;
+	};
 
 private:
 	GarrysMod::Lua::ILuaInterface* m_pLua = nullptr;
@@ -398,7 +403,7 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_WriteToDisk)
 	BassEncoderCallback* pCallback = new BassEncoderCallback(LUA);
 	// We do not manage this pointer! GModAudio does for us
 
-	const char* pErrorMsg = NULL;
+	const char* pErrorMsg = nullptr;
 	IGModAudioChannelEncoder* pEncoder = channel->CreateEncoder(pFileName, nFlags, pCallback, &pErrorMsg);
 	if (pErrorMsg)
 	{
@@ -433,7 +438,7 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_CreateLink)
 	IGModAudioChannel* channel = Get_IGModAudioChannel(LUA, 1, true);
 	IGModAudioChannel* otherChannel = Get_IGModAudioChannel(LUA, 2, true);
 
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	LUA->PushBool(channel->CreateLink(otherChannel, &pError));
 	if (pError) {
 		LUA->PushString(pError);
@@ -449,7 +454,7 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_DestroyLink)
 	IGModAudioChannel* channel = Get_IGModAudioChannel(LUA, 1, true);
 	IGModAudioChannel* otherChannel = Get_IGModAudioChannel(LUA, 2, true);
 
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	LUA->PushBool(channel->DestroyLink(otherChannel, &pError));
 	if (pError) {
 		LUA->PushString(pError);
@@ -466,9 +471,9 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_SetAttribute)
 	unsigned long nAttribute = (unsigned long)LUA->CheckNumber(2);
 	float nValue = (float)LUA->CheckNumber(3);
 
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	channel->SetAttribute(nAttribute, nValue, &pError);
-	LUA->PushBool(pError == NULL);
+	LUA->PushBool(pError == nullptr);
 	if (pError) {
 		LUA->PushString(pError);
 	} else {
@@ -484,9 +489,9 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_SetSlideAttribute)
 	float nValue = (float)LUA->CheckNumber(3);
 	unsigned long nTime = (unsigned long)LUA->CheckNumber(4);
 
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	channel->SetSlideAttribute(nAttribute, nValue, nTime, &pError);
-	LUA->PushBool(pError == NULL);
+	LUA->PushBool(pError == nullptr);
 	if (pError) {
 		LUA->PushString(pError);
 	} else {
@@ -500,7 +505,7 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_GetAttribute)
 	IGModAudioChannel* channel = Get_IGModAudioChannel(LUA, 1, true);
 	unsigned long nAttribute = (unsigned long)LUA->CheckNumber(2);
 
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	float nValue = channel->GetAttribute(nAttribute, &pError);
 	if (pError) {
 		LUA->PushNil();
@@ -522,6 +527,26 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_IsAttributeSliding)
 	return 1;
 }
 
+LUA_FUNCTION_STATIC(IGModAudioChannel_GetChannelData)
+{
+	IGModAudioChannel* channel = Get_IGModAudioChannel(LUA, 1, true);
+	unsigned short nSize = (unsigned short)LUA->CheckNumber(2);
+
+	// Max 64kb!
+	if (nSize > USHRT_MAX)
+		nSize = USHRT_MAX;
+
+	void* pBuffer = alloca(nSize);
+	unsigned long nLength = channel->GetChannelData(pBuffer, nSize | BASS_DATA_FLOAT);
+	if (nLength == -1) {
+		LUA->PushNil();
+	} else {
+		LUA->PushString((char*)pBuffer, nLength);
+	}
+	LUA->PushNumber(nLength);
+	return 2;
+}
+
 LUA_FUNCTION_STATIC(IGModAudioChannel_SetFX)
 {
 	IGModAudioChannel* channel = Get_IGModAudioChannel(LUA, 1, true);
@@ -530,11 +555,19 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_SetFX)
 	int nPriority = (int)LUA->CheckNumber(4);
 	LUA->CheckType(5, GarrysMod::Lua::Type::Table);
 
-#define GETFXNUMFIELD(name) \
+#define GETFXFLOATFIELD(name) \
 	LUA->PushString(#name); \
 	LUA->RawGet(5); \
 	if (LUA->IsType(-1, GarrysMod::Lua::Type::Number)) { \
-		pParams.name = LUA->GetNumber(-1); \
+		pParams.name = (float)LUA->GetNumber(-1); \
+	} \
+	LUA->Pop(1);
+
+#define GETFXDWORDFIELD(name) \
+	LUA->PushString(#name); \
+	LUA->RawGet(5); \
+	if (LUA->IsType(-1, GarrysMod::Lua::Type::Number)) { \
+		pParams.name = (DWORD)LUA->GetNumber(-1); \
 	} \
 	LUA->Pop(1);
 
@@ -546,40 +579,43 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_SetFX)
 	} \
 	LUA->Pop(1);
 
-	const char* pError = NULL;
-	switch(nFXType)
+	if (nFXType >= (int)BassFX::FX_MAX || nFXType < 0)
+		LUA->ThrowError("Unknown FX type! Use one of the bass.FX_ enums!");
+
+	const char* pError = nullptr;
+	switch((BassFX)nFXType)
 	{
 	case BassFX::FX_CHORUS:
 		{
 			BASS_DX8_CHORUS pParams;
-			GETFXNUMFIELD(fWetDryMix);
-			GETFXNUMFIELD(fDepth);
-			GETFXNUMFIELD(fFeedback);
-			GETFXNUMFIELD(fFrequency);
-			GETFXNUMFIELD(lWaveform);
-			GETFXNUMFIELD(fDelay);
-			GETFXNUMFIELD(lPhase);
+			GETFXFLOATFIELD(fWetDryMix);
+			GETFXFLOATFIELD(fDepth);
+			GETFXFLOATFIELD(fFeedback);
+			GETFXFLOATFIELD(fFrequency);
+			GETFXDWORDFIELD(lWaveform);
+			GETFXFLOATFIELD(fDelay);
+			GETFXDWORDFIELD(lPhase);
 			channel->SetFX(pFXName, BASS_FX_DX8_CHORUS, nPriority, &pParams, &pError);
 		}
 		break;
 	case BassFX::FX_DISTORTION:
 		{
 			BASS_DX8_DISTORTION pParams;
-			GETFXNUMFIELD(fGain);
-			GETFXNUMFIELD(fEdge);
-			GETFXNUMFIELD(fPostEQCenterFrequency);
-			GETFXNUMFIELD(fPostEQBandwidth);
-			GETFXNUMFIELD(fPreLowpassCutoff);
+			GETFXFLOATFIELD(fGain);
+			GETFXFLOATFIELD(fEdge);
+			GETFXFLOATFIELD(fPostEQCenterFrequency);
+			GETFXFLOATFIELD(fPostEQBandwidth);
+			GETFXFLOATFIELD(fPreLowpassCutoff);
 			channel->SetFX(pFXName, BASS_FX_DX8_DISTORTION, nPriority, &pParams, &pError);
 		}
 		break;
 	case BassFX::FX_ECHO:
 		{
 			BASS_DX8_ECHO pParams;
-			GETFXNUMFIELD(fWetDryMix);
-			GETFXNUMFIELD(fFeedback);
-			GETFXNUMFIELD(fLeftDelay);
-			GETFXNUMFIELD(fRightDelay);
+			GETFXFLOATFIELD(fWetDryMix);
+			GETFXFLOATFIELD(fFeedback);
+			GETFXFLOATFIELD(fLeftDelay);
+			GETFXFLOATFIELD(fRightDelay);
 			GETFXBOOLFIELD(lPanDelay);
 			channel->SetFX(pFXName, BASS_FX_DX8_ECHO, nPriority, &pParams, &pError);
 		}
@@ -587,43 +623,44 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_SetFX)
 	case BassFX::FX_FLANGER:
 		{
 			BASS_DX8_FLANGER pParams;
-			GETFXNUMFIELD(fWetDryMix);
-			GETFXNUMFIELD(fDepth);
-			GETFXNUMFIELD(fFeedback);
-			GETFXNUMFIELD(fFrequency);
-			GETFXNUMFIELD(lWaveform);
-			GETFXNUMFIELD(fDelay);
-			GETFXNUMFIELD(lPhase);
+			GETFXFLOATFIELD(fWetDryMix);
+			GETFXFLOATFIELD(fDepth);
+			GETFXFLOATFIELD(fFeedback);
+			GETFXFLOATFIELD(fFrequency);
+			GETFXDWORDFIELD(lWaveform);
+			GETFXFLOATFIELD(fDelay);
+			GETFXDWORDFIELD(lPhase);
 			channel->SetFX(pFXName, BASS_FX_DX8_FLANGER, nPriority, &pParams, &pError);
 		}
 		break;
 	case BassFX::FX_PARAMEQ:
 		{
 			BASS_DX8_PARAMEQ pParams;
-			GETFXNUMFIELD(fCenter);
-			GETFXNUMFIELD(fBandwidth);
-			GETFXNUMFIELD(fGain);
+			GETFXFLOATFIELD(fCenter);
+			GETFXFLOATFIELD(fBandwidth);
+			GETFXFLOATFIELD(fGain);
 			channel->SetFX(pFXName, BASS_FX_DX8_PARAMEQ, nPriority, &pParams, &pError);
 		}
 		break;
 	case BassFX::FX_REVERB:
 		{
 			BASS_DX8_REVERB pParams;
-			GETFXNUMFIELD(fInGain);
-			GETFXNUMFIELD(fReverbMix);
-			GETFXNUMFIELD(fReverbTime);
-			GETFXNUMFIELD(fHighFreqRTRatio);
+			GETFXFLOATFIELD(fInGain);
+			GETFXFLOATFIELD(fReverbMix);
+			GETFXFLOATFIELD(fReverbTime);
+			GETFXFLOATFIELD(fHighFreqRTRatio);
 			channel->SetFX(pFXName, BASS_FX_DX8_REVERB, nPriority, &pParams, &pError);
 		}
 		break;
 	default:
-		LUA->ThrowError("Unknown FX type! Use one of the bass.FX_ enums!");
+		LUA->ThrowError("Unknown FX type? How! Use one of the bass.FX_ enums!");
 	}
 
-#undef GETFXNUMFIELD
+#undef GETFXFLOATFIELD
+#undef GETFXDWORDFIELD
 #undef GETFXBOOLFIELD
 
-	LUA->PushBool(pError == NULL);
+	LUA->PushBool(pError == nullptr);
 	if (pError) {
 		LUA->PushString(pError);
 	} else {
@@ -717,9 +754,9 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_FeedEmpty)
 	char* pSilence = (char*)_alloca(nBytes);
 	memset(pSilence, 0, nBytes);
 	
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	channel->WriteData(pSilence, nBytes, &pError);
-	LUA->PushBool(pError == NULL);
+	LUA->PushBool(pError == nullptr);
 	if (pError) {
 		LUA->PushString(pError);
 	} else {
@@ -732,7 +769,7 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_FeedEmpty)
 LUA_FUNCTION_STATIC(IGModAudioChannel_FeedData)
 {
 	IGModAudioChannel* channel = Get_IGModAudioChannel(LUA, 1, true);
-	size_t nLength = -1;
+	size_t nLength = (size_t)-1;
 	const char* pData = Util::CheckLString(LUA, 2, &nLength);
 
 	if (!channel->IsPush())
@@ -766,9 +803,9 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_AddMixerChannel)
 	if (!channel->IsMixer())
 		LUA->ThrowError("Tried to call this on a non-mixer channel!");
 
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	channel->AddMixerChannel(otherChannel, nFlags, &pError);
-	LUA->PushBool(pError == NULL);
+	LUA->PushBool(pError == nullptr);
 	if (pError) {
 		LUA->PushString(pError);
 	} else {
@@ -850,7 +887,12 @@ LUA_FUNCTION_STATIC(IGModAudioChannelEncoder_IsValid)
 class BassEncoderDeletionCallback : public IGModEncoderCallback
 {
 public:
-	~BassEncoderDeletionCallback()
+	BassEncoderDeletionCallback(GarrysMod::Lua::ILuaInterface* pLua)
+	{
+		m_pLua = pLua;
+	}
+
+	~BassEncoderDeletionCallback() override
 	{
 		if (nServerClientCallback != -1)
 		{
@@ -859,15 +901,12 @@ public:
 		}
 	}
 
-	BassEncoderDeletionCallback(GarrysMod::Lua::ILuaInterface* pLua) {
-		m_pLua = pLua;
-	}
-
-	virtual bool ShouldForceFinish(IGModAudioChannelEncoder* pEncoder, void* nSignalData) {
+	bool ShouldForceFinish(IGModAudioChannelEncoder* pEncoder, void* nSignalData) override
+	{
 		return m_pLua == nSignalData;
 	};
 
-	virtual void OnFinish(IGModAudioChannelEncoder* pEncoder, GModEncoderStatus nStatus)
+	void OnFinish(IGModAudioChannelEncoder* pEncoder, GModEncoderStatus nStatus) override
 	{
 		// The IGModAudioChannelEncoder deletes itself, so we gotta ensure no invalid pointers are left in Lua
 		Delete_IGModAudioChannelEncoder(m_pLua, pEncoder);
@@ -879,7 +918,7 @@ public:
 		}
 	}
 
-	virtual bool OnServerClient(IGModAudioChannelEncoder* pEncoder, bool connect, const char* client, char headers[1024])
+	bool OnServerClient(IGModAudioChannelEncoder* pEncoder, bool connect, const char* client, char headers[1024]) override
 	{
 		if (nServerClientCallback == -1)
 			return true;
@@ -968,7 +1007,7 @@ LUA_FUNCTION_STATIC(IGModAudioChannel_CreateEncoder)
 	BassEncoderDeletionCallback* pCallback = new BassEncoderDeletionCallback(LUA);
 	// We do not manage this pointer! GModAudio does for us
 
-	const char* pErrorMsg = NULL;
+	const char* pErrorMsg = nullptr;
 	IGModAudioChannelEncoder* pEncoder = channel->CreateEncoder(pFileName, nFlags, pCallback, &pErrorMsg);
 	if (pErrorMsg)
 	{
@@ -1065,13 +1104,52 @@ LUA_FUNCTION_STATIC(IGModAudioChannelEncoder_FeedEmpty)
 LUA_FUNCTION_STATIC(IGModAudioChannelEncoder_FeedData)
 {
 	IGModAudioChannelEncoder* encoder = Get_IGModAudioChannelEncoder(LUA, 1, true);
-	size_t nLength = -1;
+	size_t nLength = (size_t)-1;
 	const char* pData = Util::CheckLString(LUA, 2, &nLength);
 
 	encoder->WriteData(pData, nLength);
 
 	LUA->PushBool(true);
 	return 1;
+}
+
+LUA_FUNCTION_STATIC(IGModAudioChannelEncoder_CastInit)
+{
+	IGModAudioChannelEncoder* encoder = Get_IGModAudioChannelEncoder(LUA, 1, true);
+	const char* pServer = LUA->CheckString(2);
+	const char* pPassword = LUA->CheckString(3);
+	const char* pContent = LUA->CheckString(4);
+	const char* pName = LUA->CheckStringOpt(5, nullptr);
+	const char* pURL = LUA->CheckStringOpt(6, nullptr);
+	const char* pGenre = LUA->CheckStringOpt(7, nullptr);
+	const char* pDesc = LUA->CheckStringOpt(8, nullptr);
+	const char* pHeaders = LUA->CheckStringOpt(9, nullptr);
+	int nBitRate = (int)LUA->CheckNumberOpt(10, 0);
+	unsigned long nFlags = (unsigned long)LUA->CheckNumberOpt(11, 0);
+
+	char headers[4096];
+	if (pHeaders)
+		V_strncpy(headers, pHeaders, sizeof(headers));
+
+	const char* pErrorCode = nullptr;
+	encoder->CastInit(pServer, pPassword, pContent, pName, pURL, pGenre, pDesc, pHeaders ? headers : nullptr, nBitRate, nFlags, &pErrorCode);
+	LUA->PushBool(pErrorCode == nullptr);
+	if (pErrorCode) {
+		LUA->PushString(pErrorCode);
+	} else {
+		LUA->PushNil();
+	}
+	return 2;
+}
+
+LUA_FUNCTION_STATIC(IGModAudioChannelEncoder_CastSetTitle)
+{
+	IGModAudioChannelEncoder* encoder = Get_IGModAudioChannelEncoder(LUA, 1, true);
+	const char* pTitle = LUA->CheckStringOpt(2, nullptr);
+	const char* pURL = LUA->CheckStringOpt(3, nullptr);
+
+	encoder->CastSetTitle(pTitle, pURL);
+	return 0;
 }
 
 LUA_FUNCTION_STATIC(bass_PlayFile)
@@ -1131,8 +1209,7 @@ LUA_FUNCTION_STATIC(bass_PlayURL)
 extern CGlobalVars* gpGlobals;
 LUA_FUNCTION_STATIC(bass_Update)
 {
-	bool retWasUpdated = gGModAudio->Update((int)LUA->CheckNumberOpt(1, gpGlobals->absoluteframetime * 1000));
-	LUA->PushBool(retWasUpdated);
+	LUA->PushBool(gGModAudio->Update((int)LUA->CheckNumberOpt(1, gpGlobals->absoluteframetime * 1000)));
 	return 1;
 }
 
@@ -1144,8 +1221,8 @@ LUA_FUNCTION_STATIC(bass_GetVersion)
 
 LUA_FUNCTION_STATIC(bass_CreateDummyChannel)
 {
-	int nSampleRate = LUA->CheckNumber(1);
-	int nChannels = LUA->CheckNumber(2);
+	int nSampleRate = (int)LUA->CheckNumber(1);
+	int nChannels = (int)LUA->CheckNumber(2);
 	unsigned long nFlags = (unsigned long)LUA->CheckNumber(3);
 
 	const char* pErrorCode = nullptr;
@@ -1161,8 +1238,8 @@ LUA_FUNCTION_STATIC(bass_CreateDummyChannel)
 
 LUA_FUNCTION_STATIC(bass_CreatePushChannel)
 {
-	int nSampleRate = LUA->CheckNumber(1);
-	int nChannels = LUA->CheckNumber(2);
+	int nSampleRate = (int)LUA->CheckNumber(1);
+	int nChannels = (int)LUA->CheckNumber(2);
 	unsigned long nFlags = (unsigned long)LUA->CheckNumber(3);
 
 	const char* pErrorCode = nullptr;
@@ -1178,8 +1255,8 @@ LUA_FUNCTION_STATIC(bass_CreatePushChannel)
 
 LUA_FUNCTION_STATIC(bass_CreateMixerChannel)
 {
-	int nSampleRate = LUA->CheckNumber(1);
-	int nChannels = LUA->CheckNumber(2);
+	int nSampleRate = (int)LUA->CheckNumber(1);
+	int nChannels = (int)LUA->CheckNumber(2);
 	unsigned long nFlags = (unsigned long)LUA->CheckNumber(3);
 
 	const char* pErrorCode = nullptr;
@@ -1209,9 +1286,10 @@ LUA_FUNCTION_STATIC(bass_CreateSplitChannel)
 	return 2;
 }
 
+#if 0
 LUA_FUNCTION_STATIC(bass_LoadPlugin)
 {
-	const char* pError = NULL;
+	const char* pError = nullptr;
 	LUA->PushBool(gGModAudio->LoadPlugin(LUA->CheckString(1), &pError));
 	if (pError) {
 		LUA->PushString(pError);
@@ -1221,6 +1299,7 @@ LUA_FUNCTION_STATIC(bass_LoadPlugin)
 
 	return 2;
 }
+#endif
 
 void CBassModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn)
 {
@@ -1239,8 +1318,8 @@ void CBassModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn)
 		return;
 	}
 
-	gGModAudio = (IGMod_Audio*)gmod_audio_loader.GetFactory()(INTERFACEVERSION_GMODAUDIO, NULL); // Engine should Initialize it. If not, we need to do it.
-	Detour::CheckValue("get interface", "IGMod_Audio", gGModAudio != NULL);
+	gGModAudio = (IGMod_Audio*)gmod_audio_loader.GetFactory()(INTERFACEVERSION_GMODAUDIO, nullptr); // Engine should Initialize it. If not, we need to do it.
+	Detour::CheckValue("get interface", "IGMod_Audio", gGModAudio != nullptr);
 
 	gGModAudio->Init(*appfn); // The engine didn't...
 	*/
@@ -1273,6 +1352,10 @@ void CBassModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 		Util::AddFunc(pLua, IGModAudioChannelEncoder_InsertVoiceData, "InsertVoiceData");
 		Util::AddFunc(pLua, IGModAudioChannelEncoder_FeedEmpty, "FeedEmpty");
 		Util::AddFunc(pLua, IGModAudioChannelEncoder_FeedData, "FeedData");
+
+		// Cast functions
+		Util::AddFunc(pLua, IGModAudioChannelEncoder_CastInit, "CastInit");
+		Util::AddFunc(pLua, IGModAudioChannelEncoder_CastSetTitle, "CastSetTitle");
 	pLua->Pop(1);
 
 	Lua::GetLuaData(pLua)->RegisterMetaTable(Lua::IGModAudioChannel, pLua->CreateMetaTable("IGModAudioChannel"));
@@ -1330,6 +1413,7 @@ void CBassModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 		Util::AddFunc(pLua, IGModAudioChannel_SetSlideAttribute, "SetSlideAttribute");
 		Util::AddFunc(pLua, IGModAudioChannel_GetAttribute, "GetAttribute");
 		Util::AddFunc(pLua, IGModAudioChannel_IsAttributeSliding, "IsAttributeSliding");
+		Util::AddFunc(pLua, IGModAudioChannel_GetChannelData, "GetChannelData");
 
 		Util::AddFunc(pLua, IGModAudioChannel_SetFX, "SetFX");
 		Util::AddFunc(pLua, IGModAudioChannel_ResetFX, "ResetFX");
@@ -1438,12 +1522,12 @@ void CBassModule::LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit)
 
 		Util::AddValue(pLua, BASS_SLIDE_LOG, "BASS_SLIDE_LOG");
 
-		Util::AddValue(pLua, BassFX::FX_CHORUS, "FX_CHORUS");
-		Util::AddValue(pLua, BassFX::FX_DISTORTION, "FX_DISTORTION");
-		Util::AddValue(pLua, BassFX::FX_ECHO, "FX_ECHO");
-		Util::AddValue(pLua, BassFX::FX_FLANGER, "FX_FLANGER");
-		Util::AddValue(pLua, BassFX::FX_PARAMEQ, "FX_PARAMEQ");
-		Util::AddValue(pLua, BassFX::FX_REVERB, "FX_REVERB");
+		Util::AddValue(pLua, (int)BassFX::FX_CHORUS, "FX_CHORUS");
+		Util::AddValue(pLua, (int)BassFX::FX_DISTORTION, "FX_DISTORTION");
+		Util::AddValue(pLua, (int)BassFX::FX_ECHO, "FX_ECHO");
+		Util::AddValue(pLua, (int)BassFX::FX_FLANGER, "FX_FLANGER");
+		Util::AddValue(pLua, (int)BassFX::FX_PARAMEQ, "FX_PARAMEQ");
+		Util::AddValue(pLua, (int)BassFX::FX_REVERB, "FX_REVERB");
 	Util::FinishTable(pLua, "bass");
 }
 

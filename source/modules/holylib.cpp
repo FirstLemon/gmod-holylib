@@ -20,13 +20,13 @@
 class CHolyLibModule : public IModule
 {
 public:
-	virtual void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) OVERRIDE;
-	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
-	virtual void InitDetour(bool bPreServer) OVERRIDE;
-	virtual void LevelShutdown() OVERRIDE;
-	virtual const char* Name() { return "holylib"; };
-	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
-	virtual bool SupportsMultipleLuaStates() { return true; };
+	void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) override;
+	void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) override;
+	void InitDetour(bool bPreServer) override;
+	void LevelShutdown() override;
+	const char* Name() override { return "holylib"; };
+	int Compatibility() override { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
+	bool SupportsMultipleLuaStates() override { return true; };
 };
 
 static CHolyLibModule g_pHolyLibModule;
@@ -174,14 +174,28 @@ LUA_FUNCTION_STATIC(InvalidateBoneCache)
 	return 0;
 }
 
+// NOTE: This assumes that the field m_iEFlags is directly after the m_spawnflags field!
+static DTVarByOffset m_spawnflags_Offset("DT_BaseEntity", "m_spawnflags");
+static inline int* GetEntityEFlags(const void* pEnt)
+{
+	return (int*)((char*)m_spawnflags_Offset.GetPointer(pEnt) + sizeof(int));
+}
+
 static Detouring::Hook detour_CBaseEntity_PostConstructor;
 static void hook_CBaseEntity_PostConstructor(CBaseEntity* pEnt, const char* szClassname)
 {
 	if (Lua::PushHook("HolyLib:PostEntityConstructor"))
 	{
-		Util::Push_Entity(g_Lua, pEnt);
+		// Util::Push_Entity(g_Lua, pEnt); // Broken since Lua sees it as NULL
 		g_Lua->PushString(szClassname);
-		g_Lua->CallFunctionProtected(3, 0, true);
+		if (g_Lua->CallFunctionProtected(2, 1, true))
+		{
+			bool bMakeServerOnly = g_Lua->GetBool(-1);
+			g_Lua->Pop(1);
+
+			if (bMakeServerOnly)
+				*GetEntityEFlags(pEnt) |= EFL_SERVER_ONLY;
+		}
 
 		/*g_Lua->PushUserType(pEnt, GarrysMod::Lua::Type::Entity);
 		g_Lua->Push(-1);
@@ -192,7 +206,7 @@ static void hook_CBaseEntity_PostConstructor(CBaseEntity* pEnt, const char* szCl
 
 		Util::ReferencePush(iReference);
 		Util::ReferenceFree(iReference);
-		g_Lua->SetUserType(-1, NULL);
+		g_Lua->SetUserType(-1, nullptr);
 		g_Lua->Pop(1)*/
 	}
 
@@ -201,7 +215,7 @@ static void hook_CBaseEntity_PostConstructor(CBaseEntity* pEnt, const char* szCl
 
 LUA_FUNCTION_STATIC(SetSignOnState)
 {
-	CBaseClient* pClient = NULL;
+	CBaseClient* pClient = nullptr;
 	if (LUA->IsType(1, GarrysMod::Lua::Type::Entity))
 	{
 		pClient = Util::GetClientByPlayer(Util::Get_Player(LUA, 1, true));
@@ -341,7 +355,7 @@ LUA_FUNCTION_STATIC(GetRegistry)
 
 LUA_FUNCTION_STATIC(Disconnect)
 {
-	CBaseClient* pClient = NULL;
+	CBaseClient* pClient = nullptr;
 	if (LUA->IsType(1, GarrysMod::Lua::Type::Entity))
 	{
 		pClient = Util::GetClientByPlayer(Util::Get_Player(LUA, 1, true));
@@ -360,7 +374,7 @@ LUA_FUNCTION_STATIC(Disconnect)
 	}
 
 	if (bSilent)
-		pClient->GetNetChannel()->Shutdown(NULL); // NULL = Send no disconnect message
+		pClient->GetNetChannel()->Shutdown(nullptr); // nullptr = Send no disconnect message
 
 	if (bNoEvent)
 		Util::BlockGameEvent("player_disconnect");
@@ -464,34 +478,44 @@ void CHolyLibModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 	Util::NukeTable(pLua, "holylib");
 }
 
+#if SYSTEM_WINDOWS
+DETOUR_THISCALL_START()
+	DETOUR_THISCALL_ADDFUNC1( hook_CBaseEntity_PostConstructor, PostConstructor, CBaseEntity*, const char* );
+	DETOUR_THISCALL_ADDFUNC1( hook_CFuncLadder_PlayerGotOn, PlayerGotOn, CBaseEntity*, CBasePlayer* );
+	DETOUR_THISCALL_ADDFUNC1( hook_CFuncLadder_PlayerGotOff, PlayerGotOff, CBaseEntity*, CBasePlayer* );
+	DETOUR_THISCALL_ADDFUNC2( hook_CBaseEntity_SetMoveType, SetMoveType, CBaseEntity*, int, int );
+DETOUR_THISCALL_FINISH();
+#endif
+
 void CHolyLibModule::InitDetour(bool bPreServer)
 {
 	if (bPreServer)
 		return;
 
+	DETOUR_PREPARE_THISCALL();
 	SourceSDK::ModuleLoader server_loader("server");
 	Detour::Create(
 		&detour_CBaseEntity_PostConstructor, "CBaseEntity::PostConstructor",
 		server_loader.GetModule(), Symbols::CBaseEntity_PostConstructorSym,
-		(void*)hook_CBaseEntity_PostConstructor, m_pID
+		(void*)DETOUR_THISCALL(hook_CBaseEntity_PostConstructor, PostConstructor), m_pID
 	);
 
 	Detour::Create(
 		&detour_CFuncLadder_PlayerGotOn, "CFuncLadder::PlayerGotOn",
 		server_loader.GetModule(), Symbols::CFuncLadder_PlayerGotOnSym,
-		(void*)hook_CFuncLadder_PlayerGotOn, m_pID
+		(void*)DETOUR_THISCALL(hook_CFuncLadder_PlayerGotOn, PlayerGotOn), m_pID
 	);
 
 	Detour::Create(
 		&detour_CFuncLadder_PlayerGotOff, "CFuncLadder::PlayerGotOff",
 		server_loader.GetModule(), Symbols::CFuncLadder_PlayerGotOffSym,
-		(void*)hook_CFuncLadder_PlayerGotOff, m_pID
+		(void*)DETOUR_THISCALL(hook_CFuncLadder_PlayerGotOff, PlayerGotOff), m_pID
 	);
 
 	Detour::Create(
 		&detour_CBaseEntity_SetMoveType, "CBaseEntity::SetMoveType",
 		server_loader.GetModule(), Symbols::CBaseEntity_SetMoveTypeSym,
-		(void*)hook_CBaseEntity_SetMoveType, m_pID
+		(void*)DETOUR_THISCALL(hook_CBaseEntity_SetMoveType, SetMoveType), m_pID
 	);
 
 	SourceSDK::ModuleLoader engine_loader("engine");

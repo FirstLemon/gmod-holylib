@@ -11,6 +11,7 @@
 #include "unordered_set"
 #include "server.h"
 #include "ivoiceserver.h"
+#include <memory>
 #define private public // Try me.
 #include "shareddefs.h"
 #include "voice_gamemgr.h"
@@ -23,20 +24,20 @@
 class CVoiceChatModule : public IModule
 {
 public:
-	virtual void Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn) OVERRIDE;
-	virtual void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) OVERRIDE;
-	virtual void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
-	virtual void ServerActivate(edict_t* pEdictList, int edictCount, int clientMax) OVERRIDE;
-	virtual void LevelShutdown() OVERRIDE;
-	virtual void Shutdown() OVERRIDE;
-	virtual void InitDetour(bool bPreServer) OVERRIDE;
-	virtual void LuaThink(GarrysMod::Lua::ILuaInterface* pLua) OVERRIDE;
-	virtual void PreLuaModuleLoaded(lua_State* L, const char* pFileName) OVERRIDE;
-	virtual void PostLuaModuleLoaded(lua_State* L, const char* pFileName) OVERRIDE;
-	virtual void ClientDisconnect(edict_t* pClient) OVERRIDE;
-	virtual const char* Name() { return "voicechat"; };
-	virtual int Compatibility() { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
-	virtual bool SupportsMultipleLuaStates() { return true; };
+	void Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn) override;
+	void LuaInit(GarrysMod::Lua::ILuaInterface* pLua, bool bServerInit) override;
+	void LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua) override;
+	void ServerActivate(edict_t* pEdictList, int edictCount, int clientMax) override;
+	void LevelShutdown() override;
+	void Shutdown() override;
+	void InitDetour(bool bPreServer) override;
+	void LuaThink(GarrysMod::Lua::ILuaInterface* pLua) override;
+	void PreLuaModuleLoaded(lua_State* L, const char* pFileName) override;
+	void PostLuaModuleLoaded(lua_State* L, const char* pFileName) override;
+	void ClientDisconnect(edict_t* pClient) override;
+	const char* Name() override { return "voicechat"; };
+	int Compatibility() override { return LINUX32 | LINUX64 | WINDOWS32 | WINDOWS64; };
+	bool SupportsMultipleLuaStates() override { return true; };
 };
 
 static ConVar voicechat_hooks("holylib_voicechat_hooks", "1", 0);
@@ -49,7 +50,7 @@ static thread_local SteamOpus::Opus_FrameDecoder g_pOpusDecoder;
 static uint64_t fakeSteamID = 0x0110000100000001; // STEAM_0:1:0
 // static inline void ClearDataBuffer() { memset(g_pDataBuffer, 0, g_pDefaultDecompressedSize); }
 
-static IThreadPool* pVoiceThreadPool = NULL;
+static IThreadPool* pVoiceThreadPool = nullptr;
 static void OnVoiceThreadsChange(IConVar* convar, const char* pOldValue, float flOldValue)
 {
 	if (!pVoiceThreadPool)
@@ -291,13 +292,13 @@ struct VoiceData
 		if (pData)
 		{
 			delete[] pData;
-			pData = NULL;
+			pData = nullptr;
 		}
 
 		if (pDecompressedData)
 		{
 			delete[] pDecompressedData;
-			pDecompressedData = NULL;
+			pDecompressedData = nullptr;
 		}
 
 		iLength = 0;
@@ -669,7 +670,7 @@ struct VoiceStream {
 			g_pFullFileSystem->Read(&count, sizeof(int), fh);
 		} else if (version < VOICESTREAM_VERSION) {
 			delete pStream;
-			return NULL;
+			return nullptr;
 		}
 
 		for (int i=0; i<count; ++i)
@@ -698,14 +699,13 @@ struct VoiceStream {
 	{
 		ISteamUser* pSteamUser = Util::GetSteamUser();
 		if (!pSteamUser)
-			return; // NULL;
+			return; // nullptr;
 
 		const int sampleRate = SAMPLERATE_GMOD_OPUS;
 		const int bytesPerSample = 2; // 16-bit mono
 		std::map<int, VoiceData*> sorted(pVoiceData.begin(), pVoiceData.end());
 
 		std::vector<char> wavePCM;
-		const float intervalPerTick = gpGlobals->interval_per_tick;
 		for (auto& [tick, voiceData] : sorted)
 		{
 			int iLength = 0;
@@ -870,7 +870,7 @@ struct VoiceStream {
 			{
 				Warning(PROJECT_NAME " - voicechat - LoadWave: both the FileHandle & the WaveAudioFile are NULL or valid?... How... (%p, %p)\n", fh, pWav);
 			}
-			return NULL;
+			return nullptr;
 		}
 
 		WAVHeader header;
@@ -886,7 +886,7 @@ struct VoiceStream {
 			{
 				Warning(PROJECT_NAME " - voicechat - LoadWave: invalid header!\n");
 			}
-			return NULL;
+			return nullptr;
 		}
 
 		// the .wav had funny shit that now causes our data to be screwed up.
@@ -911,7 +911,7 @@ struct VoiceStream {
 			{
 				Warning(PROJECT_NAME " - voicechat - LoadWave: invalid format! (%s, %s, %s, %s, %i)\n", header.riff, header.wave, header.fmt, header.data, header.audioFormat);
 			}
-			return NULL;
+			return nullptr;
 		}
 
 		const int inputChannels = header.numChannels;
@@ -923,7 +923,7 @@ struct VoiceStream {
 			{
 				Warning(PROJECT_NAME " - voicechat - LoadWave: invalid sampleRate or channels! (%i, %i)\n", inputBitsPerSample, inputChannels);
 			}
-			return NULL;
+			return nullptr;
 		}
 
 		std::vector<char> pcmData(header.dataSize);
@@ -939,7 +939,7 @@ struct VoiceStream {
 			{
 				Warning(PROJECT_NAME " - voicechat - LoadWave: invalid data!\n");
 			}
-			return NULL;
+			return nullptr;
 		}
 
 		std::vector<int16_t> monoPCM;
@@ -982,7 +982,7 @@ struct VoiceStream {
 						{
 							Warning(PROJECT_NAME " - voicechat - LoadWave: invalid bitsPerSame! (%i)\n", inputBitsPerSample);
 						}
-						return NULL;
+						return nullptr;
 					}
 				}
 
@@ -1054,11 +1054,11 @@ struct VoiceStream {
 	inline VoiceData* GetIndex(int index)
 	{
 		if (index < nLowestTick || index > nHightestTick)
-			return NULL;
+			return nullptr;
 
 		auto it = pVoiceData.find(index);
 		if (it == pVoiceData.end())
-			return NULL;
+			return nullptr;
 
 		return it->second;
 	}
@@ -1241,7 +1241,7 @@ LUA_FUNCTION_STATIC(VoiceStream_GetIndex)
 	bool directValue = LUA->GetBool(3);
 
 	VoiceData* data = pStream->GetIndex(index);
-	Push_VoiceData(LUA, data ? (directValue ? data : data->CreateCopy()) : NULL);
+	Push_VoiceData(LUA, data ? (directValue ? data : data->CreateCopy()) : nullptr);
 	return 1;
 }
 
@@ -1272,7 +1272,7 @@ LUA_FUNCTION_STATIC(VoiceStream_GetNextTick)
 	bool bDirectData = LUA->GetBool(2);
 
 	VoiceData* pData = pStream->GetNextTick();
-	Push_VoiceData(LUA, pData ? (bDirectData ? pData : pData->CreateCopy()) : NULL);
+	Push_VoiceData(LUA, pData ? (bDirectData ? pData : pData->CreateCopy()) : nullptr);
 	return 1;
 }
 
@@ -1282,7 +1282,7 @@ LUA_FUNCTION_STATIC(VoiceStream_GetPreviousTick)
 	bool bDirectData = LUA->GetBool(2);
 
 	VoiceData* pData = pStream->GetPreviousTick();
-	Push_VoiceData(LUA, pData ? (bDirectData ? pData : pData->CreateCopy()) : NULL);
+	Push_VoiceData(LUA, pData ? (bDirectData ? pData : pData->CreateCopy()) : nullptr);
 	return 1;
 }
 
@@ -1292,7 +1292,7 @@ LUA_FUNCTION_STATIC(VoiceStream_GetCurrentTick)
 	bool bDirectData = LUA->GetBool(2);
 
 	VoiceData* pData = pStream->GetCurrentTick();
-	Push_VoiceData(LUA, pData ? (bDirectData ? pData : pData->CreateCopy()) : NULL);
+	Push_VoiceData(LUA, pData ? (bDirectData ? pData : pData->CreateCopy()) : nullptr);
 	return 1;
 }
 
@@ -1375,7 +1375,7 @@ struct VoiceEffectJob {
 	VoiceStream* pStreamData = nullptr;
 	int iCallbackReference = -1;
 	int iReference = -1; // Reference to the VoiceData or VoiceStream
-	GarrysMod::Lua::ILuaInterface* pLua = NULL;
+	GarrysMod::Lua::ILuaInterface* pLua = nullptr;
 	bool bContinueOnFailure = true;
 	bool bIsDone = false; // Will be true, if we failed bFailed will also be true
 	bool bFailed = false;
@@ -1409,10 +1409,10 @@ static CPlayerBitVec* g_BanMasks;
 static CPlayerBitVec* g_SentGameRulesMasks;
 static CPlayerBitVec* g_SentBanMasks;
 static CPlayerBitVec* g_bWantModEnable;
-static double g_fLastPlayerTalked[ABSOLUTE_PLAYER_LIMIT] = {0};
-static double g_fLastPlayerUpdated[ABSOLUTE_PLAYER_LIMIT] = {0};
-static bool g_bIsPlayerTalking[ABSOLUTE_PLAYER_LIMIT] = {0};
-static CVoiceGameMgr* g_pManager = NULL;
+static double g_fLastPlayerTalked[MAX_PLAYERS] = {0};
+static double g_fLastPlayerUpdated[MAX_PLAYERS] = {0};
+static bool g_bIsPlayerTalking[MAX_PLAYERS] = {0};
+static CVoiceGameMgr* g_pManager = nullptr;
 static ConVar voicechat_updateinterval("holylib_voicechat_updateinterval", "0.1", FCVAR_ARCHIVE, "How often we call PlayerCanHearPlayersVoice for the actively talking players. This interval is unique to each player");
 static ConVar voicechat_managerupdateinterval("holylib_voicechat_managerupdateinterval", "0.1", FCVAR_ARCHIVE, "How often we loop through all players to check their voice states. We still check the player's interval to reduce calls if they already have been updated in the last x(your defined interval) seconds.");
 static ConVar voicechat_stopdelay("holylib_voicechat_stopdelay", "1", FCVAR_ARCHIVE, "How many seconds before a player is marked as stopped talking");
@@ -1567,8 +1567,8 @@ static void hook_CVoiceGameMgr_Update(CVoiceGameMgr* pManager, double frametime)
 }
 
 // This is seperate since most of the above code will be removed with the next gmod update as Rubat brought over our optimization :D
-static bool g_bIsPlayerTalking2[ABSOLUTE_PLAYER_LIMIT] = {0};
-static double g_fLastPlayerTalked2[ABSOLUTE_PLAYER_LIMIT] = {0};
+static bool g_bIsPlayerTalking2[MAX_PLAYERS] = {0};
+static double g_fLastPlayerTalked2[MAX_PLAYERS] = {0};
 static void CheckTalkingState(int nPlayerSlot, bool bIsTalking)
 {
 	if (bIsTalking)
@@ -1587,7 +1587,7 @@ static void CheckTalkingState(int nPlayerSlot, bool bIsTalking)
 		}
 		g_fLastPlayerTalked2[nPlayerSlot] = gpGlobals->curtime;
 	} else {
-		if (gpGlobals->curtime > (g_fLastPlayerTalked2[nPlayerSlot] + voicechat_stopdelay.GetFloat()))
+		if (gpGlobals->curtime > (g_fLastPlayerTalked2[nPlayerSlot] + voicechat_stopdelay.GetFloat()) && g_bIsPlayerTalking2[nPlayerSlot])
 		{ // Stopped talking, tied to holylib_voicechat_stopdelay convar
 			g_bIsPlayerTalking2[nPlayerSlot] = false;
 
@@ -1611,7 +1611,7 @@ void CVoiceChatModule::ClientDisconnect(edict_t* pClient)
 
 void CVoiceChatModule::ServerActivate(edict_t* pEdictList, int edictCount, int clientMax)
 {
-	for (int i = 0; i < ABSOLUTE_PLAYER_LIMIT; ++i)
+	for (int i = 0; i < gpGlobals->maxClients; ++i)
 	{
 		g_fLastPlayerTalked[i] = 0.0;
 		g_fLastPlayerUpdated[i] = 0.0;
@@ -1624,7 +1624,7 @@ void CVoiceChatModule::ServerActivate(edict_t* pEdictList, int edictCount, int c
 
 void CVoiceChatModule::LevelShutdown()
 {
-	for (int i = 0; i < ABSOLUTE_PLAYER_LIMIT; ++i)
+	for (int i = 0; i < gpGlobals->maxClients; ++i)
 	{
 		g_fLastPlayerTalked[i] = 0.0;
 		g_fLastPlayerUpdated[i] = 0.0;
@@ -1633,7 +1633,7 @@ void CVoiceChatModule::LevelShutdown()
 		g_bIsPlayerTalking2[i] = false;
 		g_fLastPlayerTalked2[i] = 0.0;
 	}
-	g_pManager = NULL;
+	g_pManager = nullptr;
 }
 
 static Detouring::Hook detour_SV_BroadcastVoiceData;
@@ -1696,7 +1696,7 @@ LUA_FUNCTION_STATIC(voicechat_SendEmptyData)
 	SVC_VoiceData voiceData;
 	voiceData.m_nFromClient = (int)LUA->CheckNumberOpt(2, pClient->GetPlayerSlot());
 	voiceData.m_nLength = 0;
-	voiceData.m_DataOut = NULL; // Will possibly crash?
+	voiceData.m_DataOut = nullptr; // Will possibly crash?
 	voiceData.m_xuid = 0;
 
 	pClient->SendNetMsg(voiceData);
@@ -1738,7 +1738,7 @@ LUA_FUNCTION_STATIC(voicechat_BroadcastVoiceData)
 
 	if (LUA->IsType(2, GarrysMod::Lua::Type::Table))
 	{
-		LUA->Push(1);
+		LUA->Push(2);
 		LUA->PushNil();
 		while (LUA->Next(-2))
 		{
@@ -1783,7 +1783,7 @@ LUA_FUNCTION_STATIC(voicechat_ProcessVoiceData)
 LUA_FUNCTION_STATIC(voicechat_CreateVoiceData)
 {
 	int iPlayerSlot = (int)LUA->CheckNumberOpt(1, 0);
-	const char* pStr = LUA->CheckStringOpt(2, NULL);
+	const char* pStr = LUA->CheckStringOpt(2, nullptr);
 	int iLength = (int)LUA->CheckNumberOpt(3, 0);
 
 	VoiceData* pData = new VoiceData;
@@ -1890,11 +1890,11 @@ struct VoiceStreamTask {
 	VoiceStreamTaskType iType = VoiceStreamTask_NONE;
 	VoiceStreamTaskStatus iStatus = VoiceStreamTaskStatus_NONE;
 
-	WavAudioFile* pWavFile = NULL;
-	VoiceStream* pStream = NULL;
+	WavAudioFile* pWavFile = nullptr;
+	VoiceStream* pStream = nullptr;
 	int iReference = -1; // A reference to the pStream to stop the GC from kicking in.
 	int iCallback = -1;
-	GarrysMod::Lua::ILuaInterface* pLua = NULL;
+	GarrysMod::Lua::ILuaInterface* pLua = nullptr;
 };
 
 class LuaVoiceModuleData : public Lua::ModuleData
@@ -1927,11 +1927,11 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 				if (bIsWave)
 				{
 					task->pStream = VoiceStream::LoadWave(fh);
-					if (task->pStream == NULL)
+					if (task->pStream == nullptr)
 						task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_FILE;
 				} else {
 					task->pStream = VoiceStream::Load(fh);
-					if (task->pStream == NULL)
+					if (task->pStream == nullptr)
 						task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_VERSION;
 				}
 
@@ -1952,7 +1952,7 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 					task->pStream->SaveWave(fh, task->pWavFile);
 					//task->pWavFile = task->pStream->SaveWave(fh);
 
-					//if (task->pWavFile == NULL)
+					//if (task->pWavFile == nullptr)
 					//	task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_FILE;
 				} else {
 					task->pStream->Save(fh);
@@ -1973,7 +1973,7 @@ static void VoiceStreamJob(VoiceStreamTask*& task)
 		case VoiceStreamTask_LOADWAV:
 		{
 			task->pStream = VoiceStream::LoadWave(nullptr, task->pWavFile);
-			if (task->pStream == NULL)
+			if (task->pStream == nullptr)
 				task->iStatus = VoiceStreamTaskStatus_FAILED_INVALID_FILE;
 			break;
 		}
@@ -2162,7 +2162,7 @@ LUA_FUNCTION_STATIC(voicechat_IsPlayerTalking)
 		iClient = pPlayer->edict()->m_EdictIndex-1;
 	}
 
-	if (iClient < 0 || iClient > ABSOLUTE_PLAYER_LIMIT)
+	if (iClient < 0 || iClient >= gpGlobals->maxClients)
 		LUA->ThrowError("Failed to get a valid Client index!");
 
 	LUA->PushBool(g_bIsPlayerTalking[iClient]);
@@ -2180,7 +2180,7 @@ LUA_FUNCTION_STATIC(voicechat_LastPlayerTalked)
 		iClient = pPlayer->edict()->m_EdictIndex-1;
 	}
 
-	if (iClient < 0 || iClient > ABSOLUTE_PLAYER_LIMIT)
+	if (iClient < 0 || iClient >= gpGlobals->maxClients)
 		LUA->ThrowError("Failed to get a valid Client index!");
 
 	LUA->PushNumber(g_fLastPlayerTalked[iClient]);
@@ -2253,7 +2253,7 @@ void CVoiceChatModule::LuaThink(GarrysMod::Lua::ILuaInterface* pLua)
 {
 	LuaVoiceModuleData* pData = GetVoiceChatLuaData(pLua);
 
-	for (int i=0; i<ABSOLUTE_PLAYER_LIMIT; ++i)
+	for (int i=0; i<gpGlobals->maxClients; ++i)
 		CheckTalkingState(i, false);
 
 	for (auto it = pData->pVoiceStreamTasks.begin(); it != pData->pVoiceStreamTasks.end(); )
@@ -2379,22 +2379,25 @@ void CVoiceChatModule::LuaShutdown(GarrysMod::Lua::ILuaInterface* pLua)
 
 void CVoiceChatModule::Shutdown()
 {
-	V_DestroyThreadPool(pVoiceThreadPool);
-	pVoiceThreadPool = NULL;
+	if (pVoiceThreadPool)
+	{
+		Util::DestroyThreadPool(pVoiceThreadPool);
+		pVoiceThreadPool = nullptr;
+	}
 }
 
-IVoiceServer* g_pVoiceServer = NULL;
+IVoiceServer* g_pVoiceServer = nullptr;
 void CVoiceChatModule::Init(CreateInterfaceFn* appfn, CreateInterfaceFn* gamefn)
 {
 	if (appfn[0])
 	{
-		g_pVoiceServer = (IVoiceServer*)appfn[0](INTERFACEVERSION_VOICESERVER, NULL);
+		g_pVoiceServer = (IVoiceServer*)appfn[0](INTERFACEVERSION_VOICESERVER, nullptr);
 	} else {
 		SourceSDK::FactoryLoader engine_loader("engine");
 		g_pVoiceServer = engine_loader.GetInterface<IVoiceServer>(INTERFACEVERSION_VOICESERVER);
 	}
 
-	Detour::CheckValue("get interface", "g_pVoiceServer", g_pVoiceServer != NULL);
+	Detour::CheckValue("get interface", "g_pVoiceServer", g_pVoiceServer != nullptr);
 }
 
 void CVoiceChatModule::InitDetour(bool bPreServer)
@@ -2418,19 +2421,19 @@ void CVoiceChatModule::InitDetour(bool bPreServer)
 	);
 
 	g_PlayerModEnable = Detour::ResolveSymbol<CPlayerBitVec>(server_loader, Symbols::g_PlayerModEnableSym);
-	Detour::CheckValue("get class", "g_PlayerModEnable", g_PlayerModEnable != NULL);
+	Detour::CheckValue("get class", "g_PlayerModEnable", g_PlayerModEnable != nullptr);
 
 	g_BanMasks = Detour::ResolveSymbol<CPlayerBitVec>(server_loader, Symbols::g_BanMasksSym);
-	Detour::CheckValue("get class", "g_BanMasks", g_BanMasks != NULL);
+	Detour::CheckValue("get class", "g_BanMasks", g_BanMasks != nullptr);
 
 	g_SentGameRulesMasks = Detour::ResolveSymbol<CPlayerBitVec>(server_loader, Symbols::g_SentGameRulesMasksSym);
-	Detour::CheckValue("get class", "g_SentGameRulesMasks", g_SentGameRulesMasks != NULL);
+	Detour::CheckValue("get class", "g_SentGameRulesMasks", g_SentGameRulesMasks != nullptr);
 
 	g_SentBanMasks = Detour::ResolveSymbol<CPlayerBitVec>(server_loader, Symbols::g_SentBanMasksSym);
-	Detour::CheckValue("get class", "g_SentBanMasks", g_SentBanMasks != NULL);
+	Detour::CheckValue("get class", "g_SentBanMasks", g_SentBanMasks != nullptr);
 
 	g_bWantModEnable = Detour::ResolveSymbol<CPlayerBitVec>(server_loader, Symbols::g_bWantModEnableSym);
-	Detour::CheckValue("get class", "g_bWantModEnable", g_bWantModEnable != NULL);
+	Detour::CheckValue("get class", "g_bWantModEnable", g_bWantModEnable != nullptr);
 #endif
 }
 
