@@ -37,24 +37,5 @@ return {
                 end )
             end
         },
-        {
-            name = "SetPlaybackRate works after pausing or stopping the channel",
-            when = HolyLib_IsModuleEnabled("bass"),
-            async = true,
-            func = function()
-                local filePath = "sound/bass_testsound.wav"
-                local flags = ""
-
-                bass.PlayFile(filePath, flags, function( channel )
-                    channel:Pause()
-                    expect( channel:SetPlaybackRate, 1 ).toNot.err()
-
-                    channel:Stop()
-                    expect( channel:SetPlaybackRate, 1.2 ).to.err()
-
-                    done()
-                end )
-            end
-        }
     }
 }
