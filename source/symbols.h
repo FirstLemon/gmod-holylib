@@ -233,6 +233,9 @@ namespace Symbols
 	using CHostState_State_ChangeLevelMP = void (GMCOMMON_CALLING_CONVENTION*)(const char* levelName, const char* LandmarkName);
 	extern const std::vector<Symbol> CHostState_State_ChangeLevelMPSym;
 
+	using CLuaInterface_RunStringEx = bool (GMCOMMON_CALLING_CONVENTION*)(GarrysMod::Lua::ILuaInterface* pLua, const char *filename, const char *path, const char *stringToRun, bool run, bool printErrors, bool dontPushErrors, bool noReturns);
+	extern const std::vector<Symbol> CLuaInterface_RunStringExSym;
+
 	//---------------------------------------------------------------------------------
 	// Purpose: gameevent Symbols
 	//---------------------------------------------------------------------------------
@@ -456,9 +459,6 @@ namespace Symbols
 	extern const std::vector<Symbol> g_FrameSnapshotManagerSym;
 	extern const std::vector<Symbol> g_PropTypeFnsSym;
 	extern const std::vector<Symbol> g_BSPDataSym;
-
-	using SV_EnsureInstanceBaseline = void (*)( ServerClass *pServerClass, int iEdict, const void *pData, int nBytes );
-	extern const std::vector<Symbol> SV_EnsureInstanceBaselineSym;
 
 	using PackWork_t_Process = void (*)(PackWork_t& pWork);
 	extern const std::vector<Symbol> PackWork_t_ProcessSym;
@@ -765,4 +765,22 @@ namespace Symbols
 
 	using Filter_Add_f = void (*)(const CCommand* pCommand);
 	extern const std::vector<Symbol> Filter_Add_fSym;
+
+	//---------------------------------------------------------------------------------
+	// Purpose: networkingreplacement Symbols
+	//---------------------------------------------------------------------------------
+	using SV_EnsureInstanceBaseline = void (*)(ServerClass *pServerClass, int iEdict, const void *pData, intp nBytes);
+	extern const std::vector<Symbol> SV_EnsureInstanceBaselineSym;
+
+	using SendTable_Encode = bool (*)(const SendTable *pTable, const void *pStruct, bf_write *pOut, int objectID, void *pRecipients, bool bNonZeroOnly);
+	extern const std::vector<Symbol> SendTable_EncodeSym;
+
+	using CFrameSnapshotManager_GetPreviouslySentPacket = PackedEntity* (*)(void* framesnapshotmanager, int iEntity, int iSerialNumber);
+	extern const std::vector<Symbol> CFrameSnapshotManager_GetPreviouslySentPacketSym;
+
+	using CFrameSnapshotManager_UsePreviouslySentPacket = bool (*)(void* framesnapshotmanager, CFrameSnapshot* pSnapshot, int entity, int entSerialNumber);
+	extern const std::vector<Symbol> CFrameSnapshotManager_UsePreviouslySentPacketSym;
+
+	using CFrameSnapshotManager_CreatePackedEntity = PackedEntity* (*)(void* framesnapshotmanager, CFrameSnapshot* pSnapshot, int entity);
+	extern const std::vector<Symbol> CFrameSnapshotManager_CreatePackedEntitySym;
 }

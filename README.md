@@ -162,6 +162,7 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 \- [#] Fixed `util.FancyTableToJSON` being unable to handle `math.huge` causing the parser to stop leaving invalid json<br>
 \- [#] Implemented a workaround for 64x possibly hanging indefinetly when a threadpool is deleted<br>
 \- [#] Fixed `holylib_filesystem_splitgamepath` breaking searchpath seperation. It now only takes effects for the `GAME` path<br>
+\- [#] Fixed `INetworkStringTable:GetStringUserData` not fully pushing the userdata as a string<br>
 \- [-] Removed some unused code of former fixes that were implemented into Gmod<br>
 
 You can see all changes/commits here:<br>
@@ -482,6 +483,12 @@ hook.Add("HolyLib:OnMapChange", "HelloThere", function(levelName, landmarkName)
     print("Using landmark: " .. landmarkName) 
 end)
 ```
+
+#### bool(executed) or string(code) HolyLib:OnLuaRunString(string code, string fileName, string gamePath)
+Called when Lua code is about to be loaded and executed.<br>
+This allows you to modify the code that will be executed, for example you can change the code and then return the new code which will be used instead.<br>
+If you return a bool, then `false` means the code failed to be executed, and `true` means the code was executed.<br>
+This is useful when you handle execution yourself - though if you want to let code silently fail just return `true` without executing code.<br>
 
 ## gameevent
 This module contains additional functions for the gameevent library.<br>
@@ -2283,6 +2290,12 @@ Calls the `SV_InitGameServerSteam` function to activate the steam server exactly
 
 #### bool steamworks.ForceAuthenticate(number userID)
 Marks the given client as Authenticated even if they aren't.<br>
+
+#### string(steamID64) steamworks.GetGameServerSteamID()
+Returns the steamid of the set steam account by `sv_setsteamaccount`<br>
+
+> [!NOTE]
+> If something internally goes wrong this can throw an error.
 
 ### Hooks
 
