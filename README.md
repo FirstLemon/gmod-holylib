@@ -80,7 +80,7 @@ This is done by first deleting the current `gmsv_holylib_linux[64].so` and then 
 
 ## Next Update
 \- [+] Any files in `lua/autorun/_holylua/` are loaded by HolyLib on startup.<br>
-\- [+] Added a new modules `luathreads`, `networkthreading`, `soundscape`<br>
+\- [+] Added a new modules `luathreads`, `networkthreading`, `soundscape`, `luagc`, `nw2`<br>
 \- [+] Added `NS_` enums to `gameserver` module.<br>
 \- [+] Added missing `CNetChan:Shutdown` function to the `gameserver` module.<br>
 \- [+] Added LZ4 compression for newly implemented net channel.<br>
@@ -176,6 +176,8 @@ https://github.com/RaphaelIT7/gmod-holylib/compare/Release0.7...main
 \- [+] Added `directData` argument to `VoiceStream:GetData`, `VoiceStream:GetIndex`, `VoiceStream:SetIndex` and `VoiceStream:SetData`<br>
 \- [+] Added overflow checks for `gameserver.BroadcastMessage`, `CNetChan:SendMessage` and `CBaseClient:SendNetMsg` when you try to use a overflowed buffer<br>
 \- [+] Added a few more arguments to `HolyLib:OnPhysicsLag` like `phys1`, `phys2`, `recalcPhys`, `callerFunction` and the arguments `ent1` & `ent2` were removed since you can call `PhysObj:GetEntity`<br>
+\- [+] Added `steamworks.GetGameServerSteamID` to the `steamworks` module.<br>
+\- [+] Added `HolyLib:OnLuaRunString` hook to the `holylib` module.<br>
 \- [#] Fixed `addonsystem.ShouldMount` & `addonsystem.SetShouldMount` `workshopID` arguments being a number when they should have been a string.<br>
 \- [#] Changed `VoiceData:GetUncompressedData` to now returns a statusCode/a number on failure instead of possibly returning a garbage string.<br>
 \- [#] Limited `HttpServer:SetName` to have a length limit of `64` characters.<br>
@@ -188,6 +190,8 @@ https://github.com/RaphaelIT7/gmod-holylib/compare/Release0.7...main
 \- [#] Changed arguments and return value of `HolyLib:PostEntityConstructor`<br>
 \- [#] Changed `pvs.AddEntityToTransmit` to only work inside `HolyLib:PreCheckTransmit` due to safety & performance reasons<br>
 \- [#] Changed `HolyLib:[Pre/Post]CheckTransmit` hooks to be disabled by default needing to be now enabled using `pvs.Enable[Pre/Post]TransmitHook`<br>
+\- [#] Changed `HttpServer:[Get/Put/Post/OtherShit]` callback return value to be flipped, return `false` to mark a request as `NOT` handled, return `true` to mark it as handled<br>
+\- [#] Fixed `networking` module partially not working without the `pvs` module - it internally had depended on it.<br>
 \- [-] Removed `VoiceData:GetUncompressedData` decompress size argument<br>
 \- [-] Removed `CBaseClient:Transmit` third argument `fragments`.<br>
 \- [-] Removed `gameserver.CalculateCPUUsage` and `gameserver.ApproximateProcessMemoryUsage` since they never worked.<br>
@@ -3897,12 +3901,16 @@ end, true)
 
 If you enable the IP Whitelist, only requests sent by connected players are processed.<br>
 
-#### HttpServer:Get(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
-#### HttpServer:Put(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
-#### HttpServer:Post(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
-#### HttpServer:Patch(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
-#### HttpServer:Delete(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
-#### HttpServer:Options(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
+> [!NOTE]
+> If you return `false` you mark a request as **not** handled.<br>
+> This means that the delay will **not** be responded to until you call `HttpRequest:MarkHandled`<br>
+
+#### bool(handled) HttpServer:Get(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
+#### bool(handled) HttpServer:Put(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
+#### bool(handled) HttpServer:Post(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
+#### bool(handled) HttpServer:Patch(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
+#### bool(handled) HttpServer:Delete(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
+#### bool(handled) HttpServer:Options(string path, function (HttpRequest, HttpResponse), bool ipWhitelist)
 
 ### HttpRequest
 A incoming Http Request.
@@ -5183,6 +5191,126 @@ If enabled, some packets will be processed by the networking thread instead of t
 > [!NOTE]
 > This can cause the `HolyLib:ProcessConnectionlessPacket` to not be called for the affected packets!
 
+## luagc
+
+### Functions
+
+#### number luagc.GetGCCount(any targetObject = nil)
+Returns the total count of GC objects.<br>
+If given a `targetObject` object, it will count up all GCobjects until it reached the `targetObject` after which it'll stop.<br>
+(the `targetObject` **won't** be included in the result!)
+
+#### table luagc.GetReferences(any object)
+Returns a table containing **all** GCObjects that have a reference stored to the given object.<br>
+
+#### table luagc.GetContainingReferences(any object, bool recursive = false, table ignoreGCObjects = nil)
+Returns all GCobjects that the given object stores.<br>
+Can be recursive to include all GCobjects referenced by all child objects.<br>
+ignoreGCObjects - A **sequential** table inside which you can provide GC objects that should be ignored like the global table/`_G`<br>
+
+#### table luagc.GetAllGCObjects(any targetObject = nil)
+Returns a table containing all GCobjects.<br>
+If given a `targetObject` object, it will return all GCobjects until it reached the `targetObject` after which it'll stop.<br>
+(the `targetObject` **won't** be included in the result!)
+
+The GClist **always** goes from newest to oldest GCobjects due to how the GCobjects are chained.<br>
+
+> [!NOTE]
+> This function itself create a table which is why doing<br>
+> `luagc.GetAllGCObjects(luagc.GetCurrentGCHeadObject())`<br>
+> Will always have 1 object - which is the returned table.<br>
+> You can do `table.remove(gcList, 1)` to remove the first entry to get rid of it.<br>
+
+Example usage:
+```lua
+collectgarbage("stop") -- to not modify gc list
+local gcHead = luagc.GetCurrentGCHeadObject()
+
+function Example() -- 1 GCfunction
+  return {}
+end
+Example() -- Returns 1 GCtable
+debug.setfenv(Example, {}) -- to avoid printing _G below - also creates 1 GCtable
+
+-- Now print all new GC objects created by our code above
+local gcList = luagc.GetAllGCObjects(gcHead)
+table.remove(gcList, 1) -- remove the gcList table from itself since it included as the first entry.
+
+for _, gcObject in ipairs(gcList) do
+	print("object: " .. tostring(gcObject) .. " (type: " .. type(gcObject) .. ")") 
+end
+```
+
+Result:
+```lua
+object: table: 0xf0b9fdea (type: table)
+object: table: 0xf09ffc3a (type: table)
+object: function: 0xf0bf9cb2 (type: function)
+```
+
+#### any luagc.GetCurrentGCHeadObject()
+Returns the current GCobject that's at the head of the list.<br>
+
+> [!NOTE]
+> The head object is **always** the newest one.
+
+#### table luagc.GetFormattedGCObjectInfo(any object)
+Returns a nicely formatted table showing which fields store which GC references for the given object.<br>
+
+> [!NOTE]
+> Fields are not consistent and can be **nil** always check if a field exists!
+
+Example:
+```lua
+function test()
+end
+debug.setfenv(test, {hai = ":3"})
+
+local formatted = luagc.GetFormattedGCObjectInfo(test)
+PrintTable(formatted)
+PrintTable(formatted.proto) -- Let's also see the proto
+```
+
+Output:
+```lua
+["environment"]:
+                ["hai"] =       :3
+["object"]      =       function: 0xf09e29f2
+["proto"]       =       proto: 0xf0898ae2
+["type"]        =       function
+["upvalues"]:
+
+["constants"]:
+["name"]        =       @lua_run
+["object"]      =       proto: 0xefabbfb2
+["type"]        =       proto
+```
+
+#### number luagc.GetSizeOfGCObject(any object, bool recursive = false, table ignoreGCObjects = nil)
+Returns the memory size of the given object.<br>
+If recursive is set, then the size of referenced objects is added to the total result.<br>
+ignoreGCObjects - A **sequential** table inside which you can provide GC objects that should be ignored like the global table/`_G`<br>
+
+## nw2
+Simple purpose - to fix NW2Vars from breaking.<br>
+This bug happens under the following scenario:<br>
+
+An new entity spawns the **first time** / no entity of it's class was created before.<br>
+Then on this new entity - a NW2Var is set with it's creation.<br>
+
+Now the issue is - when the engine packs the entity for networking, it'll store the packed data as the baseline.<br>
+This **includes** NW2Vars and this baseline is used for all entities of the same class meaning the NW2Var would be present for all of them.<br>
+This storing into the base line **only** happens once for the first time an entitiy was created - this is per entity class!<br>
+(C++ entities - Lua's all share one class meaning this bug would apply a NW2Var to all of them!)<br>
+
+Now what this module does - it prevents writing NW2Vars into the baseline ensuring they won't be applied to all entites of the same class.<br>
+
+> [!NOTE]
+> The bug still exists clientside though seems to be rarer / variables don't seem to actually change?<br>
+> There still seems to be invalid proxy calls though nothing much I can do about that.<br>
+> This definetly needs more testing though it should be an improvement.<br>
+
+
 # Unfinished Modules
 
 ## serverplugins
@@ -5198,6 +5326,12 @@ Supports: Linux32 | Linux64<br>
 
 > [!NOTE]
 > Windows doesn't have plugins / we won't support it there.<br>
+
+## net
+Was meant to provide extended functions like net.Seek and so on.
+
+## networkingreplacement
+Will implement the entire packed entity code and snapshot stuff with our own implementation to hopefully achieve better performance.
 
 # Issues implemented / fixed
 `gameevent.GetListeners` -> https://github.com/Facepunch/garrysmod-requests/issues/2377<br>

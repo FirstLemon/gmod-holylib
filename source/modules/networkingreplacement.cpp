@@ -7,6 +7,7 @@
 #include "dt.h"
 #include "framesnapshot.h"
 #include "sourcesdk/hltvserver.h"
+#include "GarrysMod/IGMODDataTable.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -128,6 +129,41 @@ CSendNode::~CSendNode()
 	m_Children.Purge();
 }
 
+bool PackedEntity::AllocAndCopyPadded( const void *pData, unsigned long size )
+{
+	FreeData();
+	
+	unsigned long nBytes = PAD_NUMBER( size, 4 );
+
+	// allocate the memory
+	m_pData = malloc( nBytes );
+
+	if ( !m_pData )
+	{
+		Assert( m_pData );
+		return false;
+	}
+	
+	Q_memcpy( m_pData, pData, size );
+	SetNumBits( nBytes * 8 );
+	
+	return true;
+}
+
+void PackedEntity::SetRecipients( const CUtlMemory<CSendProxyRecipients> &recipients )
+{
+	m_Recipients.CopyArray( recipients.Base(), recipients.Count() );
+}
+
+
+bool PackedEntity::CompareRecipients( const CUtlMemory<CSendProxyRecipients> &recipients )
+{
+	if ( recipients.Count() != m_Recipients.Count() )
+		return false;
+	
+	return memcmp( recipients.Base(), m_Recipients.Base(), sizeof( CSendProxyRecipients ) * m_Recipients.Count() ) == 0;
+}
+
 /*
 	replacement classes
 */
@@ -136,6 +172,11 @@ CSendNode::~CSendNode()
 class HolyLibSendPropPrecalc : public SendProp
 {
 public:
+	HolyLibSendPropPrecalc* GetHolyArrayProp() const
+	{
+		return (HolyLibSendPropPrecalc*)GetArrayProp();
+	}
+
 	static constexpr int BOOL_SIZE = -1;
 	static constexpr int DPT_BOOL = DPT_NUMSendPropTypes;
 	static constexpr int DPT_INT24 = DPT_BOOL+1; // ungly, though useful to avoid branching - unused ToDo: Implement it into PrecalcSendProps, too lazy rn
@@ -161,7 +202,7 @@ struct int24
 		val[2] = (value >> 16) & 0xFF;
 	}
 
-	int ToInt() const
+	inline int ToInt() const
 	{
 		int value = (val[0]) | (val[1] << 8 ) | (val[2] << 16);
 
@@ -176,7 +217,26 @@ struct int24
 
 struct VectorXY
 {
-	float val[2];
+	float x;
+	float y;
+};
+
+static constexpr int nGMODTableIndexBits = 12;
+class CGMODDataTable : public IGMODDataTable
+{
+public:
+	using DataIndex = unsigned short;
+	static constexpr int INVALID_INDEX = (DataIndex)-1;
+	class DataEntry
+	{
+	public:
+		int m_iChangeTick = 0;
+		CGMODVariant m_pValue;
+	};
+
+	CUtlMap<DataIndex, DataEntry> m_pNetworkedData;
+	CUtlDict<CGMODVariant, DataIndex> m_pNonNetworkedData;
+	bool m_bFullUpdate;
 };
 
 // ----------------------------------------------------------------------------- //
@@ -201,11 +261,11 @@ public:
 				int m_nBits; // Temporary only
 				int m_nBytes; // Final size of our block.
 			};
-			HolyLibSendPropPrecalc* m_nGModDataTableProp; // Saves us some bytes - used by DPT_GMODTable
 		};
 		CUtlVector<HolyLibSendPropPrecalc*> m_pProps; // All props of this type
 	} m_SendPropStruct[HolyLibSendPropPrecalc::DPT_REALNUMSendPropTypes]; // +1 for DPT_BOOL
 	int m_nSendPropDataSize = 0;
+	HolyLibSendPropPrecalc* m_nHolyLibGModDataTableProp; // Saves us some bytes - used by DPT_GMODTable
 };
 
 void HolyLibCSendTablePrecalc::PrecalcSendProps()
@@ -336,10 +396,10 @@ void HolyLibCSendTablePrecalc::PrecalcSendProps()
 				pStruct.m_pProps.AddToTail(pPrecalc);
 			} else if (nDPTType == SendPropType::DPT_GMODTable) {
 				pPrecalc->m_nNewTotalOffset = m_nSendPropDataSize + pStruct.m_nBytes;
-				pPrecalc->m_nNewSize = sizeof(unsigned short);
+				pPrecalc->m_nNewSize = 0;
 
 				pStruct.m_nBytes += pPrecalc->m_nNewSize;
-				pStruct.m_nGModDataTableProp = pPrecalc;
+				m_nHolyLibGModDataTableProp = pPrecalc;
 			} else if (nDPTType == SendPropType::DPT_Array) {
 				SendProp* pArrayProp = pProp->GetArrayProp();
 
@@ -394,7 +454,7 @@ void HolyLibCSendTablePrecalc::PrecalcSendProps()
 }
 
 /*
-	Functions for packing
+	Structs for packing
 */
 
 struct PackState
@@ -434,15 +494,33 @@ static int SendProp_FillSnapshot( HolyLibCSendTablePrecalc *pTable, void* pOutDa
 
 typedef struct
 {
-	bool			(*IsEncodedZero) ( const HolyLibSendPropPrecalc* pProp, const void* pPackedData );
+	bool (*IsEncodedZero) ( const HolyLibSendPropPrecalc* pProp, const void* pPackedData );
 	// I HATE that the pEntityData argument is needed for the gmod datatable.
-	void			(*FillDVariant) ( const HolyLibSendPropPrecalc* pProp, const void* pPackedData, const void* pEntityData, DVariant& pVar );
+	void (*FillDVariant) ( const HolyLibSendPropPrecalc* pProp, const void* pPackedData, const void* pEntityData, DVariant& pVar );
 
 	// We need nCurrentOffset since if an string array exists - we need to know the offset in String_PackEntry!
-	void			(*PackEntry) ( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState );
+	void (*PackEntry) ( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState );
+
+	bool (*CompareDeltas) ( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo );
 } HolyLibPropTypeFns;
 
 extern HolyLibPropTypeFns pHolyLibPropTypeFns[HolyLibSendPropPrecalc::DPT_REALNUMSendPropTypes]; // For recursive fun
+
+/*
+	GMODTable encode functions
+*/
+
+struct GMODTypeEncode
+{
+	void (*Write)( const unsigned char* pPackedData, const CGMODVariant& pValue );
+	void (*Read)( const unsigned char* pPackedData,CGMODVariant& pValue );
+	int (*Skip)( const unsigned char* pPackedData ); // Just returns the size for this data
+	void (*Compare)( const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo );
+};
+
+/*
+	Encode functions
+*/
 
 static bool HolyLib_Int_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
 {
@@ -452,13 +530,20 @@ static bool HolyLib_Int_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, cons
 static void HolyLib_Int_FillDVariant( const HolyLibSendPropPrecalc* pProp, const void* pPackedData, const void* pEntityData, DVariant& pVar )
 {
 	pVar.m_Int = *(int*)pPackedData;
-	Msg("Read value %i from %s at %p\n", pVar.m_Int, pProp->GetName(), pPackedData);
+	// Msg("Read value %i from %s at %p\n", pVar.m_Int, pProp->GetName(), pPackedData);
 }
 
 static void HolyLib_Int_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState )
 {
 	*(int*)pPackedData = pVar.m_Int;
-	Msg("Packed value %i into %s at %p\n", pVar.m_Int, pProp->GetName(), pPackedData);
+	// Msg("Packed value %i into %s at %p\n", pVar.m_Int, pProp->GetName(), pPackedData);
+}
+
+static bool HolyLib_Int_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	int a = *(int*)pPackedDataFrom;
+	int b = *(int*)pPackedDataTo;
+	return a != b;
 }
 
 static bool HolyLib_Float_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
@@ -469,13 +554,20 @@ static bool HolyLib_Float_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, co
 static void HolyLib_Float_FillDVariant( const HolyLibSendPropPrecalc* pProp, const void* pPackedData, const void* pEntityData, DVariant& pVar )
 {
 	pVar.m_Float = *(float*)pPackedData;
-	Msg("Read value %f from %s at %p\n", pVar.m_Float, pProp->GetName(), pPackedData);
+	// Msg("Read value %f from %s at %p\n", pVar.m_Float, pProp->GetName(), pPackedData);
 }
 
 static void HolyLib_Float_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState )
 {
 	*(float*)pPackedData = pVar.m_Float;
-	Msg("Packed value %f into %s at %p\n", pVar.m_Float, pProp->GetName(), pPackedData);
+	// Msg("Packed value %f into %s at %p\n", pVar.m_Float, pProp->GetName(), pPackedData);
+}
+
+static bool HolyLib_Float_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	float a = *(float*)pPackedDataFrom;
+	float b = *(float*)pPackedDataTo;
+	return a != b;
 }
 
 static bool HolyLib_Vector_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
@@ -497,22 +589,45 @@ static void HolyLib_Vector_PackEntry( const HolyLibSendPropPrecalc* pProp, unsig
 	*(Vector*)pPackedData = *(Vector*)&pVar.m_Vector;
 }
 
+static bool HolyLib_Vector_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	const Vector* a = (const Vector*)pPackedDataFrom;
+	const Vector* b = (const Vector*)pPackedDataTo;
+
+	if (a->x != b->x) return true;
+	if (a->y != b->y) return true;
+	if (a->z != b->z) return true;
+
+	return false;
+}
+
 static bool HolyLib_VectorXY_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
 {
 	VectorXY* pVec = (VectorXY*)pPackedData;
-	return pVec->val[0] == 0 && pVec->val[1] == 0;
+	return pVec->x == 0 && pVec->y == 0;
 }
 
 static void HolyLib_VectorXY_FillDVariant( const HolyLibSendPropPrecalc* pProp, const void* pPackedData, const void* pEntityData, DVariant& pVar )
 {
 	VectorXY* pVec = (VectorXY*)pPackedData;
-	pVar.m_Vector[0] = pVec->val[0];
-	pVar.m_Vector[1] = pVec->val[1];
+	pVar.m_Vector[0] = pVec->x;
+	pVar.m_Vector[1] = pVec->y;
 }
 
 static void HolyLib_VectorXY_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState )
 {
 	*(VectorXY*)pPackedData = *(VectorXY*)&pVar;
+}
+
+static bool HolyLib_VectorXY_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	const VectorXY* a = (const VectorXY*)pPackedDataFrom;
+	const VectorXY* b = (const VectorXY*)pPackedDataTo;
+
+	if (a->x != b->x) return true;
+	if (a->y != b->y) return true;
+
+	return false;
 }
 
 static bool HolyLib_String_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
@@ -543,6 +658,25 @@ static void HolyLib_String_PackEntry( const HolyLibSendPropPrecalc* pProp, unsig
 	}
 }
 
+static bool HolyLib_String_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	const char* pStringPointerFrom = *(const char**)pPackedDataFrom;
+	const char* pStringPointerTo = *(const char**)pPackedDataTo;
+	if (
+		(!pStringPointerFrom && pStringPointerTo) ||
+		(!pStringPointerTo && pStringPointerFrom)
+	)
+		return true;
+
+	if (!pStringPointerFrom && !pStringPointerTo)
+		return false;
+	
+	if (strlen(pStringPointerFrom) != strlen(pStringPointerTo))
+		return true;
+
+    return V_stricmp( pStringPointerFrom, pStringPointerTo ) != 0;
+}
+
 static bool HolyLib_Array_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
 {
 	// Weh! I hate this though idk what to do rn
@@ -557,7 +691,7 @@ static void HolyLib_Array_FillDVariant( const HolyLibSendPropPrecalc* pProp, con
 static void HolyLib_Array_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState )
 {
 	DVariant pElementVar;
-	int nType = ((HolyLibSendPropPrecalc*)pProp->GetArrayProp())->m_nHolyLibType;
+	int nType = pProp->GetHolyArrayProp()->m_nHolyLibType;
 	for (int nElement = 0; nElement < pProp->GetNumElements(); ++nElement)
 	{
 		pProp->GetProxyFn()(
@@ -579,10 +713,46 @@ static void HolyLib_Array_PackEntry( const HolyLibSendPropPrecalc* pProp, unsign
 	}
 }
 
+static bool HolyLib_Array_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	int nType = pProp->GetHolyArrayProp()->m_nHolyLibType;
+	for (int nElement = 0; nElement < pProp->GetNumElements(); ++nElement)
+	{
+		bool bChanged = pHolyLibPropTypeFns[nType].CompareDeltas(
+			pProp,
+			pPackedDataFrom + (pProp->m_nArrayElementSize * nElement),
+			pPackedDataTo + (pProp->m_nArrayElementSize * nElement)
+		);
+
+		if ( bChanged )
+			return true;
+	}
+
+	return false;
+}
+
+// Now I understand why gmod had this hacky vars...
+// We network things different than gmod
+// unlike gmod we DONT write the GMODTable into the snapshot
+// This saves work and memory and simplifies things a lot
+// Since already a DataTable never fully is written in a snapshot we just write it when sending a snapshot to a client.
+// As there is no point in keeping it around in a snapshot.
+// Clientside - yes, there writing it is useful. Serverside? Nope.
+static thread_local CGMODDataTable* g_pCurrentGModDataTable = nullptr;
+static thread_local int g_nFromTick = -1;
+static thread_local int g_nTargetTick = -1;
 static bool HolyLib_GMODTable_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
 {
-	unsigned short numElements = *(unsigned short*)pPackedData;
-	return numElements == 0;
+	if ( !g_pCurrentGModDataTable )
+		return true;
+
+	FOR_EACH_MAP_FAST( g_pCurrentGModDataTable->m_pNetworkedData, idx )
+	{
+		if ( g_pCurrentGModDataTable->m_pNetworkedData[idx].m_iChangeTick >= g_nTargetTick )
+			return false;
+	}
+	
+	return true;
 }
 
 static void HolyLib_GMODTable_FillDVariant( const HolyLibSendPropPrecalc* pProp, const void* pPackedData, const void* pEntityData, DVariant& pVar )
@@ -593,34 +763,52 @@ static void HolyLib_GMODTable_FillDVariant( const HolyLibSendPropPrecalc* pProp,
 
 static void HolyLib_GMODTable_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState )
 {
-	/*
-		GMODTable struct:
-		unsigned short(2 bytes) - numEntires
-	*/
+}
 
-	unsigned short nNumEntries = 0;
-	*(unsigned short*)pPackedData = nNumEntries;
+static bool HolyLib_GMODTable_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	if ( !g_pCurrentGModDataTable )
+		return false;
+
+	FOR_EACH_MAP_FAST( g_pCurrentGModDataTable->m_pNetworkedData, idx )
+	{
+		if ( g_pCurrentGModDataTable->m_pNetworkedData[idx].m_iChangeTick >= g_nTargetTick )
+			return true;
+	}
+
+	return true;
 }
 
 static bool HolyLib_Bool_IsEncodedZero(const HolyLibSendPropPrecalc* pProp, const void* pPackedData)
 {
-	const uint8* pByte = (const uint8*)pPackedData + pProp->m_nNewTotalOffset;
+	const uint8* pByte = (const uint8*)pPackedData;
 	bool value = ((*pByte) >> pProp->m_nBitOffset) & 1;
 	return !value;
 }
 
 static void HolyLib_Bool_FillDVariant(const HolyLibSendPropPrecalc* pProp, const void* pPackedData, const void* pEntityData, DVariant& pVar)
 {
-	const uint8* pByte = (const uint8*)pPackedData + pProp->m_nNewTotalOffset;
+	const uint8* pByte = (const uint8*)pPackedData;
 	bool value = ((*pByte) >> pProp->m_nBitOffset) & 1;
 	pVar.m_Int = value ? 1 : 0;
-	Msg("Read value %s from %s at %p\n", value ? "true" : "false", pProp->GetName(), pPackedData);
+	// Msg("Read value %s from %s at %p\n", value ? "true" : "false", pProp->GetName(), pPackedData);
 }
 
 static void HolyLib_Bool_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState )
 {
 	*((uint8*)pPackedData) |= (pVar.m_Int == 1 ? 1 : 0) << pProp->m_nBitOffset;
-	Msg("Wrote value %s from %s at %p\n", (pVar.m_Int == 1) ? "true" : "false", pProp->GetName(), pPackedData);
+	// Msg("Wrote value %s from %s at %p\n", (pVar.m_Int == 1) ? "true" : "false", pProp->GetName(), pPackedData);
+}
+
+static bool HolyLib_Bool_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	const uint8* pByte1 = (const uint8*)pPackedDataFrom;
+	bool value1 = ((*pByte1) >> pProp->m_nBitOffset) & 1;
+
+	const uint8* pByte2 = (const uint8*)pPackedDataTo;
+	bool value2 = ((*pByte2) >> pProp->m_nBitOffset) & 1;
+
+	return value1 != value2;
 }
 
 static bool HolyLib_Int24_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
@@ -640,6 +828,13 @@ static void HolyLib_Int24_PackEntry( const HolyLibSendPropPrecalc* pProp, unsign
 	*(int24*)pPackedData = int24(pVar.m_Int);
 }
 
+static bool HolyLib_Int24_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	int24 a = *(int24*)pPackedDataFrom;
+	int24 b = *(int24*)pPackedDataTo;
+	return a.ToInt() != b.ToInt();
+}
+
 static bool HolyLib_Int16_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
 {
 	return (*(short*)pPackedData) == 0;
@@ -653,6 +848,13 @@ static void HolyLib_Int16_FillDVariant( const HolyLibSendPropPrecalc* pProp, con
 static void HolyLib_Int16_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigned char* pPackedData, int nCurrentOffset, const DVariant& pVar, PackState* pState )
 {
 	*(short*)pPackedData = pVar.m_Int;
+}
+
+static bool HolyLib_Int16_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	short a = *(short*)pPackedDataFrom;
+	short b = *(short*)pPackedDataTo;
+	return a != b;
 }
 
 static bool HolyLib_Int8_IsEncodedZero( const HolyLibSendPropPrecalc* pProp, const void* pPackedData )
@@ -670,38 +872,52 @@ static void HolyLib_Int8_PackEntry( const HolyLibSendPropPrecalc* pProp, unsigne
 	*(char*)pPackedData = pVar.m_Int;
 }
 
+static bool HolyLib_Int8_CompareDeltas( const HolyLibSendPropPrecalc* pProp, const unsigned char* pPackedDataFrom, const unsigned char* pPackedDataTo )
+{
+	char a = *(char*)pPackedDataFrom;
+	char b = *(char*)pPackedDataTo;
+	return a != b;
+}
+
 HolyLibPropTypeFns pHolyLibPropTypeFns[HolyLibSendPropPrecalc::DPT_REALNUMSendPropTypes] = {
 	{ // DPT_Int
 		HolyLib_Int_IsEncodedZero,
 		HolyLib_Int_FillDVariant,
 		HolyLib_Int_PackEntry,
+		HolyLib_Int_CompareDeltas,
 	},
 	{ // DPT_Float
 		HolyLib_Float_IsEncodedZero,
 		HolyLib_Float_FillDVariant,
 		HolyLib_Float_PackEntry,
+		HolyLib_Float_CompareDeltas,
 	},
 	{ // DPT_Vector
 		HolyLib_Vector_IsEncodedZero,
 		HolyLib_Vector_FillDVariant,
 		HolyLib_Vector_PackEntry,
+		HolyLib_Vector_CompareDeltas,
 	},
 	{ // DPT_VectorXY
 		HolyLib_VectorXY_IsEncodedZero,
 		HolyLib_VectorXY_FillDVariant,
 		HolyLib_VectorXY_PackEntry,
+		HolyLib_VectorXY_CompareDeltas,
 	},
 	{ // DPT_String
 		HolyLib_String_IsEncodedZero,
 		HolyLib_String_FillDVariant,
 		HolyLib_String_PackEntry,
+		HolyLib_String_CompareDeltas,
 	},
 	{ // DPT_Array
 		HolyLib_Array_IsEncodedZero,
 		HolyLib_Array_FillDVariant,
 		HolyLib_Array_PackEntry,
+		HolyLib_Array_CompareDeltas,
 	},
 	{ // DPT_DataTable
+		nullptr,
 		nullptr,
 		nullptr,
 		nullptr,
@@ -710,26 +926,31 @@ HolyLibPropTypeFns pHolyLibPropTypeFns[HolyLibSendPropPrecalc::DPT_REALNUMSendPr
 		HolyLib_GMODTable_IsEncodedZero,
 		HolyLib_GMODTable_FillDVariant,
 		HolyLib_GMODTable_PackEntry,
+		HolyLib_GMODTable_CompareDeltas,
 	},
 	{ // DPT_BOOL
 		HolyLib_Bool_IsEncodedZero,
 		HolyLib_Bool_FillDVariant,
 		HolyLib_Bool_PackEntry,
+		HolyLib_Bool_CompareDeltas,
 	},
 	{ // DPT_INT24
 		HolyLib_Int24_IsEncodedZero,
 		HolyLib_Int24_FillDVariant,
 		HolyLib_Int24_PackEntry,
+		HolyLib_Int24_CompareDeltas,
 	},
 	{ // DPT_INT16
 		HolyLib_Int16_IsEncodedZero,
 		HolyLib_Int16_FillDVariant,
 		HolyLib_Int16_PackEntry,
+		HolyLib_Int16_CompareDeltas,
 	},
 	{ // DPT_INT8
 		HolyLib_Int8_IsEncodedZero,
 		HolyLib_Int8_FillDVariant,
 		HolyLib_Int8_PackEntry,
+		HolyLib_Int8_CompareDeltas,
 	},
 };
 
@@ -747,6 +968,7 @@ HolyLibPropTypeFns pHolyLibPropTypeFns[HolyLibSendPropPrecalc::DPT_REALNUMSendPr
 	DPT_INT16 chunk
 	DPT_INT8 chunk	
 	StringData chunk - contains all strings
+	GMODTable chunk - constains all data of the GMODTable.
 
 	Where do arrays go? Their entires were added to their given types - so not needed. Simplifies things :3
 */
@@ -830,6 +1052,30 @@ FORCEINLINE void EncodeState::WritePropIndex( int iProp ) // Yoinked from CDelta
 	m_pBuf->WriteUBitLong( diff*8 - 8 + 4 + n*2 + 1, 8 + n*4 + 4 + 2 + 1 );
 }
 
+bool DVariantMismatch( DVariant& a, DVariant& b )
+{
+	if (a.m_Type != b.m_Type)
+		return true;
+
+	switch (a.m_Type)
+	{
+	case SendPropType::DPT_Int:
+		return a.m_Int != b.m_Int;
+	case SendPropType::DPT_Float:
+		return a.m_Float != b.m_Float;
+	case SendPropType::DPT_Vector:
+		return a.m_Vector[0] != b.m_Vector[0] || a.m_Vector[1] != b.m_Vector[1] || a.m_Vector[2] != b.m_Vector[2];
+	case SendPropType::DPT_VectorXY:
+		return a.m_Vector[0] != b.m_Vector[0] || a.m_Vector[1] != b.m_Vector[1];
+	case SendPropType::DPT_String:
+		return V_stricmp( a.m_pString, b.m_pString ) != 0;
+	default:
+		break;
+	}
+
+	return false;
+}
+
 static PropTypeFns pPropTypeFns[DPT_NUMSendPropTypes];
 // This is special - why? Because we DON'T pull data from the entity, instead we use the packed data which already was passed through the proxies.
 // This allows us to possibly encode snapshots from the past as the source engine normally can't do this (the proxies would return different results)
@@ -844,7 +1090,7 @@ static void HolyLib_SendTable_EncodeProp( EncodeState* pState, const HolyLibSend
 		var
 	);
 
-	DVariant var2;
+	/*DVariant var2;
 	pProp->GetProxyFn()(
 		pProp,
 		pState->m_pStructBase,
@@ -854,11 +1100,15 @@ static void HolyLib_SendTable_EncodeProp( EncodeState* pState, const HolyLibSend
 		pProp->m_nPropID
 	);
 
+	// RaphaelIT7:
+	// Due to how we handle things they WILL differ when compared. Why? I don't know
+	// yet the encode we write is identical / the bits are right yet the DVariant.ToString shows differences
 	var.m_Type = pProp->m_Type;
 	var2.m_Type = pProp->m_Type;
 	std::string varStr = var.ToString(); // Yes .ToString can only be used one at a time
-	if ( V_stricmp(varStr.c_str(), var2.ToString() ) != 0)
-		Msg("%s (%i) - %s | %s\n", pProp->GetName(), pProp->m_nHolyLibType, varStr.c_str(), var2.ToString());
+	if ( DVariantMismatch(var, var2) )
+		Msg("Diff: %s (%i) - %s | %s\n", pProp->GetName(), pProp->m_nHolyLibType, varStr.c_str(), var2.ToString());
+	*/
 
 	// Write the index.
 	pState->WritePropIndex( iProp );
@@ -910,7 +1160,7 @@ static bool HolyLib_SendTable_Encode(const SendTable *pTable,
 static int HolyLib_SendTable_CalcDelta( // For OUR data input! Not the compressed - our RAW
 	const SendTable *pTable,
 	
-	const void *pFromState,
+	const unsigned char *pFromState,
 	const int nFromBytes,
 
 	const unsigned char *pToState,
@@ -929,21 +1179,45 @@ static int HolyLib_SendTable_CalcDelta( // For OUR data input! Not the compresse
 
 	if ( pFromState )
 	{
+		int iNumProps = pPrecalc->GetNumProps();
+		for (int iProp = 0; iProp < iNumProps; ++iProp)
+		{
+			const HolyLibSendPropPrecalc* pProp = (HolyLibSendPropPrecalc*)pPrecalc->GetProp(iProp);
 
+			bool bPropChanged = pHolyLibPropTypeFns[pProp->m_nHolyLibType].CompareDeltas(
+				pProp,
+				pFromState + pProp->m_nNewTotalOffset,
+				pToState + pProp->m_nNewTotalOffset
+			);
+
+			if ( bPropChanged )
+			{
+				*pDeltaProps++ = iProp;
+				if ( pDeltaProps >= pDeltaPropsEnd )
+					break;
+			}
+		}
 	} else {
 		int iNumProps = pPrecalc->GetNumProps();
 		for (int iProp = 0; iProp < iNumProps; ++iProp)
 		{
 			const HolyLibSendPropPrecalc* pProp = (HolyLibSendPropPrecalc*)pPrecalc->GetProp(iProp);
 
-			pHolyLibPropTypeFns[pProp->m_nHolyLibType].IsEncodedZero(
+			bool bIsZero = pHolyLibPropTypeFns[pProp->m_nHolyLibType].IsEncodedZero(
 				pProp,
 				pToState + pProp->m_nNewTotalOffset
 			);
+
+			if ( !bIsZero )
+			{
+				*pDeltaProps++ = iProp;
+				if ( pDeltaProps >= pDeltaPropsEnd )
+					break;
+			}
 		}
 	}
 
-	return 0;
+	return pDeltaProps - pDeltaPropsBase;
 }
 
 #if MODULE_EXISTS_NETWORKING
@@ -1004,6 +1278,7 @@ void NWR_SV_PackEntity(int edictIdx, edict_t* edict, ServerClass* pServerClass, 
 		func_SV_EnsureInstanceBaseline( pServerClass, edictIdx, writeBuffer, writeBuf.GetNumBytesWritten() );	
 	}
 
+#if 0
 	g_pFullFileSystem->CreateDirHierarchy("holylib/dump/newdt/", "MOD");
 	std::string fileName = "holylib/dump/newdt/";
 	fileName.append(pServerClass->GetName());
@@ -1015,17 +1290,17 @@ void NWR_SV_PackEntity(int edictIdx, edict_t* edict, ServerClass* pServerClass, 
 		g_pFullFileSystem->Write(packedData, sizeof(packedData), pPackDump);
 		g_pFullFileSystem->Close(pPackDump);
 	}
+#endif
 	
 	int nFlatProps = pSendTablePrecalc->GetNumProps();
 	IChangeFrameList *pChangeFrame = nullptr;
 
 	// GMOD - m_nGMODDataTableOffset only exists on dev & 64x NOT MAIN till next update! See: https://github.com/Facepunch/garrysmod-requests/issues/2981
 	CGMODDataTable* pGMODDataTable = nullptr;
-	int nGMODDataTableOffset = pSendTablePrecalc->m_SendPropStruct->m_nGModDataTableProp->GetOffset(); // Since m_nGMODDataTableOffset isn't available
+	int nGMODDataTableOffset = pSendTablePrecalc->m_nHolyLibGModDataTableProp->GetOffset(); // Since m_nGMODDataTableOffset isn't available
 	if ( nGMODDataTableOffset != -1 ) // We use a precalculated offset, since finding it in here is uttelry expensive!
 		pGMODDataTable = *(CGMODDataTable**)((char*)edict->GetUnknown() + nGMODDataTableOffset);
 
-#if 0
 	// If this entity was previously in there, then it should have a valid IChangeFrameList 
 	// which we can delta against to figure out which properties have changed.
 	//
@@ -1038,16 +1313,24 @@ void NWR_SV_PackEntity(int edictIdx, edict_t* edict, ServerClass* pServerClass, 
 		
 		int deltaProps[MAX_DATATABLE_PROPS];
 
+		g_pCurrentGModDataTable = pGMODDataTable;
+		g_nFromTick = pPrevFrame->m_nSnapshotCreationTick;
+		g_nTargetTick = pSnapshot->m_nTickCount;
+
 		int nChanges = HolyLib_SendTable_CalcDelta(
 			pSendTable, 
-			pPrevFrame->GetData(), pPrevFrame->GetNumBytes(),
-			packedData,	nWrittenBytes,
+			(const unsigned char*)pPrevFrame->GetData(), pPrevFrame->GetNumBytes(),
+			(const unsigned char*)packedData, nWrittenBytes,
 			
 			deltaProps,
 			ARRAYSIZE( deltaProps ),
 
 			edictIdx
 			);
+
+		g_pCurrentGModDataTable = nullptr;
+		g_nFromTick = -1;
+		g_nTargetTick = -1;
 
 		// If it's non-manual-mode, but we detect that there are no changes here, then just
 		// use the previous pSnapshot if it's available (as though the entity were manual mode).
@@ -1125,7 +1408,31 @@ void NWR_SV_PackEntity(int edictIdx, edict_t* edict, ServerClass* pServerClass, 
 	pPackedEntity->m_pGModDataTable = pGMODDataTable;
 
 	edict->ClearStateChanged();
-#endif
+}
+
+IChangeInfoAccessor* CBaseEdict::GetChangeAccessor()
+{
+	return Util::engineserver->GetChangeAccessor( (edict_t*)this );
+}
+
+void PackedEntity::SetServerAndClientClass( ServerClass *pServerClass, ClientClass *pClientClass )
+{
+	m_pServerClass = pServerClass;
+	m_pClientClass = pClientClass;
+	if ( pServerClass )
+	{
+		Assert( pServerClass->m_pTable );
+		SetShouldCheckCreationTick( pServerClass->m_pTable->HasPropsEncodedAgainstTickCount() );
+	}
+}
+
+/*
+	Sending snapshot part
+*/
+static Detouring::Hook detour_CBaseServer_WriteDeltaEntities;
+static void hook_CBaseServer_WriteDeltaEntities(CBaseServer* pServer, CBaseClient *client, CClientFrame *to, CClientFrame *from, bf_write &pBuf)
+{
+
 }
 
 /*
@@ -1198,8 +1505,23 @@ void CNetworkingReplacementModule::InitDetour(bool bPreServer)
 		return;
 	
 	SourceSDK::FactoryLoader engine_loader("engine");
+	Detour::Create(
+		&detour_CBaseServer_WriteDeltaEntities, "CBaseServer::WriteDeltaEntities",
+		engine_loader.GetModule(), Symbols::CBaseServer_WriteDeltaEntitiesSym,
+		(void*)hook_CBaseServer_WriteDeltaEntities, m_pID
+	);
+
 	func_SV_EnsureInstanceBaseline = (Symbols::SV_EnsureInstanceBaseline)Detour::GetFunction(engine_loader.GetModule(), Symbols::SV_EnsureInstanceBaselineSym);
 	Detour::CheckFunction((void*)func_SV_EnsureInstanceBaseline, "SV_EnsureInstanceBaseline");
+	
+	func_CFrameSnapshotManager_GetPreviouslySentPacket = (Symbols::CFrameSnapshotManager_GetPreviouslySentPacket)Detour::GetFunction(engine_loader.GetModule(), Symbols::CFrameSnapshotManager_GetPreviouslySentPacketSym);
+	Detour::CheckFunction((void*)func_CFrameSnapshotManager_GetPreviouslySentPacket, "CFrameSnapshotManager::GetPreviouslySentPacket");
+	
+	func_CFrameSnapshotManager_CreatePackedEntity = (Symbols::CFrameSnapshotManager_CreatePackedEntity)Detour::GetFunction(engine_loader.GetModule(), Symbols::CFrameSnapshotManager_CreatePackedEntitySym);
+	Detour::CheckFunction((void*)func_CFrameSnapshotManager_CreatePackedEntity, "CFrameSnapshotManager::CreatePackedEntity");
+
+	framesnapshotmanager = Detour::ResolveSymbol<CFrameSnapshotManager>(engine_loader, Symbols::g_FrameSnapshotManagerSym);
+	Detour::CheckValue("get class", "framesnapshotmanager", framesnapshotmanager != nullptr);
 
 #if defined(ARCHITECTURE_X86) && defined(SYSTEM_LINUX)
 	PropTypeFns* pPropTypeFns = Detour::ResolveSymbol<PropTypeFns>(engine_loader, Symbols::g_PropTypeFnsSym);
