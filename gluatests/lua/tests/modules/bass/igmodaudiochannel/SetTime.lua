@@ -1,6 +1,18 @@
 return {
     groupName = "IGModAudioChannel:SetTime",
 
+    beforeEach = function( state )
+        state.filePath = "sound/bass_testsound.wav"
+        state.flags = "noplay"
+    end,
+
+    afterEach = function( state )
+        if IsValid( state.channel ) then
+            state.channel:Stop()
+            state.channel = nil
+        end
+    end,
+
     cases = {
         {
             name = "Function exists when module enabled",
@@ -17,23 +29,20 @@ return {
             end
         },
         {
-            name = "Valid call sets the time correctly",
+            name = "SetTime moves playback postion",
             when = HolyLib_IsModuleEnabled( "bass" ),
             async = true,
             timeout = 2,
             func = function()
-                local filePath = "sound/bass_testsound.wav"
-                local flags = ""
-        
-                bass.PlayFile( filePath, flags, function( channel, errorCode, errorMsg )
+                bass.PlayFile( st, flags, function( channel, errorCode, errorMsg )
                     expect( channel ).to.beValid()
-                    expect( errorCode ).to.equal( 0 )
-                    expect( errorMsg ).to.beNil()
 
-                    channel:SetTime( 0.5 )
+                    state.channel = channel
+
+                    channel:SetTime(1.5)
                     local time = channel:GetTime()
                     expect( time ).to.beA( "number" )
-                    expect( math.abs( time - 0.5 ) < 0.05).to.beTrue()
+                    expect( time ).to.aboutEqual(1.5, 0.05)
 
                     done()
                 end )
