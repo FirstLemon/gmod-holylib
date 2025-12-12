@@ -47,7 +47,7 @@ public:
  * I need to restore and fix the code in Shutdown to allow proper unloading.
  */
 
-CNetworkingModule g_pNetworkingModule;
+static CNetworkingModule g_pNetworkingModule;
 IModule* pNetworkingModule = &g_pNetworkingModule;
 
 /*
@@ -1660,8 +1660,12 @@ static void hook_CBaseCombatCharacter_SetTransmit(CBaseCombatCharacter* pCharact
 					const PlayerTransmitCache::WeaponSlot& pWeaponSlot = pCache.pWeapons[i];
 					if (pWeaponSlot.bIsNew)
 					{
-						pWeaponSlot.pWeapon->SetTransmit(pInfo, bAlways);
-						NETWORKING_SETSTATE(pWeaponSlot.pWeapon->edict()->m_EdictIndex, pOKPlayerTransmit)
+						CBaseEntity *pWeapon = GetMyWeapon(pCharacter, i);
+						if (!pWeapon)
+							continue;
+
+						pWeapon->SetTransmit(pInfo, bAlways);
+						NETWORKING_SETSTATE(pWeapon->edict()->m_EdictIndex, pOKPlayerTransmit)
 					}
 				}
 			}
@@ -1674,8 +1678,12 @@ static void hook_CBaseCombatCharacter_SetTransmit(CBaseCombatCharacter* pCharact
 			const PlayerTransmitCache::WeaponSlot& pWeaponSlot = pCache.pWeapons[i];
 			if (pWeaponSlot.bAlwaysNetwork)
 			{
-				pWeaponSlot.pWeapon->SetTransmit(pInfo, bAlways);
-				NETWORKING_SETSTATE(pWeaponSlot.pWeapon->edict()->m_EdictIndex, pOKPlayerTransmit)
+				CBaseEntity *pWeapon = GetMyWeapon(pCharacter, i);
+				if (!pWeapon)
+					continue;
+
+				pWeapon->SetTransmit(pInfo, bAlways);
+				NETWORKING_SETSTATE(pWeapon->edict()->m_EdictIndex, pOKPlayerTransmit)
 			}
 		}
 	}
@@ -2464,19 +2472,12 @@ void CNetworkingModule::ClientDisconnect(edict_t* pPlayer)
 #if MODULE_EXISTS_PVS
 void Networking_SwitchToPVSTransmit()
 {
-	detour_CServerGameEnts_CheckTransmit.Disable();
-	detour_CServerGameEnts_CheckTransmit.Destroy();
+	Detour::DisableHook(&detour_CServerGameEnts_CheckTransmit);
 }
 
 void Networking_SwitchToOURTransmit()
 {
-	SourceSDK::ModuleLoader server("server");
-	void* func = Detour::GetFunction(server.GetModule(), Symbols::CServerGameEnts_CheckTransmitSym);
-	if (!Detour::CheckFunction(func, "CServerGameEnts::CheckTransmit"))
-		return;
-
-	detour_CServerGameEnts_CheckTransmit.Create(func, (void*)New_CServerGameEnts_CheckTransmit);
-	detour_CServerGameEnts_CheckTransmit.Enable();
+	Detour::EnableHook(&detour_CServerGameEnts_CheckTransmit);
 }
 #endif
 

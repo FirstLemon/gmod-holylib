@@ -2,11 +2,14 @@
 
 #include "util.h"
 #include "bitvec.h"
-
-extern "C"
+#if !defined(DISABLE_GMODJIT)
+#include "../gmod-luajit/luajit.h"
+#else
+extern "C" // Our JIT build
 {
 	#include "../luajit/src/lj_obj.h"
 }
+#endif
 
 namespace GarrysMod::Lua
 {
@@ -76,6 +79,8 @@ namespace RawLua {
 	// Allocates either a cData if there is a registered ctype and else it allocates userdata.
 	// Returns a pointer to the userdata.
 	extern void* AllocateCDataOrUserData(GarrysMod::Lua::ILuaInterface* pLua, int nMetaID, int nSize);
+
+	extern int GetCDataSize(lua_State* L, GCcdata* pVar);
 }
 
 struct LuaUserData;
