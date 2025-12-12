@@ -34,7 +34,7 @@ return {
             async = true,
             timeout = 2,
             func = function()
-                bass.PlayFile( st, flags, function( channel, errorCode, errorMsg )
+                bass.PlayFile( state.filePath, state.flags, function( channel, errorCode, errorMsg )
                     expect( channel ).to.beValid()
 
                     state.channel = channel

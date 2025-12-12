@@ -23,7 +23,7 @@ return {
                 local dummyChannel, err = bass.CreateDummyChannel( 44000, 2, 0 )
 
                 expect( dummyChannel ).to.exist()
-                expect( dummyChannel ).to.beA( "IGModAudioChannel [DUMMY]" )
+                expect( dummyChannel ).to.beA( "'IGModAudioChannel [DUMMY]'" )
                 expect( err ).to.beNil()
             end
         },

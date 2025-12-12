@@ -23,7 +23,7 @@ return {
                 local channel, err = bass.CreatePushChannel( 44100, 2, 0 )
 
                 expect( channel ).to.exist()
-                expect( channel ).to.beA( "IGModAudioChannel [PUSH]" )
+                expect( channel ).to.beA( "'IGModAudioChannel [PUSH]'" )
                 expect( err ).to.beNil()
             end
         },

@@ -1,5 +1,5 @@
 return {
-    groupName = "IGModAudioChannel:GetTable",
+    groupName = "IGModAudioChannel:GetVolume",
     cases = {
         {
             name = "Function exists when module enabled",
