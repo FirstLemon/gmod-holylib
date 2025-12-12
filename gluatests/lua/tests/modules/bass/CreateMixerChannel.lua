@@ -22,8 +22,8 @@ return {
             func = function()
                 local mixerChannel, err = bass.CreateMixerChannel(44100, 2, 0)
 
-                expect( mixerChannel ).to.exist()
-                expect( mixerChannel ).to.beA( "IGModAudioChannel []")
+                expect( mixerChannel ).to.beValid()
+                expect( mixerChannel ).to.beA( "IGModAudioChannel [MIXER]")
                 expect( err ).to.beNil()
             end
         }
